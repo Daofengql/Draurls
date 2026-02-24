@@ -147,10 +147,25 @@ func main() {
 	router.GET("/readiness", healthHandler.Readiness)
 	router.GET("/liveness", healthHandler.Liveness)
 
-	// 初始化认证中间件
-	mockAuth := middleware.NewMockAuthenticator()
-	authMiddleware := middleware.NewAuthMiddleware(mockAuth)
-	authMiddleware.SetUserRepository(userRepo)
+	// 初始化 Keycloak OIDC 认证中间件
+	// 配置说明：
+	// 1. 确保 Keycloak 已启动并可访问
+	// 2. 在 Keycloak 中创建 Realm 和 Client
+	// 3. 配置正确的环境变量
+	keycloakBaseURL := cfg.Keycloak.BaseURL
+	keycloakRealm := cfg.Keycloak.Realm
+	keycloakClientID := cfg.Keycloak.ClientID
+
+	// 创建 OIDC 认证器
+	oidcAuth := middleware.NewKeycloakOIDCAuthenticator(
+		keycloakBaseURL,
+		keycloakRealm,
+		keycloakClientID,
+	)
+	authMiddleware := middleware.NewAuthMiddleware(oidcAuth)
+	authMiddleware.SetUserService(userService)
+
+	log.Printf("Keycloak OIDC configured: %s/realms/%s", keycloakBaseURL, keycloakRealm)
 
 	// 公开API（不需要认证）
 	public := router.Group("/api")
