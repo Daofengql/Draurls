@@ -1,0 +1,35 @@
+# 编译产物
+/backend/server
+/backend/bin/
+/backend/pkg/
+
+# 依赖
+/backend/vendor/
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+
+# 环境配置
+.env
+.env.local
+.env.*.local
+
+# 测试覆盖率
+coverage/
+*.cover
+
+.claude/
