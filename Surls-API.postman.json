@@ -1,0 +1,691 @@
+{
+	"info": {
+		"_postman_id": "surls-api-collection",
+		"name": "Surls 短链接服务 API",
+		"description": "Surls 短链接服务的完整 API 测试集合，包含健康检查、用户管理、短链接管理、API密钥管理和管理员功能��",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "健康检查",
+			"item": [
+				{
+					"name": "基础健康检查",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "检查服务器是否正常运行"
+					}
+				},
+				{
+					"name": "就绪检查 (含依赖服务状态)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/readiness",
+							"host": ["{{baseUrl}}"],
+							"path": ["readiness"]
+						},
+						"description": "检查服务器及依赖服务（数据库、Redis）状态"
+					}
+				},
+				{
+					"name": "存活检查 (Kubernetes)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/liveness",
+							"host": ["{{baseUrl}}"],
+							"path": ["liveness"]
+						},
+						"description": "Kubernetes 存活探针使用"
+					}
+				}
+			],
+			"description": "服务器健康状态检查接口"
+		},
+		{
+			"name": "公开API",
+			"item": [
+				{
+					"name": "获取站点配置",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/config",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "config"]
+						},
+						"description": "获取公开的站点配置信息（站点名称、Logo等）"
+					}
+				}
+			],
+			"description": "无需认证的公开接口"
+		},
+		{
+			"name": "用户相关",
+			"item": [
+				{
+					"name": "获取当前用户资料",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/user/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "user", "profile"]
+						},
+						"description": "获取当前登录用户的个人信息"
+					}
+				},
+				{
+					"name": "获取用户配额状态",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/user/quota",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "user", "quota"]
+						},
+						"description": "获取当前用户的配额使用情况"
+					}
+				}
+			],
+			"description": "需要认证的用户接口"
+		},
+		{
+			"name": "短链接管理",
+			"item": [
+				{
+					"name": "创建短链接",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://www.example.com\",\n    \"code\": \"example123\",\n    \"title\": \"示例网站\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/links",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links"]
+						},
+						"description": "创建一个新的短链接"
+					}
+				},
+				{
+					"name": "创建短链接（随机短码）",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://www.baidu.com\",\n    \"title\": \"百度首页\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/links",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links"]
+						},
+						"description": "创建短链接，系统自动生成短码"
+					}
+				},
+				{
+					"name": "创建带过期时间的短链接",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://www.example.com\",\n    \"title\": \"限时链接\",\n    \"expires_at\": \"2025-12-31T23:59:59Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/links",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links"]
+						},
+						"description": "创建有过期时间的短链接"
+					}
+				},
+				{
+					"name": "获取短链接列表",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/links?page=1&page_size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "分页获取当前用户的短链接列表"
+					}
+				},
+				{
+					"name": "获取短链接详情",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/links/:code",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links", ":code"],
+							"variable": [
+								{
+									"key": "code",
+									"value": "example123",
+									"description": "短码"
+								}
+							]
+						},
+						"description": "获取指定短链接的详细信息"
+					}
+				},
+				{
+					"name": "更新短链接",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://www.newurl.com\",\n    \"title\": \"更新后的标题\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/links/:code",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links", ":code"],
+							"variable": [
+								{
+									"key": "code",
+									"value": "example123",
+									"description": "短码"
+								}
+							]
+						},
+						"description": "更新短链接的目标URL、标题等信息"
+					}
+				},
+				{
+					"name": "删除短链接",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/links/:code",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links", ":code"],
+							"variable": [
+								{
+									"key": "code",
+									"value": "example123",
+									"description": "短码"
+								}
+							]
+						},
+						"description": "删除指定的短链接（软删除）"
+					}
+				},
+				{
+					"name": "获取短链接统计",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/links/:code/stats",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "links", ":code", "stats"],
+							"variable": [
+								{
+									"key": "code",
+									"value": "example123",
+									"description": "短码"
+								}
+							]
+						},
+						"description": "获取短链接的点击统计信息"
+					}
+				}
+			],
+			"description": "短链接的增删改查及统计���能"
+		},
+		{
+			"name": "API密钥管理",
+			"item": [
+				{
+					"name": "创建API密钥",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"我的应用\",\n    \"expires_at\": \"2025-12-31T23:59:59Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/apikeys",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "apikeys"]
+						},
+						"description": "创建新的API密钥用于接口调用"
+					}
+				},
+				{
+					"name": "获取API密钥列表",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/apikeys",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "apikeys"]
+						},
+						"description": "获取当前用户的所有API密钥"
+					}
+				},
+				{
+					"name": "删除API密钥",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/apikeys/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "apikeys", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "API密钥ID"
+								}
+							]
+						},
+						"description": "删除指定的API密钥"
+					}
+				}
+			],
+			"description": "API密钥管理接口"
+		},
+		{
+			"name": "管理员功能",
+			"item": [
+				{
+					"name": "获取用户列表",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users?page=1&page_size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "users"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "分页获取系统所有用户列表（仅管理员）"
+					}
+				},
+				{
+					"name": "更新用户配额",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_id\": 2,\n    \"quota\": 1000\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/quota",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "users", "quota"]
+						},
+						"description": "更新指定用户的配额限制（仅管理员）"
+					}
+				},
+				{
+					"name": "设置用户组",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_id\": 2,\n    \"group_id\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/group",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "users", "group"]
+						},
+						"description": "设置用户的用户组（仅管理员）"
+					}
+				},
+				{
+					"name": "禁用用户",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/:id/disable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "users", ":id", "disable"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "用户ID"
+								}
+							]
+						},
+						"description": "禁用指定用户（仅管理员）"
+					}
+				},
+				{
+					"name": "启用用户",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/:id/enable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "users", ":id", "enable"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "用户ID"
+								}
+							]
+						},
+						"description": "启用被禁用的用户（仅管理员）"
+					}
+				},
+				{
+					"name": "更新站点配置",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"site_name\": \"Surls短链接\",\n    \"logo_url\": \"https://example.com/logo.png\",\n    \"redirect_page_enabled\": \"true\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/config",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "config"]
+						},
+						"description": "更新站点配置（仅管理员）"
+					}
+				}
+			],
+			"description": "管理员专用的系统管理接口"
+		},
+		{
+			"name": "API签名认证接口",
+			"item": [
+				{
+					"name": "创建短链接（签名认证）",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}",
+								"description": "API密钥"
+							},
+							{
+								"key": "X-Signature",
+								"value": "{{signature}}",
+								"description": "HMAC-SHA256签名"
+							},
+							{
+								"key": "X-Timestamp",
+								"value": "{{timestamp}}",
+								"description": "当前时间戳（秒）"
+							},
+							{
+								"key": "X-Nonce",
+								"value": "{{nonce}}",
+								"description": "随机字符串"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://www.example.com\",\n    \"title\": \"通过API创建的短链接\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/shorten",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "shorten"]
+						},
+						"description": "使用API签名认证创建短链接，供第三方应用调用。\n\n签名计算方式：\nHMAC-SHA256(apiKeySecret, timestamp + nonce + requestBody + \"/api/v1/shorten\" + \"POST\")"
+					}
+				}
+			],
+			"description": "使用API签名认证的外部调用接口"
+		},
+		{
+			"name": "短链接跳转",
+			"item": [
+				{
+					"name": "访问短链接",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/:code",
+							"host": ["{{baseUrl}}"],
+							"path": [":code"],
+							"variable": [
+								{
+									"key": "code",
+									"value": "example123",
+									"description": "短码"
+								}
+							]
+						},
+						"description": "访问短链接，系统会自动跳转到目标URL并记录访问日志。\n注意：此请求会返回302重定向，Postman会自动跟随跳转。"
+					}
+				}
+			],
+			"description": "短链接跳转接口"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "API基础URL"
+		},
+		{
+			"key": "adminToken",
+			"value": "admin-token",
+			"type": "string",
+			"description": "管理员测试Token"
+		},
+		{
+			"key": "userToken",
+			"value": "user-token",
+			"type": "string",
+			"description": "普通用户测试Token"
+		},
+		{
+			"key": "apiKey",
+			"value": "your-api-key-here",
+			"type": "string",
+			"description": "API密钥（需先创建）"
+		},
+		{
+			"key": "signature",
+			"value": "calculated-signature",
+			"type": "string",
+			"description": "API签名（需动态计算）"
+		},
+		{
+			"key": "timestamp",
+			"value": "{{$timestamp}}",
+			"type": "string",
+			"description": "当前时间戳"
+		},
+		{
+			"key": "nonce",
+			"value": "{{$randomUUID}}",
+			"type": "string",
+			"description": "随机字符串（防重放）"
+		}
+	]
+}
