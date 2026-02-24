@@ -22,8 +22,17 @@ type Config struct {
 type ServerConfig struct {
 	Port         int
 	Mode         string
+	BaseURL      string        // 短链基础域名（用于生成完整短链接）
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+}
+
+// GetBaseURL 获取短链基础URL
+func (c *ServerConfig) GetBaseURL() string {
+	if c.BaseURL != "" {
+		return c.BaseURL
+	}
+	return fmt.Sprintf("http://localhost:%d", c.Port)
 }
 
 // DatabaseConfig 数据库配置
@@ -83,6 +92,7 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Port:         getEnvInt("SERVER_PORT", 8080),
 			Mode:         getEnv("SERVER_MODE", "debug"),
+			BaseURL:      getEnv("SERVER_BASE_URL", ""), // 短链基础域名
 			ReadTimeout:  60 * time.Second,
 			WriteTimeout: 60 * time.Second,
 		},

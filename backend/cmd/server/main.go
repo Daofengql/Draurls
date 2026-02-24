@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +24,16 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// App 应用程序结构
+type App struct {
+	router         *gin.Engine
+	db             *gorm.DB
+	redis          *redis.Client
+	sigMiddleware  *middleware.APIAuthMiddleware
+	config         *config.Config
+	server         *http.Server
+}
+
 func main() {
 	// 加载配置
 	cfg, err := config.Load()
@@ -32,9 +46,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to init database: %v", err)
 	}
+	defer closeDB(db)
 
 	// 初始化Redis
 	redisClient := initRedis(cfg)
+	defer closeRedis(redisClient)
 
 	// 初始化缓存
 	cacheCfg := &cache.CacheConfig{
@@ -50,21 +66,26 @@ func main() {
 	// 初始化限流服务
 	rateLimitService := cache.NewRateLimitService(redisClient)
 
+	// 初始化API签名中间件（使用APIKeyRepository作为密钥提供者）
+	apiKeyRepo := repository.NewAPIKeyRepository(db)
+	sigMiddleware := middleware.NewAPIAuthMiddleware(apiKeyRepo, 5*time.Minute)
+
 	// 初始化短码生成器
 	codeGenerator := shortcode.NewGenerator(db, &shortcode.GeneratorConfig{
 		CodeLength: 6,
-		Blacklist:  []string{"admin", "api", "static", "assets", "config", "user", "health"},
+		Blacklist:  []string{"admin", "api", "static", "assets", "config", "user", "health", "readiness", "liveness"},
 	})
 
 	// 初始化Repository
 	userRepo := repository.NewUserRepository(db)
 	linkRepo := repository.NewShortLinkRepository(db)
-	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	groupRepo := repository.NewUserGroupRepository(db)
+	accessLogRepo := repository.NewAccessLogRepository(db)
 
 	// 初始化Service
+	baseURL := cfg.Server.GetBaseURL()
 	userService := service.NewUserService(userRepo, groupRepo)
-	linkService := service.NewLinkService(linkRepo, userRepo, codeGenerator)
+	linkService := service.NewLinkService(linkRepo, userRepo, accessLogRepo, codeGenerator, baseURL)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo)
 
 	// 初始化Handler
@@ -72,6 +93,7 @@ func main() {
 	apiKeyHandler := api.NewAPIKeyHandler(apiKeyService)
 	userHandler := api.NewUserHandler(userService)
 	redirectHandler := api.NewRedirectHandler(linkService, linkCache, rateLimitService, redisClient)
+	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
 
 	// 设置Gin模式
 	gin.SetMode(cfg.Server.Mode)
@@ -84,12 +106,9 @@ func main() {
 	router.Use(middleware.NewRateLimitMiddleware(rateLimitService).IPLimit())
 
 	// 健康检查
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status": "ok",
-			"time":   time.Now().Unix(),
-		})
-	})
+	router.GET("/health", healthHandler.Health)
+	router.GET("/readiness", healthHandler.Readiness)
+	router.GET("/liveness", healthHandler.Liveness)
 
 	// 公开API（不需要认证）
 	public := router.Group("/api")
@@ -145,10 +164,7 @@ func main() {
 
 	// API签名认证路由（供外部调用）
 	apiSignature := router.Group("/api/v1")
-	apiSignature.Use(func(c *gin.Context) {
-		// TODO: 实现API签名验证
-		c.Next()
-	})
+	apiSignature.Use(sigMiddleware.Authenticate())
 	{
 		apiSignature.POST("/shorten", linkHandler.CreateLinkAPI)
 	}
@@ -157,23 +173,76 @@ func main() {
 	router.GET("/:code", func(c *gin.Context) {
 		code := c.Param("code")
 		// 跳过系统路由
-		if code == "health" || code == "api" {
+		skipRoutes := map[string]bool{
+			"health":    true,
+			"api":       true,
+			"readiness": true,
+			"liveness":  true,
+		}
+		if skipRoutes[code] {
 			c.Next()
 			return
 		}
 		redirectHandler.Redirect(c)
 	})
 
-	// 启动服务器
-	addr := cfg.Server.GetAddr()
-	log.Printf("Server starting on %s", addr)
-	log.Printf("Environment: %s", cfg.Server.Mode)
-	log.Printf("Test tokens:")
-	log.Printf("  Admin: Bearer admin-token")
-	log.Printf("  User:  Bearer user-token")
+	// 创建应用
+	app := &App{
+		router:        router,
+		db:            db,
+		redis:         redisClient,
+		sigMiddleware: sigMiddleware,
+		config:        cfg,
+		server: &http.Server{
+			Addr:         cfg.Server.GetAddr(),
+			Handler:      router,
+			ReadTimeout:  cfg.Server.ReadTimeout,
+			WriteTimeout: cfg.Server.WriteTimeout,
+		},
+	}
 
-	if err := router.Run(addr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// 启动服务器
+	app.run()
+}
+
+// run 启动应用并处理优雅关闭
+func (a *App) run() {
+	// 启动服务器
+	go func() {
+		addr := a.config.Server.GetAddr()
+		log.Printf("Server starting on %s", addr)
+		log.Printf("Environment: %s", a.config.Server.Mode)
+		log.Printf("Base URL: %s", a.config.Server.GetBaseURL())
+		log.Printf("Test tokens:")
+		log.Printf("  Admin: Bearer admin-token")
+		log.Printf("  User:  Bearer user-token")
+
+		if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// 等待中断信号
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	// 优雅关闭
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	// 停止签名中间件
+	if a.sigMiddleware != nil {
+		a.sigMiddleware.Stop()
+	}
+
+	// 停止HTTP服务器
+	if err := a.server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+	} else {
+		log.Println("Server shutdown complete")
 	}
 }
 
@@ -223,4 +292,18 @@ func initRedis(cfg *config.Config) *redis.Client {
 	}
 
 	return client
+}
+
+// closeDB 关闭数据库连接
+func closeDB(db *gorm.DB) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return
+	}
+	_ = sqlDB.Close()
+}
+
+// closeRedis 关闭Redis连接
+func closeRedis(client *redis.Client) {
+	_ = client.Close()
 }

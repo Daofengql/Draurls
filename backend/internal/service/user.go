@@ -206,11 +206,18 @@ func (s *UserService) GetQuotaStatus(ctx context.Context, userID uint) (*QuotaSt
 		// 无限配额
 		status.QuotaLeft = -1
 		status.Percentage = 0
+	} else if user.Quota == 0 {
+		// 零配额（特殊处理）
+		status.QuotaLeft = 0
+		status.Percentage = 100
 	} else {
 		status.QuotaLeft = user.Quota - user.QuotaUsed
-		if user.Quota > 0 {
-			status.Percentage = int((float64(user.QuotaUsed) / float64(user.Quota)) * 100)
+		// 确保百分比不超过100
+		percentage := int((float64(user.QuotaUsed) / float64(user.Quota)) * 100)
+		if percentage > 100 {
+			percentage = 100
 		}
+		status.Percentage = percentage
 	}
 
 	return status, nil

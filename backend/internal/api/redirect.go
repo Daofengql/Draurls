@@ -75,8 +75,13 @@ func (h *RedirectHandler) Redirect(c *gin.Context) {
 		return
 	}
 
-	// 获取目标URL
-	link, err := h.linkService.Resolve(c.Request.Context(), code)
+	// 获取目标URL并记录访问日志
+	resolveOpts := &service.ResolveOptions{
+		IP:        c.ClientIP(),
+		UserAgent: c.GetHeader("User-Agent"),
+		Referer:   c.GetHeader("Referer"),
+	}
+	link, err := h.linkService.Resolve(c.Request.Context(), code, resolveOpts)
 	if err != nil {
 		switch err.Error() {
 		case "link not found":

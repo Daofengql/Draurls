@@ -112,10 +112,10 @@ func (r *UserRepository) IncrementQuotaUsed(ctx context.Context, userID uint) er
 		UpdateColumn("quota_used", gorm.Expr("quota_used + 1")).Error
 }
 
-// DecrementQuotaUsed 减少已用配额
+// DecrementQuotaUsed 减��已用配额（安全检查）
 func (r *UserRepository) DecrementQuotaUsed(ctx context.Context, userID uint) error {
 	return r.db.WithContext(ctx).Model(&models.User{}).
-		Where("id = ?", userID).
+		Where("id = ? AND quota_used > 0", userID).
 		UpdateColumn("quota_used", gorm.Expr("quota_used - 1")).Error
 }
 

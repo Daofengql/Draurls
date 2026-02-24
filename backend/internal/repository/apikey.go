@@ -95,3 +95,15 @@ func (r *APIKeyRepository) RevokeByKey(ctx context.Context, key string) error {
 		Where("key = ?", key).
 		Update("status", models.APIKeyStatusDisabled).Error
 }
+
+// GetSecret 获取API密钥对应的签名密钥（实现 SecretProvider 接口）
+// 这里返回API密钥本身的哈希作为签名密钥
+func (r *APIKeyRepository) GetSecret(apiKey string) (string, error) {
+	// 查找API密钥
+	key, err := r.FindByKey(context.Background(), apiKey)
+	if err != nil {
+		return "", err
+	}
+	// 使用API密钥的Key字段作为签名密钥
+	return key.Key, nil
+}

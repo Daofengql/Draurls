@@ -3,12 +3,15 @@ package middleware
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -43,21 +46,31 @@ type SecretProvider interface {
 
 // APIAuthMiddleware API签名认证中间件
 type APIAuthMiddleware struct {
-	config *SignatureConfig
-	// 使用内存存储nonce，生产环境建议使用Redis
+	config     *SignatureConfig
 	nonceCache map[string]time.Time
+	cacheMu    sync.RWMutex
+	stopChan   chan struct{}
 }
 
 // NewAPIAuthMiddleware 创建API认证中间件
 func NewAPIAuthMiddleware(provider SecretProvider, tolerance time.Duration) *APIAuthMiddleware {
-	return &APIAuthMiddleware{
+	m := &APIAuthMiddleware{
 		config: &SignatureConfig{
 			Tolerance:      tolerance,
 			CacheDuration:  15 * time.Minute,
 			secretProvider: provider,
 		},
 		nonceCache: make(map[string]time.Time),
+		stopChan:   make(chan struct{}),
 	}
+	// 启动自动清理goroutine
+	go m.cleanupLoop()
+	return m
+}
+
+// Stop 停止中间件（优雅关闭）
+func (m *APIAuthMiddleware) Stop() {
+	close(m.stopChan)
 }
 
 // Authenticate 认证中间件
@@ -138,15 +151,34 @@ func (m *APIAuthMiddleware) isTimestampExpired(timestamp int64) bool {
 	return diff > int64(m.config.Tolerance.Seconds()) || diff < -int64(m.config.Tolerance.Seconds())
 }
 
-// isNonceUsed 检查nonce是否已使用
+// isNonceUsed 检查nonce是否已使用（线程安全）
 func (m *APIAuthMiddleware) isNonceUsed(nonce string) bool {
+	m.cacheMu.RLock()
 	_, exists := m.nonceCache[nonce]
+	m.cacheMu.RUnlock()
 	return exists
 }
 
-// markNonceUsed 标记nonce已使用
+// markNonceUsed 标记nonce已使用（线程安全）
 func (m *APIAuthMiddleware) markNonceUsed(nonce string) {
+	m.cacheMu.Lock()
 	m.nonceCache[nonce] = time.Now()
+	m.cacheMu.Unlock()
+}
+
+// cleanupLoop 定期清理过期nonce
+func (m *APIAuthMiddleware) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			m.CleanupExpiredNonces()
+		case <-m.stopChan:
+			return
+		}
+	}
 }
 
 // readRequestBody 读取请求体
@@ -194,22 +226,38 @@ func GenerateTimestamp() string {
 	return strconv.FormatInt(time.Now().Unix(), 10)
 }
 
-// GenerateNonce 生成随机nonce
+// GenerateNonce 生成随机nonce（使用加密安全的随机数）
 func GenerateNonce() string {
-	return fmt.Sprintf("%d-%s", time.Now().UnixNano(), randomString(16))
-}
-
-func randomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[time.Now().UnixNano()%int64(len(charset))]
+	timestamp := time.Now().UnixNano()
+	randomStr, err := randomStringSecure(16)
+	if err != nil {
+		// 降级到时间戳
+		return fmt.Sprintf("%d-%x", timestamp, timestamp)
 	}
-	return string(b)
+	return fmt.Sprintf("%d-%s", timestamp, randomStr)
 }
 
-// CleanupExpiredNonces 清理过期的nonce（定期任务）
+// randomStringSecure 生成加密安全的随机字符串
+func randomStringSecure(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	result := make([]byte, length)
+	max := big.NewInt(int64(len(charset)))
+
+	for i := range result {
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", err
+		}
+		result[i] = charset[n.Int64()]
+	}
+	return string(result), nil
+}
+
+// CleanupExpiredNonces 清理过期的nonce（线程安全）
 func (m *APIAuthMiddleware) CleanupExpiredNonces() {
+	m.cacheMu.Lock()
+	defer m.cacheMu.Unlock()
+
 	now := time.Now()
 	for nonce, timestamp := range m.nonceCache {
 		if now.Sub(timestamp) > m.config.CacheDuration {

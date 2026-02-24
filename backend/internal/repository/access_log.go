@@ -86,11 +86,11 @@ func (r *AccessLogRepository) GetStatsByLinkID(ctx context.Context, linkID uint)
 		return nil, err
 	}
 
-	// 独立IP数
+	// 独立IP数（使用正确的字段名）
 	err = r.db.WithContext(ctx).Model(&models.AccessLog{}).
 		Where("link_id = ?", linkID).
-		Distinct("ip_address").
-		Count(&stats.UniqueIPs).Error
+		Select("COUNT(DISTINCT ip_address)").
+		Scan(&stats.UniqueIPs).Error
 	if err != nil {
 		return nil, err
 	}
