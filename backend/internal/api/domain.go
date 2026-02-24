@@ -1,0 +1,154 @@
+package api
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/response"
+	"github.com/surls/backend/internal/service"
+)
+
+// DomainHandler 域名处理器
+type DomainHandler struct {
+	domainService *service.DomainService
+}
+
+// NewDomainHandler 创建域名处理器
+func NewDomainHandler(domainService *service.DomainService) *DomainHandler {
+	return &DomainHandler{
+		domainService: domainService,
+	}
+}
+
+// CreateDomain 创建域名
+// @Summary 创建域名
+// @Tags admin
+// @Produce json
+// @Param request body service.CreateDomainRequest true "创建请求"
+// @Success 200 {object} response.Response{data=models.Domain}
+// @Router /api/admin/domains [post]
+func (h *DomainHandler) CreateDomain(c *gin.Context) {
+	var req service.CreateDomainRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	domain, err := h.domainService.Create(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, domain)
+}
+
+// ListDomains 获取域名列表
+// @Summary 获取域名列表
+// @Tags admin
+// @Produce json
+// @Success 200 {object} response.Response{data=[]models.Domain}
+// @Router /api/admin/domains [get]
+func (h *DomainHandler) ListDomains(c *gin.Context) {
+	domains, err := h.domainService.List(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, domains)
+}
+
+// ListActiveDomains 获取启用的域名列表
+// @Summary 获取启用的域名列表
+// @Tags domains
+// @Produce json
+// @Success 200 {object} response.Response{data=[]models.Domain}
+// @Router /api/domains [get]
+func (h *DomainHandler) ListActiveDomains(c *gin.Context) {
+	domains, err := h.domainService.ListActive(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, domains)
+}
+
+// UpdateDomain 更新域名
+// @Summary 更新域名
+// @Tags admin
+// @Produce json
+// @Param id path int true "域名ID"
+// @Param request body service.UpdateDomainRequest true "更新请求"
+// @Success 200 {object} response.Response
+// @Router /api/admin/domains/{id} [put]
+func (h *DomainHandler) UpdateDomain(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid domain id")
+		return
+	}
+
+	var req service.UpdateDomainRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	req.ID = uint(id)
+
+	if err := h.domainService.Update(c.Request.Context(), &req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "domain updated successfully"})
+}
+
+// DeleteDomain 删除域名
+// @Summary 删除域名
+// @Tags admin
+// @Produce json
+// @Param id path int true "域名ID"
+// @Success 200 {object} response.Response
+// @Router /api/admin/domains/{id} [delete]
+func (h *DomainHandler) DeleteDomain(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid domain id")
+		return
+	}
+
+	if err := h.domainService.Delete(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "domain deleted successfully"})
+}
+
+// SetDefaultDomain 设置默认域名
+// @Summary 设置默认域名
+// @Tags admin
+// @Produce json
+// @Param id path int true "域名ID"
+// @Success 200 {object} response.Response
+// @Router /api/admin/domains/{id}/default [post]
+func (h *DomainHandler) SetDefaultDomain(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid domain id")
+		return
+	}
+
+	if err := h.domainService.SetDefault(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "default domain set successfully"})
+}

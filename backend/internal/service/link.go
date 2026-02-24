@@ -17,27 +17,27 @@ import (
 
 // LinkService 短链接服务
 type LinkService struct {
-	linkRepo    *repository.ShortLinkRepository
-	userRepo    *repository.UserRepository
-	accessLogRepo *repository.AccessLogRepository
-	generator   *shortcode.Generator
-	baseURL     string // 短链基础域名
+	linkRepo        *repository.ShortLinkRepository
+	userRepo        *repository.UserRepository
+	accessLogService *AccessLogService // 使用访问日志服务
+	generator       *shortcode.Generator
+	baseURL         string // 短链基础域名
 }
 
 // NewLinkService 创建短链接服务
 func NewLinkService(
 	linkRepo *repository.ShortLinkRepository,
 	userRepo *repository.UserRepository,
-	accessLogRepo *repository.AccessLogRepository,
+	accessLogService *AccessLogService,
 	generator *shortcode.Generator,
 	baseURL string,
 ) *LinkService {
 	return &LinkService{
-		linkRepo:      linkRepo,
-		userRepo:      userRepo,
-		accessLogRepo: accessLogRepo,
-		generator:     generator,
-		baseURL:       baseURL,
+		linkRepo:         linkRepo,
+		userRepo:         userRepo,
+		accessLogService: accessLogService,
+		generator:        generator,
+		baseURL:          baseURL,
 	}
 }
 
@@ -175,16 +175,14 @@ func (s *LinkService) GetLink(ctx context.Context, code string) (*models.ShortLi
 	return link, nil
 }
 
-// Resolve 解析短链接（用于跳转）并记录访问日志
+// ResolveOptions 解析选项
 type ResolveOptions struct {
-	IP           string
-	UserAgent    string
-	Referer      string
-	Country      string
-	City         string
+	IP        string
+	UserAgent string
+	Referer   string
 }
 
-// Resolve 解析短链接（用于跳转）
+// Resolve 解析短链接（用于跳转）并记录访问日志
 func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOptions) (*models.ShortLink, error) {
 	link, err := s.GetLink(ctx, code)
 	if err != nil {
@@ -204,16 +202,10 @@ func (s *LinkService) recordAccess(ctx context.Context, linkID uint, code string
 		log.Printf("WARNING: Failed to increment click count for link %s: %v", code, err)
 	}
 
-	// 记录访问日志
-	if opts != nil && s.accessLogRepo != nil {
-		accessLog := &models.AccessLog{
-			LinkID:    linkID,
-			IPAddress: opts.IP,
-			UserAgent: opts.UserAgent,
-			Referer:   opts.Referer,
-		}
-		if err := s.accessLogRepo.Create(ctx, accessLog); err != nil {
-			log.Printf("WARNING: Failed to create access log for link %d: %v", linkID, err)
+	// 记录访问日志（使用缓冲区批量写入）
+	if opts != nil && s.accessLogService != nil {
+		if err := s.accessLogService.Record(ctx, linkID, opts.IP, opts.UserAgent, opts.Referer); err != nil {
+			log.Printf("WARNING: Failed to record access log for link %d: %v", linkID, err)
 		}
 	}
 }
@@ -335,7 +327,7 @@ func (s *LinkService) Delete(ctx context.Context, code string, userID uint) erro
 	return nil
 }
 
-// GetStats 获取链接统计
+// LinkStats 链接统计
 type LinkStats struct {
 	ClickCount int64  `json:"click_count"`
 	UniqueIPs  int64  `json:"unique_ips"`
@@ -354,13 +346,13 @@ func (s *LinkService) GetStats(ctx context.Context, code string, userID uint) (*
 		return nil, apperrors.ErrForbidden
 	}
 
-	// 尝试从访问日志获取统计信息
-	if s.accessLogRepo != nil {
-		stats, err := s.accessLogRepo.GetStatsByLinkID(ctx, link.ID)
+	// 从访问日志获取统计信息
+	if s.accessLogService != nil {
+		clickCount, uniqueIPs, err := s.accessLogService.GetStats(ctx, link.ID)
 		if err == nil {
 			return &LinkStats{
-				ClickCount: stats.ClickCount,
-				UniqueIPs:  stats.UniqueIPs,
+				ClickCount: clickCount,
+				UniqueIPs:  uniqueIPs,
 				CreatedAt:  link.CreatedAt.Format(time.RFC3339),
 			}, nil
 		}
@@ -369,7 +361,7 @@ func (s *LinkService) GetStats(ctx context.Context, code string, userID uint) (*
 	// 降级到基本统计
 	return &LinkStats{
 		ClickCount: int64(link.ClickCount),
-		UniqueIPs:  0, // 未启用访问日志时无法计算
+		UniqueIPs:  0,
 		CreatedAt:  link.CreatedAt.Format(time.RFC3339),
 	}, nil
 }

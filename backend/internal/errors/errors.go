@@ -7,6 +7,7 @@ var (
 	ErrInvalidInput      = errors.New("invalid input")
 	ErrNotFound         = errors.New("resource not found")
 	ErrAlreadyExists    = errors.New("resource already exists")
+	ErrDuplicateResource = errors.New("resource already exists")
 	ErrUnauthorized     = errors.New("unauthorized")
 	ErrForbidden        = errors.New("forbidden")
 	ErrInternalServer   = errors.New("internal server error")
@@ -32,4 +33,9 @@ var (
 	ErrInvalidAPIKey    = errors.New("invalid API key")
 	ErrAPIKeyDisabled   = errors.New("API key is disabled")
 	ErrAPIKeyExpired    = errors.New("API key has expired")
+
+	// 域名相关错误
+	ErrDomainNotFound   = errors.New("domain not found")
+	ErrDomainExists     = errors.New("domain already exists")
+	ErrDomainInUse      = errors.New("domain is in use")
 )

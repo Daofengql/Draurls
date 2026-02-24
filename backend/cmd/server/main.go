@@ -81,12 +81,19 @@ func main() {
 	linkRepo := repository.NewShortLinkRepository(db)
 	groupRepo := repository.NewUserGroupRepository(db)
 	accessLogRepo := repository.NewAccessLogRepository(db)
+	domainRepo := repository.NewDomainRepository(db)
+
+	// 初始化访问日志缓冲区
+	accessLogBuffer := cache.NewAccessLogBuffer(redisClient, nil)
+	_ = service.NewAccessLogBatchWriter(accessLogRepo, accessLogBuffer) // 设置批量写入器
 
 	// 初始化Service
 	baseURL := cfg.Server.GetBaseURL()
 	userService := service.NewUserService(userRepo, groupRepo)
-	linkService := service.NewLinkService(linkRepo, userRepo, accessLogRepo, codeGenerator, baseURL)
+	accessLogService := service.NewAccessLogService(accessLogRepo, accessLogBuffer)
+	linkService := service.NewLinkService(linkRepo, userRepo, accessLogService, codeGenerator, baseURL)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo)
+	domainService := service.NewDomainService(domainRepo)
 
 	// 初始化Handler
 	linkHandler := api.NewLinkHandler(linkService)
@@ -94,6 +101,7 @@ func main() {
 	userHandler := api.NewUserHandler(userService)
 	redirectHandler := api.NewRedirectHandler(linkService, linkCache, rateLimitService, redisClient)
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
+	domainHandler := api.NewDomainHandler(domainService)
 
 	// 设置Gin模式
 	gin.SetMode(cfg.Server.Mode)
@@ -159,8 +167,18 @@ func main() {
 			admin.POST("/users/:id/disable", userHandler.DisableUser)
 			admin.POST("/users/:id/enable", userHandler.EnableUser)
 			admin.PUT("/config", redirectHandler.SetSiteConfig)
+
+			// 域名管理
+			admin.GET("/domains", domainHandler.ListDomains)
+			admin.POST("/domains", domainHandler.CreateDomain)
+			admin.PUT("/domains/:id", domainHandler.UpdateDomain)
+			admin.DELETE("/domains/:id", domainHandler.DeleteDomain)
+			admin.POST("/domains/:id/default", domainHandler.SetDefaultDomain)
 		}
 	}
+
+	// 公开域名列表
+	router.GET("/api/domains", domainHandler.ListActiveDomains)
 
 	// API签名认证路由（供外部调用）
 	apiSignature := router.Group("/api/v1")
