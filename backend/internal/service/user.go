@@ -34,13 +34,25 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 		return user, nil
 	}
 
+	// 检查是否为系统第一个用户（第一个用户自动成为管理员）
+	count, err := s.userRepo.Count(ctx)
+	if err != nil {
+		return nil, apperrors.ErrInternalServer
+	}
+
+	// 确定角色：第一个用户为 admin，后续用户为 user
+	role := models.RoleUser
+	if count == 0 {
+		role = models.RoleAdmin
+	}
+
 	// 创建新用户
 	now := time.Now()
 	user = &models.User{
 		KeycloakID: keycloakID,
 		Username:   username,
 		Email:      email,
-		Role:       models.RoleUser,
+		Role:       role,
 		Quota:      -1, // 默认无限配额
 		QuotaUsed:  0,
 		Status:     models.UserStatusActive,
@@ -133,6 +145,7 @@ func (s *UserService) UpdateQuota(ctx context.Context, req *UpdateQuotaRequest) 
 type SetGroupRequest struct {
 	UserID  uint  `json:"user_id" binding:"required"`
 	GroupID *uint `json:"group_id"`
+	InheritQuota bool `json:"inherit_quota"` // 是否继承用户组配额
 }
 
 // SetGroup 设置用户组
@@ -142,19 +155,22 @@ func (s *UserService) SetGroup(ctx context.Context, req *SetGroupRequest) error 
 		return err
 	}
 
-	// 如果指定了用户组，获取默认配额
-	var quota int
-	if req.GroupID != nil {
+	user.GroupID = req.GroupID
+
+	// 设置配额模式
+	if req.InheritQuota {
+		// 继承用户组配额模式
+		user.Quota = QuotaInherit
+	} else if req.GroupID != nil {
+		// 使用用户组���额作为个人配额（硬拷贝，原有行为）
 		group, err := s.groupRepo.FindByID(ctx, *req.GroupID)
 		if err != nil {
 			return err
 		}
-		quota = group.DefaultQuota
-		user.GroupID = req.GroupID
-		user.Quota = quota
+		user.Quota = group.DefaultQuota
 	} else {
-		user.GroupID = nil
-		user.Quota = -1
+		// 没有用户组，使用无限配额
+		user.Quota = QuotaUnlimited
 	}
 
 	return s.userRepo.Update(ctx, user)
@@ -182,38 +198,73 @@ func (s *UserService) Enable(ctx context.Context, userID uint) error {
 	return s.userRepo.Update(ctx, user)
 }
 
-// GetQuotaStatus 获取用户配额状态
+// GetQuotaStatus 获取用户配额状态（支持用户组继承）
 type QuotaStatus struct {
-	Quota      int `json:"quota"`
-	QuotaUsed  int `json:"quota_used"`
-	QuotaLeft  int `json:"quota_left"`
-	Percentage int `json:"percentage"` // 使用百分比
+	Quota       int    `json:"quota"`        // 实际生效的配额（如果继承则显示组配额）
+	QuotaUsed   int    `json:"quota_used"`
+	QuotaLeft   int    `json:"quota_left"`
+	Percentage  int    `json:"percentage"` // 使用百分比
+	QuotaSource string `json:"quota_source"` // 配额来源: "user"=个人配额, "group"=继承用户组, "unlimited"=无限
+	GroupName   string `json:"group_name,omitempty"` // 所属用户组名称
 }
 
-// GetQuotaStatus 获取配额状态
+// 配额常量
+const (
+	QuotaUnlimited  = -1 // 无限配额
+	QuotaInherit    = -2 // 继承用户组配额
+)
+
+// GetQuotaStatus 获取配额状态（支持继承逻辑）
 func (s *UserService) GetQuotaStatus(ctx context.Context, userID uint) (*QuotaStatus, error) {
-	user, err := s.userRepo.FindByID(ctx, userID)
+	// 使用 FindByIDWithGroup 预加载用户组信息
+	user, err := s.userRepo.FindByIDWithGroup(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	status := &QuotaStatus{
-		Quota:     user.Quota,
-		QuotaUsed: user.QuotaUsed,
+		QuotaUsed:  user.QuotaUsed,
 	}
 
-	if user.Quota < 0 {
-		// 无限配额
+	// 获取用户组名称
+	if user.Group != nil {
+		status.GroupName = user.Group.Name
+	}
+
+	// 根据配额值判断来源和实际配额
+	switch {
+	case user.Quota == QuotaInherit:
+		// 继承模式 (-2)
+		status.QuotaSource = "group"
+		if user.Group != nil {
+			status.Quota = user.Group.DefaultQuota
+		} else {
+			// 如果设置为继承但没有用户组，使用默认值
+			status.Quota = QuotaUnlimited
+		}
+
+	case user.Quota == QuotaUnlimited:
+		// 无限配额 (-1)
+		status.QuotaSource = "unlimited"
+		status.Quota = QuotaUnlimited
+
+	default:
+		// 个人配额（>= 0）
+		status.QuotaSource = "user"
+		status.Quota = user.Quota
+	}
+
+	// 计算剩余和百分比
+	if status.Quota == QuotaUnlimited {
 		status.QuotaLeft = -1
 		status.Percentage = 0
-	} else if user.Quota == 0 {
-		// 零配额（特殊处理）
+	} else if status.Quota == 0 {
 		status.QuotaLeft = 0
 		status.Percentage = 100
 	} else {
-		status.QuotaLeft = user.Quota - user.QuotaUsed
+		status.QuotaLeft = status.Quota - user.QuotaUsed
 		// 确保百分比不超过100
-		percentage := int((float64(user.QuotaUsed) / float64(user.Quota)) * 100)
+		percentage := int((float64(user.QuotaUsed) / float64(status.Quota)) * 100)
 		if percentage > 100 {
 			percentage = 100
 		}

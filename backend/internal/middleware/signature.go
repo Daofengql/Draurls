@@ -24,6 +24,12 @@ const (
 	apiKeyHeader        = "X-API-Key"
 )
 
+const (
+	// maxBodySizeForSignature 签名计算时的最大 Body 大小
+	// 超过此大小的请求体验证将被拒绝，防止 OOM 攻击
+	maxBodySizeForSignature = 2 * 1024 * 1024 // 2MB
+)
+
 var (
 	ErrMissingSignature = errors.New("missing signature")
 	ErrInvalidSignature = errors.New("invalid signature")
@@ -36,6 +42,7 @@ var (
 type SignatureConfig struct {
 	Tolerance      time.Duration // 时间戳容差
 	CacheDuration  time.Duration // nonce缓存时间
+	MaxBodySize   int64        // 最大 Body 大小（字节）
 	secretProvider SecretProvider
 }
 
@@ -58,6 +65,7 @@ func NewAPIAuthMiddleware(provider SecretProvider, tolerance time.Duration) *API
 		config: &SignatureConfig{
 			Tolerance:      tolerance,
 			CacheDuration:  15 * time.Minute,
+			MaxBodySize:    maxBodySizeForSignature,
 			secretProvider: provider,
 		},
 		nonceCache: make(map[string]time.Time),
@@ -181,15 +189,21 @@ func (m *APIAuthMiddleware) cleanupLoop() {
 	}
 }
 
-// readRequestBody 读取请求体
+// readRequestBody 读取请求体（带大小限制，防止 OOM 攻击）
 func (m *APIAuthMiddleware) readRequestBody(c *gin.Context) ([]byte, error) {
 	if c.Request.Body == nil {
 		return []byte{}, nil
 	}
 
-	body, err := io.ReadAll(c.Request.Body)
+	// 使用 LimitReader 限制最大读取大小
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, m.config.MaxBodySize+1))
 	if err != nil {
 		return nil, err
+	}
+
+	// 检查是否超过限制
+	if int64(len(body)) > m.config.MaxBodySize {
+		return nil, errors.New("request body too large for signature verification")
 	}
 
 	// 重新设置请求体供后续使用

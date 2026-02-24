@@ -4,24 +4,39 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	apperrors "github.com/surls/backend/internal/errors"
 	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/repository"
 )
 
+const (
+	// domainNotFoundMarker 用于标记缓存中不存在的域名
+	domainNotFoundMarker = "\x00"
+	// domainNotFoundTTL 不存在域名的缓存TTL（秒）
+	domainNotFoundTTL = 5 * 60
+)
+
+// domainCacheEntry 域名缓存条目
+type domainCacheEntry struct {
+	domain    *models.Domain
+	notFound  bool      // 是否为不存在标记
+	expiresAt time.Time // 过期时间
+}
+
 // DomainService 域名服务
 type DomainService struct {
 	domainRepo *repository.DomainRepository
-	cache      map[string]*models.Domain // 简单的内存缓存
-	cacheMu    sync.RWMutex               // 保护缓存的读写锁
+	cache      map[string]*domainCacheEntry // 内存缓存（支持缓存穿透保护）
+	cacheMu    sync.RWMutex                 // 保护缓存的读写锁
 }
 
 // NewDomainService 创建域名服务
 func NewDomainService(domainRepo *repository.DomainRepository) *DomainService {
 	s := &DomainService{
 		domainRepo: domainRepo,
-		cache:      make(map[string]*models.Domain),
+		cache:      make(map[string]*domainCacheEntry),
 	}
 	// 启动时加载缓存
 	s.loadCache(context.Background())
@@ -35,9 +50,14 @@ func (s *DomainService) loadCache(ctx context.Context) error {
 		return err
 	}
 
-	newCache := make(map[string]*models.Domain)
+	newCache := make(map[string]*domainCacheEntry)
+	now := time.Now()
 	for _, domain := range domains {
-		newCache[domain.Name] = &domain
+		newCache[domain.Name] = &domainCacheEntry{
+			domain:    &domain,
+			notFound:  false,
+			expiresAt: now.Add(time.Hour), // 有效域名缓存1小时
+		}
 	}
 
 	s.cacheMu.Lock()
@@ -186,19 +206,38 @@ func (s *DomainService) BuildShortURL(ctx context.Context, code string, domainNa
 	} else {
 		// 从缓存或数据库查找指定域名
 		s.cacheMu.RLock()
-		cachedDomain, ok := s.cache[domainName]
+		cachedEntry, ok := s.cache[domainName]
 		s.cacheMu.RUnlock()
 
-		if ok {
-			domain = cachedDomain
+		now := time.Now()
+
+		if ok && !cachedEntry.isExpired(now) {
+			// 缓存命中且未过期
+			if cachedEntry.notFound {
+				return "", apperrors.ErrInvalidInput
+			}
+			domain = cachedEntry.domain
 		} else {
+			// 缓存未命中或已过期，查询数据库
 			domain, err = s.domainRepo.FindByName(ctx, domainName)
 			if err != nil {
+				// 缓存不存在的结果（防止缓存穿透）
+				s.cacheMu.Lock()
+				s.cache[domainName] = &domainCacheEntry{
+					domain:    nil,
+					notFound:  true,
+					expiresAt: now.Add(time.Duration(domainNotFoundTTL) * time.Second),
+				}
+				s.cacheMu.Unlock()
 				return "", err
 			}
-			// 缓存未命中，更新缓存
+			// 缓存查询结果
 			s.cacheMu.Lock()
-			s.cache[domainName] = domain
+			s.cache[domainName] = &domainCacheEntry{
+				domain:    domain,
+				notFound:  false,
+				expiresAt: now.Add(time.Hour),
+			}
 			s.cacheMu.Unlock()
 		}
 	}
@@ -215,23 +254,46 @@ func (s *DomainService) BuildShortURL(ctx context.Context, code string, domainNa
 // IsValidDomain 检查域名是否有效（已配置且启用）
 func (s *DomainService) IsValidDomain(ctx context.Context, domainName string) bool {
 	s.cacheMu.RLock()
-	cachedDomain, ok := s.cache[domainName]
+	cachedEntry, ok := s.cache[domainName]
 	s.cacheMu.RUnlock()
 
-	if ok {
-		return cachedDomain.IsActive
+	now := time.Now()
+
+	if ok && !cachedEntry.isExpired(now) {
+		// 缓存命中且未过期
+		if cachedEntry.notFound {
+			return false
+		}
+		return cachedEntry.domain.IsActive
 	}
 
-	// 缓存未命中，查询数据库
+	// 缓存未命中或已过期，查询数据库
 	domain, err := s.domainRepo.FindByName(ctx, domainName)
 	if err != nil {
+		// 缓存不存在的结果（防止缓存穿透）
+		s.cacheMu.Lock()
+		s.cache[domainName] = &domainCacheEntry{
+			domain:    nil,
+			notFound:  true,
+			expiresAt: now.Add(time.Duration(domainNotFoundTTL) * time.Second),
+		}
+		s.cacheMu.Unlock()
 		return false
 	}
 
 	// 更新缓存
 	s.cacheMu.Lock()
-	s.cache[domainName] = domain
+	s.cache[domainName] = &domainCacheEntry{
+		domain:    domain,
+		notFound:  false,
+		expiresAt: now.Add(time.Hour),
+	}
 	s.cacheMu.Unlock()
 
 	return domain.IsActive
+}
+
+// isExpired 检查缓存条目是否已过期
+func (e *domainCacheEntry) isExpired(now time.Time) bool {
+	return now.After(e.expiresAt)
 }

@@ -133,6 +133,28 @@ func (r *ShortLinkRepository) IncrementClickCount(ctx context.Context, code stri
 		}).Error
 }
 
+// BatchUpdateClickCounts 批量更新点击次数（用于定时刷新缓冲区）
+func (r *ShortLinkRepository) BatchUpdateClickCounts(ctx context.Context, counts map[uint]int64) error {
+	if len(counts) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for linkID, count := range counts {
+			if err := tx.Model(&models.ShortLink{}).
+				Where("id = ?", linkID).
+				Updates(map[string]interface{}{
+					"click_count":   gorm.Expr("click_count + ?", count),
+					"last_click_at": &now,
+				}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // CountByUserID 统计用户的链接数量
 func (r *ShortLinkRepository) CountByUserID(ctx context.Context, userID uint) (int64, error) {
 	var count int64
@@ -166,4 +188,138 @@ func (r *ShortLinkRepository) UpdateStatus(ctx context.Context, ids []uint, stat
 	return r.db.WithContext(ctx).Model(&models.ShortLink{}).
 		Where("id IN ?", ids).
 		Update("status", status).Error
+}
+
+// CreateWithQuotaCheck 创建短链接并扣减配额（使用乐观更新）
+// 使用乐观锁代替悲观锁，避免高并发下的行锁竞争
+func (r *ShortLinkRepository) CreateWithQuotaCheck(ctx context.Context, link *models.ShortLink, user *models.User) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. 先创建短链接
+		if err := tx.Create(link).Error; err != nil {
+			return err
+		}
+
+		// 2. 使用乐观更新扣减配额（原子操作）
+		// quota = -1 表示无限配额
+		// 只有当 quota = -1 或 quota_used < quota 时才会更新
+		result := tx.Model(&models.User{}).
+			Where("id = ? AND (quota = -1 OR quota_used < quota)", user.ID).
+			UpdateColumn("quota_used", gorm.Expr("quota_used + 1"))
+
+		if result.Error != nil {
+			return result.Error
+		}
+
+		// 如果没有行被更新，说明配额不足
+		if result.RowsAffected == 0 {
+			// 回滚：删除已创建的短链接
+			tx.Delete(link)
+			return apperrors.ErrQuotaExceeded
+		}
+
+		return nil
+	})
+}
+
+// DeleteWithQuotaRefund 删除短链接并返还配额（事务操作）
+func (r *ShortLinkRepository) DeleteWithQuotaRefund(ctx context.Context, linkID uint, userID uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. 检查链接是否存在且属于该用户
+		var link models.ShortLink
+		if err := tx.Where("id = ? AND user_id = ?", linkID, userID).
+			First(&link).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return apperrors.ErrLinkNotFound
+			}
+			return err
+		}
+
+		// 2. 软删除链接
+		if err := tx.Delete(&link).Error; err != nil {
+			return err
+		}
+
+		// 3. 返还配额
+		if err := tx.Model(&models.User{}).
+			Where("id = ? AND quota_used > 0", userID).
+			UpdateColumn("quota_used", gorm.Expr("quota_used - 1")).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// CountActiveByUserID 统计用户的活跃短链数量
+func (r *ShortLinkRepository) CountActiveByUserID(ctx context.Context, userID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Where("user_id = ? AND status = ?", userID, models.LinkStatusActive).
+		Count(&count).Error
+	return count, err
+}
+
+// CountByUserIDAndDate 统计用户在指定日期创建的短链数量
+func (r *ShortLinkRepository) CountByUserIDAndDate(ctx context.Context, userID uint, date string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Where("user_id = ? AND DATE(created_at) = ?", userID, date).
+		Count(&count).Error
+	return count, err
+}
+
+// CountByDate 统计指定日期创建的短链数量
+func (r *ShortLinkRepository) CountByDate(ctx context.Context, date string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Where("DATE(created_at) = ?", date).
+		Count(&count).Error
+	return count, err
+}
+
+// CountAll 统计所有短链数量
+func (r *ShortLinkRepository) CountAll(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Count(&count).Error
+	return count, err
+}
+
+// CountActive 统计活跃短链数量
+func (r *ShortLinkRepository) CountActive(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Where("status = ?", models.LinkStatusActive).
+		Count(&count).Error
+	return count, err
+}
+
+// SumClicksByUserID 统计用户的总点击量
+func (r *ShortLinkRepository) SumClicksByUserID(ctx context.Context, userID uint) (int64, error) {
+	var sum int64
+	err := r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Where("user_id = ?", userID).
+		Select("COALESCE(SUM(click_count), 0)").
+		Scan(&sum).Error
+	return sum, err
+}
+
+// SumAllClicks 统计所有短链的总点击量
+func (r *ShortLinkRepository) SumAllClicks(ctx context.Context) (int64, error) {
+	var sum int64
+	err := r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Select("COALESCE(SUM(click_count), 0)").
+		Scan(&sum).Error
+	return sum, err
+}
+
+// GetRecentByUserID 获取用户最近创建的短链
+func (r *ShortLinkRepository) GetRecentByUserID(ctx context.Context, userID uint, limit int) ([]*models.ShortLink, error) {
+	var links []*models.ShortLink
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&links).Error
+	return links, err
 }

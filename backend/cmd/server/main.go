@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,10 +16,12 @@ import (
 	"github.com/surls/backend/internal/api"
 	"github.com/surls/backend/internal/config"
 	"github.com/surls/backend/internal/middleware"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/repository"
 	"github.com/surls/backend/internal/service"
 	"github.com/surls/backend/pkg/cache"
 	"github.com/surls/backend/pkg/shortcode"
+	"github.com/surls/backend/pkg/worker"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -26,12 +29,13 @@ import (
 
 // App 应用程序结构
 type App struct {
-	router         *gin.Engine
-	db             *gorm.DB
-	redis          *redis.Client
-	sigMiddleware  *middleware.APIAuthMiddleware
-	config         *config.Config
-	server         *http.Server
+	router        *gin.Engine
+	db            *gorm.DB
+	redis         *redis.Client
+	sigMiddleware *middleware.APIAuthMiddleware
+	config        *config.Config
+	server        *http.Server
+	clickCounter  *cache.ClickCounter
 }
 
 func main() {
@@ -70,10 +74,12 @@ func main() {
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	sigMiddleware := middleware.NewAPIAuthMiddleware(apiKeyRepo, 5*time.Minute)
 
-	// 初始化短码生成器
+	// 初始化短码生成器（使用 Redis 序列号模式，高并发性能更好）
 	codeGenerator := shortcode.NewGenerator(db, &shortcode.GeneratorConfig{
 		CodeLength: 6,
 		Blacklist:  []string{"admin", "api", "static", "assets", "config", "user", "health", "readiness", "liveness"},
+		Mode:       shortcode.ModeSequence, // 使用 Redis INCR 发号器
+		Redis:      redisClient,
 	})
 
 	// 初始化Repository
@@ -82,26 +88,49 @@ func main() {
 	groupRepo := repository.NewUserGroupRepository(db)
 	accessLogRepo := repository.NewAccessLogRepository(db)
 	domainRepo := repository.NewDomainRepository(db)
+	siteConfigRepo := repository.NewSiteConfigRepository(db)
+	templateRepo := repository.NewRedirectTemplateRepository(db)
 
 	// 初始化访问日志缓冲区
 	accessLogBuffer := cache.NewAccessLogBuffer(redisClient, nil)
 	_ = service.NewAccessLogBatchWriter(accessLogRepo, accessLogBuffer) // 设置批量写入器
 
+	// 初始化点击计数器
+	clickCounter := cache.NewClickCounter(redisClient)
+
+	// 设置点击计数器的数据库更新函数
+	clickCounter.SetDBUpdateFunc(func(counts map[uint]int64) error {
+		return linkRepo.BatchUpdateClickCounts(context.Background(), counts)
+	})
+
+	// 初始化 Worker Pool（限制并发 Goroutine 数量）
+	// 100 个 worker，任务队列大小 1000
+	workerPool := worker.NewPool(100, 1000)
+	defer workerPool.Stop(true)
+
 	// 初始化Service
 	baseURL := cfg.Server.GetBaseURL()
 	userService := service.NewUserService(userRepo, groupRepo)
+	groupService := service.NewGroupService(groupRepo, userRepo)
+	configService := service.NewConfigService(siteConfigRepo)
 	accessLogService := service.NewAccessLogService(accessLogRepo, accessLogBuffer)
-	linkService := service.NewLinkService(linkRepo, userRepo, accessLogService, codeGenerator, baseURL)
+	linkService := service.NewLinkService(linkRepo, userRepo, accessLogService, codeGenerator, baseURL, clickCounter, workerPool)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo)
 	domainService := service.NewDomainService(domainRepo)
+	dashboardService := service.NewDashboardService(userRepo, linkRepo, accessLogRepo)
+	templateService := service.NewTemplateService(templateRepo)
 
 	// 初始化Handler
 	linkHandler := api.NewLinkHandler(linkService)
 	apiKeyHandler := api.NewAPIKeyHandler(apiKeyService)
 	userHandler := api.NewUserHandler(userService)
+	groupHandler := api.NewGroupHandler(groupService)
+	configHandler := api.NewConfigHandler(configService)
+	dashboardHandler := api.NewDashboardHandler(dashboardService)
 	redirectHandler := api.NewRedirectHandler(linkService, linkCache, rateLimitService, redisClient)
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
 	domainHandler := api.NewDomainHandler(domainService)
+	templateHandler := api.NewTemplateHandler(templateService)
 
 	// 设置Gin模式
 	gin.SetMode(cfg.Server.Mode)
@@ -118,6 +147,11 @@ func main() {
 	router.GET("/readiness", healthHandler.Readiness)
 	router.GET("/liveness", healthHandler.Liveness)
 
+	// 初始化认证中间件
+	mockAuth := middleware.NewMockAuthenticator()
+	authMiddleware := middleware.NewAuthMiddleware(mockAuth)
+	authMiddleware.SetUserRepository(userRepo)
+
 	// 公开API（不需要认证）
 	public := router.Group("/api")
 	{
@@ -126,23 +160,12 @@ func main() {
 
 	// 需要认证的API（使用模拟认证）
 	authRequired := router.Group("/api")
-	authRequired.Use(func(c *gin.Context) {
-		// 临时使用模拟认证，生产环境替换为真实的Keycloak认证
-		mockAuth := middleware.NewMockAuthenticator()
-		mockMiddle := middleware.NewAuthMiddleware(mockAuth)
-		mockMiddle.Authenticate()(c)
-
-		// 如果认证成功，设置用户ID（临时）
-		if c.GetString("keycloak_id") == "admin" {
-			c.Set("user_id", uint(1))
-		} else if c.GetString("keycloak_id") == "user123" {
-			c.Set("user_id", uint(2))
-		}
-	})
+	authRequired.Use(authMiddleware.Authenticate())
 	{
 		// 用户相关
 		authRequired.GET("/user/profile", userHandler.GetProfile)
 		authRequired.GET("/user/quota", userHandler.GetQuotaStatus)
+		authRequired.GET("/user/dashboard", dashboardHandler.GetUserDashboard)
 
 		// 短链接
 		authRequired.POST("/links", linkHandler.CreateLink)
@@ -151,6 +174,7 @@ func main() {
 		authRequired.PUT("/links/:code", linkHandler.UpdateLink)
 		authRequired.DELETE("/links/:code", linkHandler.DeleteLink)
 		authRequired.GET("/links/:code/stats", linkHandler.GetLinkStats)
+		authRequired.GET("/links/:code/logs", linkHandler.GetLinkLogs)
 
 		// API密钥
 		authRequired.POST("/apikeys", apiKeyHandler.CreateAPIKey)
@@ -161,12 +185,24 @@ func main() {
 		admin := authRequired.Group("/admin")
 		admin.Use(middleware.RequireAdmin())
 		{
+			// 用户管理
 			admin.GET("/users", userHandler.ListUsers)
 			admin.PUT("/users/quota", userHandler.UpdateQuota)
 			admin.PUT("/users/group", userHandler.SetGroup)
 			admin.POST("/users/:id/disable", userHandler.DisableUser)
 			admin.POST("/users/:id/enable", userHandler.EnableUser)
-			admin.PUT("/config", redirectHandler.SetSiteConfig)
+
+			// 用户组管理
+			admin.GET("/groups", groupHandler.ListGroups)
+			admin.POST("/groups", groupHandler.CreateGroup)
+			admin.GET("/groups/:id", groupHandler.GetGroup)
+			admin.PUT("/groups/:id", groupHandler.UpdateGroup)
+			admin.DELETE("/groups/:id", groupHandler.DeleteGroup)
+
+			// 站点配置管理
+			admin.GET("/config", configHandler.GetAdminConfig)
+			admin.PUT("/config", configHandler.UpdateConfig)
+			admin.PUT("/config/batch", configHandler.BatchUpdateConfig)
 
 			// 域名管理
 			admin.GET("/domains", domainHandler.ListDomains)
@@ -174,6 +210,18 @@ func main() {
 			admin.PUT("/domains/:id", domainHandler.UpdateDomain)
 			admin.DELETE("/domains/:id", domainHandler.DeleteDomain)
 			admin.POST("/domains/:id/default", domainHandler.SetDefaultDomain)
+
+			// 仪表盘统计
+			admin.GET("/dashboard/summary", dashboardHandler.GetAdminSummary)
+			admin.GET("/dashboard/trends", dashboardHandler.GetAdminTrends)
+
+			// 跳转模板管理
+			admin.GET("/templates", templateHandler.ListTemplates)
+			admin.POST("/templates", templateHandler.CreateTemplate)
+			admin.GET("/templates/:id", templateHandler.GetTemplate)
+			admin.PUT("/templates/:id", templateHandler.UpdateTemplate)
+			admin.DELETE("/templates/:id", templateHandler.DeleteTemplate)
+			admin.POST("/templates/:id/default", templateHandler.SetDefaultTemplate)
 		}
 	}
 
@@ -187,20 +235,24 @@ func main() {
 		apiSignature.POST("/shorten", linkHandler.CreateLinkAPI)
 	}
 
-	// 短链接跳转（必须放在最后，排除已定义的路由）
+	// 短链接跳转（显式注册路由，避免使用 NoRoute）
+	// 只匹配单段路径（不含斜杠和点号）
 	router.GET("/:code", func(c *gin.Context) {
 		code := c.Param("code")
-		// 跳过系统路由
-		skipRoutes := map[string]bool{
-			"health":    true,
-			"api":       true,
-			"readiness": true,
-			"liveness":  true,
-		}
-		if skipRoutes[code] {
-			c.Next()
+
+		// 跳过包含点号的请求（如 favicon.ico, robots.txt 等）
+		if strings.Contains(code, ".") {
+			c.JSON(404, gin.H{"error": "not found"})
 			return
 		}
+
+		// 跳过空路径
+		if code == "" {
+			c.JSON(404, gin.H{"error": "not found"})
+			return
+		}
+
+		// 调用 RedirectHandler
 		redirectHandler.Redirect(c)
 	})
 
@@ -211,6 +263,7 @@ func main() {
 		redis:         redisClient,
 		sigMiddleware: sigMiddleware,
 		config:        cfg,
+		clickCounter:  clickCounter,
 		server: &http.Server{
 			Addr:         cfg.Server.GetAddr(),
 			Handler:      router,
@@ -251,6 +304,11 @@ func (a *App) run() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
+	// 停止点击计数器
+	if a.clickCounter != nil {
+		a.clickCounter.Stop()
+	}
+
 	// 停止签名中间件
 	if a.sigMiddleware != nil {
 		a.sigMiddleware.Stop()
@@ -285,9 +343,30 @@ func initDB(cfg *config.Config) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(cfg.Database.MaxLifetime)
 
+	// 自动创建/迁移数据库表
+	if err := autoMigrate(db); err != nil {
+		return nil, fmt.Errorf("failed to auto migrate: %w", err)
+	}
+
 	log.Println("Database connected successfully")
 
 	return db, nil
+}
+
+// autoMigrate 自动迁移数据库表结构
+func autoMigrate(db *gorm.DB) error {
+	log.Println("Running database migrations...")
+
+	return db.AutoMigrate(
+		&models.User{},
+		&models.UserGroup{},
+		&models.ShortLink{},
+		&models.APIKey{},
+		&models.AccessLog{},
+		&models.SiteConfig{},
+		&models.RedirectTemplate{},
+		&models.Domain{},
+	)
 }
 
 // initRedis 初始化Redis

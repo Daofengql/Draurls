@@ -12,7 +12,8 @@ type User struct {
 	Email     string   `gorm:"size:100;index;comment:邮箱"`
 	Role      UserRole `gorm:"size:20;not null;default:'user';comment:角色"`
 	GroupID   *uint    `gorm:"index;comment:用户组ID"`
-	Quota     int      `gorm:"not null;default:-1;comment:配额(-1表示无限)"`
+	Group     *UserGroup `gorm:"foreignKey:GroupID" json:"group,omitempty"`
+	Quota     int      `gorm:"not null;default:-1;comment:配额(-1表示无限,-2表示继承用户组)"`
 	QuotaUsed int      `gorm:"not null;default:0;comment:已用配额"`
 	Status    UserStatus `gorm:"size:20;not null;default:'active';comment:状态"`
 	CreatedAt time.Time

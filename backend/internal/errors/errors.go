@@ -8,6 +8,7 @@ var (
 	ErrNotFound         = errors.New("resource not found")
 	ErrAlreadyExists    = errors.New("resource already exists")
 	ErrDuplicateResource = errors.New("resource already exists")
+	ErrDuplicateName    = errors.New("name already exists")
 	ErrUnauthorized     = errors.New("unauthorized")
 	ErrForbidden        = errors.New("forbidden")
 	ErrInternalServer   = errors.New("internal server error")
@@ -20,6 +21,10 @@ var (
 	ErrUserNotFound     = errors.New("user not found")
 	ErrUserDisabled     = errors.New("user is disabled")
 	ErrInvalidCredentials = errors.New("invalid credentials")
+
+	// 用户组相关错误
+	ErrGroupNotFound    = errors.New("group not found")
+	ErrGroupHasUsers    = errors.New("group has users")
 
 	// 链接相关错误
 	ErrLinkNotFound     = errors.New("link not found")

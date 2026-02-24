@@ -8,14 +8,15 @@ import (
 // RequireRole 角色验证中间件
 func RequireRole(roles ...models.UserRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get("user")
+		// 从上下文获取角色
+		role, exists := c.Get("role")
 		if !exists {
 			c.JSON(401, gin.H{"error": "unauthorized"})
 			c.Abort()
 			return
 		}
 
-		u, ok := user.(*models.User)
+		userRole, ok := role.(models.UserRole)
 		if !ok {
 			c.JSON(401, gin.H{"error": "invalid user context"})
 			c.Abort()
@@ -24,8 +25,8 @@ func RequireRole(roles ...models.UserRole) gin.HandlerFunc {
 
 		// 检查角色
 		hasRole := false
-		for _, role := range roles {
-			if u.Role == role {
+		for _, r := range roles {
+			if userRole == r {
 				hasRole = true
 				break
 			}

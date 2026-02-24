@@ -137,3 +137,22 @@ func (r *UserGroupRepository) Update(ctx context.Context, group *models.UserGrou
 func (r *UserGroupRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&models.UserGroup{}, id).Error
 }
+
+// GetUsers 获取用户组下的所有用户
+func (r *UserGroupRepository) GetUsers(ctx context.Context, groupID uint) ([]*models.User, error) {
+	var users []*models.User
+	err := r.db.WithContext(ctx).
+		Where("group_id = ?", groupID).
+		Find(&users).Error
+	return users, err
+}
+
+// CountUsers 统计用户组下的用户数量
+func (r *UserGroupRepository) CountUsers(ctx context.Context, groupID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.User{}).
+		Where("group_id = ?", groupID).
+		Count(&count).Error
+	return count, err
+}

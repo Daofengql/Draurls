@@ -192,6 +192,47 @@ func (h *LinkHandler) GetLinkStats(c *gin.Context) {
 	response.Success(c, stats)
 }
 
+// GetLinkLogs 获取短链接访问日志
+// @Summary 获取短链接访问日志
+// @Tags links
+// @Produce json
+// @Param code path string true "短码"
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(20)
+// @Success 200 {object} response.Response{data=service.LinkLogsResponse}
+// @Router /api/links/{code}/logs [get]
+func (h *LinkHandler) GetLinkLogs(c *gin.Context) {
+	code := c.Param("code")
+	if code == "" {
+		response.BadRequest(c, "code is required")
+		return
+	}
+
+	userID := c.GetUint("user_id")
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	logs, total, err := h.linkService.GetAccessLogs(c.Request.Context(), code, userID, page, pageSize)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"logs":      logs,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
 // CreateLinkRequest 创建请求（供API使用）
 type CreateLinkRequest struct {
 	URL       string    `json:"url" binding:"required"`

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ type RedirectHandler struct {
 	rateLimiter    *cache.RateLimitService
 	redisClient    *redis.Client
 	siteConfig     map[string]string
+	siteConfigMu   sync.RWMutex // 保护 siteConfig 的读写锁
 }
 
 // NewRedirectHandler 创建跳转处理器
@@ -45,9 +47,14 @@ func (h *RedirectHandler) LoadSiteConfig(ctx context.Context) error {
 	// 从 Redis 或数据库加载站点配置
 	val, err := h.redisClient.Get(ctx, "site:config").Result()
 	if err == nil && val != "" {
-		if err := json.Unmarshal([]byte(val), &h.siteConfig); err != nil {
+		var newConfig map[string]string
+		if err := json.Unmarshal([]byte(val), &newConfig); err != nil {
 			return err
 		}
+		// 使用写锁保护整个赋值操作
+		h.siteConfigMu.Lock()
+		h.siteConfig = newConfig
+		h.siteConfigMu.Unlock()
 	}
 	return nil
 }
@@ -97,7 +104,9 @@ func (h *RedirectHandler) Redirect(c *gin.Context) {
 	}
 
 	// 检查是否启用跳转页
+	h.siteConfigMu.RLock()
 	redirectPageEnabled := h.siteConfig["redirect_page_enabled"] == "true"
+	h.siteConfigMu.RUnlock()
 
 	if redirectPageEnabled {
 		h.renderRedirectPage(c, link.URL, code)
@@ -109,12 +118,14 @@ func (h *RedirectHandler) Redirect(c *gin.Context) {
 
 // renderRedirectPage 渲染跳转页
 func (h *RedirectHandler) renderRedirectPage(c *gin.Context, targetURL, code string) {
+	h.siteConfigMu.RLock()
 	siteName := h.siteConfig["site_name"]
+	logoURL := h.siteConfig["logo_url"]
+	h.siteConfigMu.RUnlock()
+
 	if siteName == "" {
 		siteName = "Surls"
 	}
-
-	logoURL := h.siteConfig["logo_url"]
 
 	data := gin.H{
 		"SiteName":  siteName,
@@ -260,7 +271,10 @@ func (h *RedirectHandler) renderRedirectPage(c *gin.Context, targetURL, code str
 
 // renderError 渲染错误页面
 func (h *RedirectHandler) renderError(c *gin.Context, message string, statusCode int) {
+	h.siteConfigMu.RLock()
 	siteName := h.siteConfig["site_name"]
+	h.siteConfigMu.RUnlock()
+
 	if siteName == "" {
 		siteName = "Surls"
 	}
@@ -323,7 +337,10 @@ func (h *RedirectHandler) renderError(c *gin.Context, message string, statusCode
 // CheckCircular 检查是否为循环链接（供服务层使用）
 func (h *RedirectHandler) CheckCircular(targetURL string) bool {
 	// 从配置中获取自定义域名
+	h.siteConfigMu.RLock()
 	domainsJSON := h.siteConfig["custom_domains"]
+	h.siteConfigMu.RUnlock()
+
 	var domains []string
 	if domainsJSON != "" {
 		json.Unmarshal([]byte(domainsJSON), &domains)
@@ -342,12 +359,15 @@ func (h *RedirectHandler) GetSiteConfig(c *gin.Context) {
 		return
 	}
 
-	// 隐藏敏感信息
+	h.siteConfigMu.RLock()
+	defer h.siteConfigMu.RUnlock()
+
+	// 隐藏敏感信��
 	publicConfig := map[string]string{
 		"site_name":             h.siteConfig["site_name"],
 		"logo_url":              h.siteConfig["logo_url"],
-		"redirect_page_enabled":   h.siteConfig["redirect_page_enabled"],
-		"enable_signup":          h.siteConfig["enable_signup"],
+		"redirect_page_enabled": h.siteConfig["redirect_page_enabled"],
+		"enable_signup":         h.siteConfig["enable_signup"],
 	}
 
 	response.Success(c, publicConfig)
@@ -361,13 +381,20 @@ func (h *RedirectHandler) SetSiteConfig(c *gin.Context) {
 		return
 	}
 
-	// 更新配置
+	// 更新配置 - 使用写锁保护
+	h.siteConfigMu.Lock()
 	for key, value := range config {
 		h.siteConfig[key] = value
 	}
+	// 创建副本用于序列化，避免长时间持锁
+	configCopy := make(map[string]string, len(h.siteConfig))
+	for k, v := range h.siteConfig {
+		configCopy[k] = v
+	}
+	h.siteConfigMu.Unlock()
 
 	// 保存到 Redis
-	configJSON, _ := json.Marshal(h.siteConfig)
+	configJSON, _ := json.Marshal(configCopy)
 	h.redisClient.Set(c.Request.Context(), "site:config", configJSON, 24*time.Hour)
 
 	response.Success(c, gin.H{"message": "config updated successfully"})

@@ -97,3 +97,34 @@ func (r *AccessLogRepository) GetStatsByLinkID(ctx context.Context, linkID uint)
 
 	return &stats, nil
 }
+
+// CountClicksByUserIDAndDate 统计用户在指定日期的点击数
+func (r *AccessLogRepository) CountClicksByUserIDAndDate(ctx context.Context, userID uint, date string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.AccessLog{}).
+		Joins("JOIN short_links ON access_logs.link_id = short_links.id").
+		Where("short_links.user_id = ? AND DATE(access_logs.created_at) = ?", userID, date).
+		Count(&count).Error
+	return count, err
+}
+
+// CountClicksByDate 统计指定日期的点击数
+func (r *AccessLogRepository) CountClicksByDate(ctx context.Context, date string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.AccessLog{}).
+		Where("DATE(created_at) = ?", date).
+		Count(&count).Error
+	return count, err
+}
+
+// GetRecentLogsByUserID 获取用户最近的访问日志
+func (r *AccessLogRepository) GetRecentLogsByUserID(ctx context.Context, userID uint, limit int) ([]models.AccessLog, error) {
+	var logs []models.AccessLog
+	err := r.db.WithContext(ctx).
+		Joins("JOIN short_links ON access_logs.link_id = short_links.id").
+		Where("short_links.user_id = ?", userID).
+		Order("access_logs.created_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	return logs, err
+}

@@ -11,8 +11,10 @@ import (
 	apperrors "github.com/surls/backend/internal/errors"
 	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/repository"
+	"github.com/surls/backend/pkg/cache"
 	"github.com/surls/backend/pkg/shortcode"
 	"github.com/surls/backend/pkg/urlutil"
+	"github.com/surls/backend/pkg/worker"
 )
 
 // LinkService 短链接服务
@@ -22,6 +24,8 @@ type LinkService struct {
 	accessLogService *AccessLogService // 使用访问日志服务
 	generator       *shortcode.Generator
 	baseURL         string // 短链基础域名
+	clickCounter    *cache.ClickCounter // 点击计数器
+	workerPool      *worker.Pool // Worker Pool 用于异步任务
 }
 
 // NewLinkService 创建短链接服务
@@ -31,6 +35,8 @@ func NewLinkService(
 	accessLogService *AccessLogService,
 	generator *shortcode.Generator,
 	baseURL string,
+	clickCounter *cache.ClickCounter,
+	workerPool *worker.Pool,
 ) *LinkService {
 	return &LinkService{
 		linkRepo:         linkRepo,
@@ -38,6 +44,8 @@ func NewLinkService(
 		accessLogService: accessLogService,
 		generator:        generator,
 		baseURL:          baseURL,
+		clickCounter:     clickCounter,
+		workerPool:       workerPool,
 	}
 }
 
@@ -72,7 +80,7 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 		return nil, apperrors.ErrInvalidInput
 	}
 
-	// 检查用户配额
+	// 获取用户信息（用于事务中配额检查）
 	user, err := s.userRepo.FindByID(ctx, req.UserID)
 	if err != nil {
 		return nil, apperrors.ErrUserNotFound
@@ -80,11 +88,6 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 
 	if user.Status != models.UserStatusActive {
 		return nil, apperrors.ErrUserDisabled
-	}
-
-	// 检查配额
-	if user.Quota >= 0 && user.QuotaUsed >= user.Quota {
-		return nil, apperrors.ErrQuotaExceeded
 	}
 
 	// 检查是否去重（相同 URL 复用）
@@ -137,13 +140,10 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 		Status:    models.LinkStatusActive,
 	}
 
-	if err := s.linkRepo.Create(ctx, link); err != nil {
-		return nil, apperrors.ErrInternalServer
-	}
-
-	// 增加用户已用配额（记录错误但不影响返回）
-	if err := s.userRepo.IncrementQuotaUsed(ctx, req.UserID); err != nil {
-		log.Printf("WARNING: Failed to increment quota for user %d: %v", req.UserID, err)
+	// 使用带配额检查的事务方法创建链接
+	// 配额检查和扣减在同一个事务中完成，确保原子性
+	if err := s.linkRepo.CreateWithQuotaCheck(ctx, link, user); err != nil {
+		return nil, err
 	}
 
 	return &CreateLinkResponse{
@@ -189,17 +189,46 @@ func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOpt
 		return nil, err
 	}
 
-	// 异步更新点击计数和访问日志
-	go s.recordAccess(context.Background(), link.ID, code, opts)
+	// 异步更新点击计数和访问日志（使用 Worker Pool 防止无界 Goroutine）
+	if s.workerPool != nil {
+		// 使用 Worker Pool
+		linkID := link.ID
+		codeCopy := code
+		optsCopy := *opts
+
+		task := func() {
+			s.recordAccess(context.Background(), linkID, codeCopy, &optsCopy)
+		}
+
+		// 非阻塞提交，如果队列满了则丢弃（避免阻塞请求）
+		if !s.workerPool.Submit(task) {
+			// Pool 已满，记录警告但继续服务
+			log.Printf("WARNING: Worker pool full, dropping access record for link %d", link.ID)
+		}
+	} else {
+		// 降级到直接使用 goroutine（不推荐，但保持向后兼容）
+		go s.recordAccess(context.Background(), link.ID, code, opts)
+	}
 
 	return link, nil
 }
 
 // recordAccess 记录访问日志和点击计数
 func (s *LinkService) recordAccess(ctx context.Context, linkID uint, code string, opts *ResolveOptions) {
-	// 更新点击计数
-	if err := s.linkRepo.IncrementClickCount(ctx, code); err != nil {
-		log.Printf("WARNING: Failed to increment click count for link %s: %v", code, err)
+	// 使用 Redis 点击计数器（高性能）
+	if s.clickCounter != nil {
+		if err := s.clickCounter.Increment(ctx, linkID); err != nil {
+			log.Printf("WARNING: Failed to increment click count via Redis for link %d: %v", linkID, err)
+			// 降级：直接更新数据库
+			if err := s.linkRepo.IncrementClickCount(ctx, code); err != nil {
+				log.Printf("WARNING: Failed to increment click count (fallback) for link %s: %v", code, err)
+			}
+		}
+	} else {
+		// 没有点击计数器，直接更新数据库
+		if err := s.linkRepo.IncrementClickCount(ctx, code); err != nil {
+			log.Printf("WARNING: Failed to increment click count for link %s: %v", code, err)
+		}
 	}
 
 	// 记录访问日志（使用缓冲区批量写入）
@@ -304,6 +333,7 @@ func (s *LinkService) Update(ctx context.Context, req *UpdateLinkRequest, userID
 
 // Delete 删除短链接
 func (s *LinkService) Delete(ctx context.Context, code string, userID uint) error {
+	// 先获取链接ID和用户ID验证
 	link, err := s.linkRepo.FindByCode(ctx, code)
 	if err != nil {
 		return err
@@ -314,17 +344,8 @@ func (s *LinkService) Delete(ctx context.Context, code string, userID uint) erro
 		return apperrors.ErrForbidden
 	}
 
-	// 软删除
-	if err := s.linkRepo.Delete(ctx, link.ID); err != nil {
-		return err
-	}
-
-	// 减少用户已用配额（记录错误但不影响返回）
-	if err := s.userRepo.DecrementQuotaUsed(ctx, userID); err != nil {
-		log.Printf("WARNING: Failed to decrement quota for user %d: %v", userID, err)
-	}
-
-	return nil
+	// 使用带配额返还的事务方法删除链接
+	return s.linkRepo.DeleteWithQuotaRefund(ctx, link.ID, userID)
 }
 
 // LinkStats 链接统计
@@ -334,7 +355,7 @@ type LinkStats struct {
 	CreatedAt  string `json:"created_at"`
 }
 
-// GetStats 获取链接统计信息（使用访问日志）
+// GetStats 获取链接统计信息（优先使用 Redis 计数器）
 func (s *LinkService) GetStats(ctx context.Context, code string, userID uint) (*LinkStats, error) {
 	link, err := s.linkRepo.FindByCode(ctx, code)
 	if err != nil {
@@ -346,24 +367,51 @@ func (s *LinkService) GetStats(ctx context.Context, code string, userID uint) (*
 		return nil, apperrors.ErrForbidden
 	}
 
-	// 从访问日志获取统计信息
+	var clickCount int64
+	var uniqueIPs int64
+
+	// 优先从 Redis 计数器获取实时点击数
+	if s.clickCounter != nil {
+		if count, err := s.clickCounter.GetCount(ctx, link.ID); err == nil {
+			clickCount = count
+		} else {
+			// 降级：使用数据库中的计数
+			clickCount = int64(link.ClickCount)
+		}
+	} else {
+		clickCount = int64(link.ClickCount)
+	}
+
+	// 从访问日志获取唯一IP统计
 	if s.accessLogService != nil {
-		clickCount, uniqueIPs, err := s.accessLogService.GetStats(ctx, link.ID)
-		if err == nil {
-			return &LinkStats{
-				ClickCount: clickCount,
-				UniqueIPs:  uniqueIPs,
-				CreatedAt:  link.CreatedAt.Format(time.RFC3339),
-			}, nil
+		_, uniqueIPs, err = s.accessLogService.GetStats(ctx, link.ID)
+		if err != nil {
+			uniqueIPs = 0
 		}
 	}
 
-	// 降级到基本统计
 	return &LinkStats{
-		ClickCount: int64(link.ClickCount),
-		UniqueIPs:  0,
+		ClickCount: clickCount,
+		UniqueIPs:  uniqueIPs,
 		CreatedAt:  link.CreatedAt.Format(time.RFC3339),
 	}, nil
+}
+
+// GetAccessLogs 获取链接的访问日志
+func (s *LinkService) GetAccessLogs(ctx context.Context, code string, userID uint, page, pageSize int) ([]models.AccessLog, int64, error) {
+	// 获取链接并验证所有权
+	link, err := s.linkRepo.FindByCode(ctx, code)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 检查所有权
+	if link.UserID != userID {
+		return nil, 0, apperrors.ErrForbidden
+	}
+
+	// 获取访问日志
+	return s.accessLogService.GetRecentLogs(ctx, link.ID, page, pageSize)
 }
 
 // URLHash 计算 URL 哈希（用于去重）

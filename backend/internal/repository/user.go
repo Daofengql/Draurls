@@ -38,6 +38,22 @@ func (r *UserRepository) FindByID(ctx context.Context, id uint) (*models.User, e
 	return &user, nil
 }
 
+// FindByIDWithGroup 根据 ID 查找用户并预加载用户组
+func (r *UserRepository) FindByIDWithGroup(ctx context.Context, id uint) (*models.User, error) {
+	var user models.User
+	err := r.db.WithContext(ctx).
+		Preload("Group").
+		Where("id = ? AND status != ?", id, models.UserStatusDeleted).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 // FindByKeycloakID 根据 Keycloak ID 查找用户
 func (r *UserRepository) FindByKeycloakID(ctx context.Context, keycloakID string) (*models.User, error) {
 	var user models.User
@@ -126,4 +142,31 @@ func (r *UserRepository) ExistsByKeycloakID(ctx context.Context, keycloakID stri
 		Where("keycloak_id = ? AND status != ?", keycloakID, models.UserStatusDeleted).
 		Count(&count).Error
 	return count > 0, err
+}
+
+// Count 统计用户总数
+func (r *UserRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.User{}).
+		Where("status != ?", models.UserStatusDeleted).
+		Count(&count).Error
+	return count, err
+}
+
+// CountActive 统计活跃用户数
+func (r *UserRepository) CountActive(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.User{}).
+		Where("status = ?", models.UserStatusActive).
+		Count(&count).Error
+	return count, err
+}
+
+// CountByDate 统计指定日期注册的用户数
+func (r *UserRepository) CountByDate(ctx context.Context, date string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.User{}).
+		Where("DATE(created_at) = ?", date).
+		Count(&count).Error
+	return count, err
 }
