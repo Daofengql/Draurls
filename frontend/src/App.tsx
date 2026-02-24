@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/auth'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+import TokenPage from './pages/TokenPage'
 import DashboardPage from './pages/DashboardPage'
 import LinksPage from './pages/LinksPage'
 import ApiKeysPage from './pages/ApiKeysPage'
@@ -24,6 +25,7 @@ function App() {
         <Route path="links" element={<LinksPage />} />
         <Route path="api-keys" element={<ApiKeysPage />} />
         <Route path="admin" element={<AdminPage />} />
+        <Route path="token" element={<TokenPage />} />
       </Route>
 
       {/* 404 */}

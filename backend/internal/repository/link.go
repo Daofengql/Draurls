@@ -26,10 +26,23 @@ func (r *ShortLinkRepository) Create(ctx context.Context, link *models.ShortLink
 	return r.db.WithContext(ctx).Create(link).Error
 }
 
-// FindByCode 根据短码查找链接
+// FindByCode 根据短码���找链接
 func (r *ShortLinkRepository) FindByCode(ctx context.Context, code string) (*models.ShortLink, error) {
 	var link models.ShortLink
 	err := r.db.WithContext(ctx).Where("code = ?", code).First(&link).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrLinkNotFound
+		}
+		return nil, err
+	}
+	return &link, nil
+}
+
+// FindByCodeAndDomain 根据短码和域名ID查找链接（用于域名隔离）
+func (r *ShortLinkRepository) FindByCodeAndDomain(ctx context.Context, code string, domainID uint) (*models.ShortLink, error) {
+	var link models.ShortLink
+	err := r.db.WithContext(ctx).Where("code = ? AND domain_id = ?", code, domainID).First(&link).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperrors.ErrLinkNotFound
@@ -57,6 +70,21 @@ func (r *ShortLinkRepository) FindByURL(ctx context.Context, userID uint, url st
 	var link models.ShortLink
 	err := r.db.WithContext(ctx).
 		Where("user_id = ? AND url = ? AND status != ?", userID, url, models.LinkStatusExpired).
+		First(&link).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrLinkNotFound
+		}
+		return nil, err
+	}
+	return &link, nil
+}
+
+// FindByURLAndDomain 根据 URL 和域名ID查找链接（用于域名隔离去重）
+func (r *ShortLinkRepository) FindByURLAndDomain(ctx context.Context, userID uint, url string, domainID uint) (*models.ShortLink, error) {
+	var link models.ShortLink
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND url = ? AND domain_id = ? AND status != ?", userID, url, domainID, models.LinkStatusExpired).
 		First(&link).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

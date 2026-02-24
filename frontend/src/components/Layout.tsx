@@ -5,12 +5,16 @@ const navItems = [
   { path: '/dashboard', label: '仪表盘' },
   { path: '/links', label: '我的链接' },
   { path: '/api-keys', label: 'API密钥' },
+  { path: '/token', label: 'Token' },
 ]
 
 export default function Layout() {
   const location = useLocation()
   const { user, clearAuth } = useAuthStore()
   const isAdmin = user?.role === 'admin'
+
+  // 显示名称：优先使用 nickname，其次 username
+  const displayName = user?.nickname || user?.username
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,8 +53,20 @@ export default function Layout() {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
+              {/* 头像 */}
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={displayName}
+                  className="w-8 h-8 rounded-full"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                  {displayName?.charAt(0).toUpperCase()}
+                </div>
+              )}
               <span className="text-sm text-gray-700">
-                {user?.username}
+                {displayName}
                 <span className="ml-2 text-xs text-gray-500">
                   配额: {user?.quota === -1 ? '无限' : `${user?.quota_used}/${user?.quota}`}
                 </span>

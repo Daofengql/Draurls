@@ -239,6 +239,7 @@ type CreateLinkRequest struct {
 	Code      string    `json:"code"`
 	Title     string    `json:"title"`
 	ExpiresAt time.Time `json:"expires_at"`
+	DomainID  uint      `json:"domain_id"` // 域名ID，用于多域名隔离
 }
 
 // CreateLinkAPI 创建短链接API（供外部API使用）
@@ -261,6 +262,7 @@ func (h *LinkHandler) CreateLinkAPI(c *gin.Context) {
 		Title:     req.Title,
 		ExpiresAt: req.ExpiresAt,
 		UserID:    userID,
+		DomainID:  req.DomainID,
 	}
 
 	result, err := h.linkService.Create(c.Request.Context(), serviceReq)

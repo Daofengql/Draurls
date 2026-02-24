@@ -52,7 +52,9 @@ var predefinedConfigs = map[string]string{
 	models.ConfigCustomDomains:  "自定义域名列表 (逗号分隔)",
 	models.ConfigDefaultQuota:   "默认用户配额",
 	models.ConfigMaxLinkLength:  "最大短链长度",
-	models.ConfigEnableSignup:   "是否允许用户注册 (true/false)",
+	models.ConfigEnableSignup:   "是否允许用户注��� (true/false)",
+	models.ConfigShortcodeMode:  "短码生成模式 (random/sequence)",
+	models.ConfigAllowCustomShortcode: "是否允许普通用户使用自定义短码 (true/false)",
 }
 
 // GetAllConfig 获取所有配置（管理员专用）

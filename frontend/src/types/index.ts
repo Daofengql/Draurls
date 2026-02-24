@@ -4,6 +4,8 @@ export interface User {
   keycloak_id: string
   username: string
   email: string
+  nickname?: string
+  picture?: string
   role: 'admin' | 'user'
   group_id?: number
   quota: number
@@ -23,11 +25,25 @@ export interface UserGroup {
   updated_at: string
 }
 
+// 域名类型
+export interface Domain {
+  id: number
+  name: string
+  is_active: boolean
+  is_default: boolean
+  ssl: boolean
+  description?: string
+  created_at: string
+  updated_at: string
+}
+
 // 短链接类型
 export interface ShortLink {
   id: number
   code: string
   url: string
+  domain_id: number
+  domain?: Domain
   user_id: number
   title?: string
   expires_at?: string
@@ -83,6 +99,7 @@ export interface CreateLinkRequest {
   code?: string
   title?: string
   expires_at?: string
+  domain_id?: number
 }
 
 // API错误类型

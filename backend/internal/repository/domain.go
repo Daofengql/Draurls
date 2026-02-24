@@ -100,11 +100,46 @@ func (r *DomainRepository) SetDefault(ctx context.Context, id uint) error {
 	})
 }
 
-// BuildDomainURL 构建完整的域名URL
+// BuildDomainURL 构建���整的域名URL
 func (r *DomainRepository) BuildDomainURL(domain *models.Domain) string {
 	protocol := "https"
 	if !domain.SSL {
 		protocol = "http"
 	}
 	return protocol + "://" + domain.Name
+}
+
+// GetAllowedGroupsForDomain 获取允许使用指定域名的用户组列表
+func (r *DomainRepository) GetAllowedGroupsForDomain(ctx context.Context, domainID uint) ([]models.UserGroup, error) {
+	var groups []models.UserGroup
+	err := r.db.WithContext(ctx).
+		Joins("JOIN domain_group_domains ON domain_group_domains.group_id = user_groups.id").
+		Where("domain_group_domains.domain_id = ?", domainID).
+		Find(&groups).Error
+	return groups, err
+}
+
+// CheckUserGroupAccessDomain 检查用户组是否有权限访问指定域名
+func (r *DomainRepository) CheckUserGroupAccessDomain(ctx context.Context, groupID, domainID uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.DomainGroupDomain{}).
+		Where("group_id = ? AND domain_id = ?", groupID, domainID).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// AddGroupToDomain 将用户组添加到域名白名单
+func (r *DomainRepository) AddGroupToDomain(ctx context.Context, domainID, groupID uint) error {
+	return r.db.WithContext(ctx).Create(&models.DomainGroupDomain{
+		DomainID: domainID,
+		GroupID:  groupID,
+	}).Error
+}
+
+// RemoveGroupFromDomain 从域名白名单中移除用户组
+func (r *DomainRepository) RemoveGroupFromDomain(ctx context.Context, domainID, groupID uint) error {
+	return r.db.WithContext(ctx).
+		Where("domain_id = ? AND group_id = ?", domainID, groupID).
+		Delete(&models.DomainGroupDomain{}).Error
 }

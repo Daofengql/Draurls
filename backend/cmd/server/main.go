@@ -91,9 +91,13 @@ func main() {
 	siteConfigRepo := repository.NewSiteConfigRepository(db)
 	templateRepo := repository.NewRedirectTemplateRepository(db)
 
-	// 初始化访问日志缓冲区
+	// 初始化访问日志缓冲区（需要先创建 batchWriter）
+	// 1. 先创建一个没有 batchWriter 的 buffer
 	accessLogBuffer := cache.NewAccessLogBuffer(redisClient, nil)
-	_ = service.NewAccessLogBatchWriter(accessLogRepo, accessLogBuffer) // 设置批量写入器
+	// 2. 创建 batchWriter，它会自动将自己注册到 buffer 中
+	batchWriter := service.NewAccessLogBatchWriter(accessLogRepo, accessLogBuffer)
+	// 3. 将 batchWriter 设置到 buffer 中
+	accessLogBuffer.SetBatchWriter(batchWriter)
 
 	// 初始化点击计数器
 	clickCounter := cache.NewClickCounter(redisClient)
@@ -114,7 +118,7 @@ func main() {
 	groupService := service.NewGroupService(groupRepo, userRepo)
 	configService := service.NewConfigService(siteConfigRepo)
 	accessLogService := service.NewAccessLogService(accessLogRepo, accessLogBuffer)
-	linkService := service.NewLinkService(linkRepo, userRepo, accessLogService, codeGenerator, baseURL, clickCounter, workerPool)
+	linkService := service.NewLinkService(linkRepo, userRepo, domainRepo, accessLogService, codeGenerator, baseURL, clickCounter, workerPool)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo)
 	domainService := service.NewDomainService(domainRepo)
 	dashboardService := service.NewDashboardService(userRepo, linkRepo, accessLogRepo)
@@ -127,16 +131,20 @@ func main() {
 	groupHandler := api.NewGroupHandler(groupService)
 	configHandler := api.NewConfigHandler(configService)
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
-	redirectHandler := api.NewRedirectHandler(linkService, linkCache, rateLimitService, redisClient)
+	redirectHandler := api.NewRedirectHandler(linkService, linkCache, rateLimitService, redisClient, configService)
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
 	domainHandler := api.NewDomainHandler(domainService)
 	templateHandler := api.NewTemplateHandler(templateService)
+	authHandler := api.NewAuthHandler(cfg)
 
 	// 设置Gin模式
 	gin.SetMode(cfg.Server.Mode)
 
 	// 创建路由
 	router := gin.Default()
+
+	// 加载 HTML 模板（用于 callback.html）
+	router.LoadHTMLGlob("internal/api/templates/*")
 
 	// 全局中间件
 	router.Use(middleware.CORS(cfg.Security.AllowOrigins))
@@ -171,6 +179,11 @@ func main() {
 	public := router.Group("/api")
 	{
 		public.GET("/config", redirectHandler.GetSiteConfig)
+		// 认证相关接口（公开，用于登录流程）
+		public.POST("/auth/login-url", authHandler.GetLoginURL)    // 获取登录 URL
+		public.GET("/auth/callback", authHandler.KeycloakCallback) // Keycloak 回调（返回 HTML）
+		public.POST("/auth/refresh", authHandler.RefreshToken)     // 刷新 Token
+		public.POST("/auth/logout", authHandler.Logout)            // 登出
 	}
 
 	// 需要认证的API（使用模拟认证）
@@ -299,9 +312,7 @@ func (a *App) run() {
 		log.Printf("Server starting on %s", addr)
 		log.Printf("Environment: %s", a.config.Server.Mode)
 		log.Printf("Base URL: %s", a.config.Server.GetBaseURL())
-		log.Printf("Test tokens:")
-		log.Printf("  Admin: Bearer admin-token")
-		log.Printf("  User:  Bearer user-token")
+		log.Printf("Authentication: Keycloak OIDC")
 
 		if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
@@ -357,6 +368,9 @@ func initDB(cfg *config.Config) (*gorm.DB, error) {
 	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
 	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(cfg.Database.MaxLifetime)
+	// 设置空闲连接最大存活时间，避免连接被 MySQL 服务器关闭后仍被使用
+	// MySQL 默认 wait_timeout 是 8 小时（28800秒），这里设置为 10 分钟更安全
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
 	// 自动创建/迁移数据库表
 	if err := autoMigrate(db); err != nil {
@@ -381,6 +395,7 @@ func autoMigrate(db *gorm.DB) error {
 		&models.SiteConfig{},
 		&models.RedirectTemplate{},
 		&models.Domain{},
+		&models.DomainGroupDomain{},
 	)
 }
 

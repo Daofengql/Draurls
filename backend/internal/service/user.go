@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	apperrors "github.com/surls/backend/internal/errors"
@@ -27,7 +28,7 @@ func NewUserService(
 }
 
 // GetOrCreateUser 根据Keycloak ID获取或创建用户
-func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username, email string) (*models.User, error) {
+func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username, email, nickname, picture string) (*models.User, error) {
 	// 尝试查找现有用户
 	user, err := s.userRepo.FindByKeycloakID(ctx, keycloakID)
 	if err == nil {
@@ -52,6 +53,8 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 		KeycloakID: keycloakID,
 		Username:   username,
 		Email:      email,
+		Nickname:   nickname,
+		Picture:    picture,
 		Role:       role,
 		Quota:      -1, // 默认无限配额
 		QuotaUsed:  0,
@@ -61,7 +64,12 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
-		return nil, apperrors.ErrInternalServer
+		// 如果是重复键错误，可能是因为之前的查询失败导致的，重试一次查找
+		// MySQL 重复键错误码是 1062
+		if user, retryErr := s.userRepo.FindByKeycloakID(ctx, keycloakID); retryErr == nil {
+			return user, nil
+		}
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return user, nil

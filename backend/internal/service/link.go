@@ -21,6 +21,7 @@ import (
 type LinkService struct {
 	linkRepo        *repository.ShortLinkRepository
 	userRepo        *repository.UserRepository
+	domainRepo      *repository.DomainRepository
 	accessLogService *AccessLogService // 使用访问日志服务
 	generator       *shortcode.Generator
 	baseURL         string // 短链基础域名
@@ -32,6 +33,7 @@ type LinkService struct {
 func NewLinkService(
 	linkRepo *repository.ShortLinkRepository,
 	userRepo *repository.UserRepository,
+	domainRepo *repository.DomainRepository,
 	accessLogService *AccessLogService,
 	generator *shortcode.Generator,
 	baseURL string,
@@ -41,6 +43,7 @@ func NewLinkService(
 	return &LinkService{
 		linkRepo:         linkRepo,
 		userRepo:         userRepo,
+		domainRepo:       domainRepo,
 		accessLogService: accessLogService,
 		generator:        generator,
 		baseURL:          baseURL,
@@ -56,6 +59,7 @@ type CreateLinkRequest struct {
 	Title     string    `json:"title"`
 	ExpiresAt time.Time `json:"expires_at"`
 	UserID    uint      `json:"-"`
+	DomainID  uint      `json:"domain_id"` // 域名ID，用于多域名隔离
 }
 
 // CreateLinkResponse 创建短链接响应
@@ -90,14 +94,25 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 		return nil, apperrors.ErrUserDisabled
 	}
 
-	// 检查是否去重（相同 URL 复用）
-	existingLink, err := s.linkRepo.FindByURL(ctx, req.UserID, normalizedURL)
+	// 设置默认域名ID（如果没有指定，使用默认域名1）
+	domainID := req.DomainID
+	if domainID == 0 {
+		domainID = 1
+	}
+
+	// 检查用户是否有权限使用该域名
+	if !s.checkDomainAccess(ctx, user, domainID) {
+		return nil, fmt.Errorf("user does not have permission to use this domain")
+	}
+
+	// 检查是否去重（相同 URL 复用）- 需要考虑 domain_id
+	existingLink, err := s.linkRepo.FindByURLAndDomain(ctx, req.UserID, normalizedURL, domainID)
 	if err == nil && existingLink != nil {
 		// 检查是否过期
 		if existingLink.ExpiresAt == nil || existingLink.ExpiresAt.After(time.Now()) {
 			return &CreateLinkResponse{
 				Code:        existingLink.Code,
-				ShortURL:    s.buildShortURL(existingLink.Code),
+				ShortURL:    s.buildShortURLWithDomain(existingLink.Code, domainID),
 				OriginalURL: existingLink.URL,
 				Title:       existingLink.Title,
 				ExpiresAt:   existingLink.ExpiresAt,
@@ -133,6 +148,7 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 	// 创建短链接记录
 	link := &models.ShortLink{
 		Code:      code,
+		DomainID:  domainID,
 		URL:       normalizedURL,
 		UserID:    req.UserID,
 		Title:     req.Title,
@@ -148,7 +164,7 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 
 	return &CreateLinkResponse{
 		Code:        code,
-		ShortURL:    s.buildShortURL(code),
+		ShortURL:    s.buildShortURLWithDomain(code, domainID),
 		OriginalURL: normalizedURL,
 		Title:       req.Title,
 		ExpiresAt:   expiresAt,
@@ -180,6 +196,7 @@ type ResolveOptions struct {
 	IP        string
 	UserAgent string
 	Referer   string
+	DomainID  uint // 域名ID，用于域名隔离
 }
 
 // Resolve 解析短链接（用于跳转）并记录访问日志
@@ -426,6 +443,54 @@ func (s *LinkService) buildShortURL(code string) string {
 		return fmt.Sprintf("/%s", code)
 	}
 	return fmt.Sprintf("%s/%s", s.baseURL, code)
+}
+
+// buildShortURLWithDomain 根据域名ID构建短链接 URL
+func (s *LinkService) buildShortURLWithDomain(code string, domainID uint) string {
+	if s.domainRepo != nil {
+		domain, err := s.domainRepo.FindByID(context.Background(), domainID)
+		if err == nil && domain != nil {
+			protocol := "https"
+			if !domain.SSL {
+				protocol = "http"
+			}
+			domainURL := protocol + "://" + domain.Name
+			return fmt.Sprintf("%s/%s", domainURL, code)
+		}
+	}
+	// 降级到基础URL
+	return s.buildShortURL(code)
+}
+
+// checkDomainAccess 检查用户是否有权限使用指定域名
+// 规则：
+// 1. 管理员可以使用所有域名
+// 2. 如果用户没有用户组，只能使用默认域名（ID=1）
+// 3. 如果用户有用户组，检查用户组是否被授权使用该域名
+func (s *LinkService) checkDomainAccess(ctx context.Context, user *models.User, domainID uint) bool {
+	// 管理员可以使用所有域名
+	if user.Role == models.RoleAdmin {
+		return true
+	}
+
+	// 默认域名（ID=1）对所有用户开放
+	if domainID == 1 {
+		return true
+	}
+
+	// 如果用户没有用户组，不能使用非默认域名
+	if user.GroupID == nil {
+		return false
+	}
+
+	// 检查用户组是否有权限使用该域名
+	hasAccess, err := s.domainRepo.CheckUserGroupAccessDomain(ctx, *user.GroupID, domainID)
+	if err != nil {
+		log.Printf("WARNING: Failed to check domain access: %v", err)
+		return false
+	}
+
+	return hasAccess
 }
 
 func convertLinkPtrs(links []models.ShortLink) []*models.ShortLink {

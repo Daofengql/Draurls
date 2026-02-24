@@ -31,7 +31,7 @@ func (r *APIKeyRepository) FindByKey(ctx context.Context, key string) (*models.A
 	var apiKey models.APIKey
 	err := r.db.WithContext(ctx).
 		Preload("User").
-		Where("key = ? AND status = ?", key, models.APIKeyStatusActive).
+		Where("`key` = ? AND status = ?", key, models.APIKeyStatusActive).
 		First(&apiKey).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -85,14 +85,14 @@ func (r *APIKeyRepository) Delete(ctx context.Context, id uint) error {
 // UpdateLastUsed 更新最后使用时间
 func (r *APIKeyRepository) UpdateLastUsed(ctx context.Context, key string) error {
 	return r.db.WithContext(ctx).Model(&models.APIKey{}).
-		Where("key = ?", key).
+		Where("`key` = ?", key).
 		Update("last_used_at", gorm.Expr("NOW()")).Error
 }
 
 // RevokeByKey 撤销密钥
 func (r *APIKeyRepository) RevokeByKey(ctx context.Context, key string) error {
 	return r.db.WithContext(ctx).Model(&models.APIKey{}).
-		Where("key = ?", key).
+		Where("`key` = ?", key).
 		Update("status", models.APIKeyStatusDisabled).Error
 }
 

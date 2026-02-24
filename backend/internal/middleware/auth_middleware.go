@@ -2,8 +2,11 @@ package middleware
 
 import (
 	"crypto/rsa"
-	"errors"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"math/big"
+	"net/http"
 	"strings"
 	"time"
 
@@ -18,61 +21,98 @@ import (
 type KeycloakOIDCAuthenticator struct {
 	realmURL      string
 	clientID      string
+	httpClient    *http.Client
 	publicKey     *rsa.PublicKey
 	keyExpiry     time.Time
 	keyCache      map[string]*rsa.PublicKey
 }
 
-// KeycloakPublicKey Keycloak 公钥响应
-type KeycloakPublicKey struct {
-	Keys []struct {
-		Kid string `json:"kid"`
-		Kty string `json:"kty"`
-		Alg string `json:"alg"`
-		Use string `json:"use"`
-		N   string `json:"n"`
-		E   string `json:"e"`
-	} `json:"keys"`
+// JWKSResponse JSON Web Key Set 响应
+type JWKSResponse struct {
+	Keys []JWK `json:"keys"`
+}
+
+// JWK JSON Web Key
+type JWK struct {
+	Kid string `json:"kid"` // Key ID
+	Kty string `json:"kty"` // Key Type (RSA)
+	Alg string `json:"alg"` // Algorithm (RS256)
+	N   string `json:"n"`   // Modulus (Base64 URL encoded)
+	E   string `json:"e"`   // Exponent (Base64 URL encoded)
+	Use string `json:"use"` // Public key use (sig)
 }
 
 // KeycloakClaims Keycloak JWT Claims
 type KeycloakClaims struct {
 	jwt.RegisteredClaims
-	Email    string `json:"email"`
+	Email            string `json:"email"`
 	PreferredUsername string `json:"preferred_username"`
-	Name      string `json:"name"`
-	KeycloakID string `json:"sub"` // subject is the unique user ID
+	Name             string `json:"name"`
+	Nickname         string `json:"nickname"`
+	Picture          string `json:"picture"`
+	KeycloakID       string `json:"sub"` // subject is unique user ID
+	RealmAccess      map[string]interface{} `json:"realm_access,omitempty"` // 角色信息
 }
 
 // NewKeycloakOIDCAuthenticator 创建 Keycloak OIDC 认证器
 func NewKeycloakOIDCAuthenticator(baseURL, realm, clientID string) *KeycloakOIDCAuthenticator {
 	realmURL := fmt.Sprintf("%s/realms/%s", strings.TrimSuffix(baseURL, "/"), realm)
 	return &KeycloakOIDCAuthenticator{
-		realmURL: realmURL,
+		realmURL:  realmURL,
 		clientID:  clientID,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 		keyCache:  make(map[string]*rsa.PublicKey),
 	}
 }
 
 // ExtractUserInfo 从 JWT Token 中提取用户信息
 func (k *KeycloakOIDCAuthenticator) ExtractUserInfo(tokenString string) (UserInfo, error) {
-	// 解析 JWT Token（不验证签名先，获取 header）
+	// 解析 JWT header 获取 kid
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		return nil, apperrors.ErrUnauthorized
+	}
+
+	headerB64 := parts[0]
+	// 添加 padding 如果需要
+	if len(headerB64)%4 != 0 {
+		headerB64 += strings.Repeat("=", 4-len(headerB64)%4)
+	}
+
+	headerBytes, err := base64.URLEncoding.DecodeString(headerB64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode header: %w", err)
+	}
+
+	var header map[string]interface{}
+	if err := json.Unmarshal(headerBytes, &header); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal header: %w", err)
+	}
+
+	kid, ok := header["kid"].(string)
+	if !ok {
+		return nil, apperrors.ErrUnauthorized
+	}
+
+	// 获取公钥
+	publicKey, err := k.getPublicKey(kid)
+	if err != nil {
+		return nil, err
+	}
+
+	// 验证 JWT Token
 	token, err := jwt.ParseWithClaims(tokenString, &KeycloakClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// 动态获取公钥
-		kid := token.Header["kid"].(string)
-		publicKey, err := k.getPublicKey(kid)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get public key: %w", err)
-		}
 		return publicKey, nil
 	})
 
-	if err != nil {
+	if err != nil || !token.Valid {
 		return nil, apperrors.ErrUnauthorized
 	}
 
 	claims, ok := token.Claims.(*KeycloakClaims)
-	if !ok || !token.Valid {
+	if !ok {
 		return nil, apperrors.ErrUnauthorized
 	}
 
@@ -92,29 +132,131 @@ func (k *KeycloakOIDCAuthenticator) ExtractUserInfo(tokenString string) (UserInf
 		return nil, fmt.Errorf("invalid issuer: expected %s, got %s", expectedIssuer, claims.Issuer)
 	}
 
+	// 从 realm_access 提取角色
+	role := k.extractRole(claims.RealmAccess)
+
 	return &KeycloakUserInfo{
 		KeycloakID: claims.KeycloakID,
 		Username:   claims.PreferredUsername,
 		Email:      claims.Email,
 		Name:       claims.Name,
+		Nickname:   claims.Nickname,
+		Picture:    claims.Picture,
 		Claims:     claims,
+		Role:       role,
 	}, nil
 }
 
-// getPublicKey 获取 Keycloak 公钥（带缓存）
+// extractRole 从 realm_access 提取角色
+func (k *KeycloakOIDCAuthenticator) extractRole(realmAccess map[string]interface{}) models.UserRole {
+	if realmAccess == nil {
+		return models.RoleUser // 默认为普通用户
+	}
+
+	// 检查是否有管理员角色
+	// Keycloak 默认角色: realm_admin, user, admin, offline_access
+	roles, ok := realmAccess["roles"]
+	if !ok {
+		return models.RoleUser
+	}
+
+	roleList, ok := roles.([]interface{})
+	if !ok {
+		return models.RoleUser
+	}
+
+	for _, r := range roleList {
+		if roleStr, ok := r.(string); ok {
+			if roleStr == "realm_admin" || roleStr == "admin" {
+				return models.RoleAdmin
+			}
+		}
+	}
+
+	return models.RoleUser
+}
+
+// getPublicKey 获取 Keycloak 公钥（带缓存和 JWKS 获取）
 func (k *KeycloakOIDCAuthenticator) getPublicKey(kid string) (*rsa.PublicKey, error) {
 	// 检查缓存
 	if key, ok := k.keyCache[kid]; ok && time.Now().Before(k.keyExpiry) {
 		return key, nil
 	}
 
-	// TODO: 从 Keycloak JWKS 端点获取公钥
-	// GET {realmURL}/protocol/openid-connect/certs
-	//
-	// 简化实现：这里先返回一个占位符
-	// 实际生产环境需要实现 JWKS 获取和解析
+	// 从 Keycloak JWKS 端点获取公钥
+	jwksURL := fmt.Sprintf("%s/protocol/openid-connect/certs", k.realmURL)
 
-	return nil, errors.New("public key not found, please implement JWKS fetching")
+	req, err := http.NewRequest("GET", jwksURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := k.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch JWKS: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("JWKS endpoint returned status %d", resp.StatusCode)
+	}
+
+	var jwks JWKSResponse
+	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
+		return nil, fmt.Errorf("failed to decode JWKS: %w", err)
+	}
+
+	// 找到对应的 key
+	var jwk *JWK
+	for _, key := range jwks.Keys {
+		if key.Kid == kid {
+			jwk = &key
+			break
+		}
+	}
+
+	if jwk == nil {
+		return nil, fmt.Errorf("key with kid %s not found in JWKS", kid)
+	}
+
+	// 解析 RSA 公钥
+	publicKey, err := k.parseRSAPublicKey(jwk)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RSA public key: %w", err)
+	}
+
+	// 缓存公钥，设置过期时间（Keycloak 默认 24 小时轮换）
+	k.keyCache[kid] = publicKey
+	k.keyExpiry = time.Now().Add(24 * time.Hour)
+
+	return publicKey, nil
+}
+
+// parseRSAPublicKey 从 JWK 解析 RSA 公钥
+func (k *KeycloakOIDCAuthenticator) parseRSAPublicKey(jwk *JWK) (*rsa.PublicKey, error) {
+	// 解码 modulus (n)
+	nBytes, err := base64.RawURLEncoding.DecodeString(jwk.N)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode modulus: %w", err)
+	}
+
+	n := new(big.Int).SetBytes(nBytes)
+
+	// 解码 exponent (e)，通常是很小的数字，如 65537 (0x10001)
+	eBytes, err := base64.RawURLEncoding.DecodeString(jwk.E)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode exponent: %w", err)
+	}
+
+	eInt := new(big.Int).SetBytes(eBytes)
+
+	// 构建 RSA 公钥
+	pubKey := &rsa.PublicKey{
+		N: n,
+		E: int(eInt.Int64()),
+	}
+
+	return pubKey, nil
 }
 
 // KeycloakUserInfo Keycloak 用户信息
@@ -123,65 +265,18 @@ type KeycloakUserInfo struct {
 	Username   string
 	Email      string
 	Name       string
+	Nickname   string
+	Picture    string
 	Claims     *KeycloakClaims
+	Role       models.UserRole
 }
 
 func (u *KeycloakUserInfo) GetKeycloakID() string { return u.KeycloakID }
 func (u *KeycloakUserInfo) GetUsername() string   { return u.Username }
 func (u *KeycloakUserInfo) GetEmail() string      { return u.Email }
-func (u *KeycloakUserInfo) GetRole() models.UserRole {
-	// Keycloak 中的角色映射
-	// 可以通过 claims 中的 realm_access 或 resource_access 来判断
-	return models.RoleUser // 默认为普通用户，管理员角色需要额外配置
-}
-
-// KeycloakOIDCAuthenticatorV2 使用 http client 获取公钥的版本
-// 这是完整实现，生产环境使用
-type KeycloakOIDCAuthenticatorV2 struct {
-	baseURL     string
-	realm       string
-	clientID    string
-	httpClient  HTTPClient
-}
-
-// HTTPClient HTTP 客户端接口
-type HTTPClient interface {
-	Get(url string) (*HTTPResponse, error)
-}
-
-// HTTPResponse HTTP 响应
-type HTTPResponse struct {
-	StatusCode int
-	Body       []byte
-}
-
-// NewKeycloakOIDCAuthenticatorV2 创建 Keycloak OIDC 认证器（完整版）
-func NewKeycloakOIDCAuthenticatorV2(baseURL, realm, clientID string, client HTTPClient) *KeycloakOIDCAuthenticatorV2 {
-	return &KeycloakOIDCAuthenticatorV2{
-		baseURL:    baseURL,
-		realm:      realm,
-		clientID:   clientID,
-		httpClient: client,
-	}
-}
-
-// ExtractUserInfo 从 JWT Token 中提取用户信息
-func (k *KeycloakOIDCAuthenticatorV2) ExtractUserInfo(tokenString string) (UserInfo, error) {
-	// 解析 JWT header 获取 kid
-	parts := strings.Split(tokenString, ".")
-	if len(parts) != 3 {
-		return nil, apperrors.ErrUnauthorized
-	}
-
-	// TODO: 实现 JWKS 公钥获取和 JWT 验证
-	// 1. 解码 header 获取 kid
-	// 2. 从 {baseURL}/realms/{realm}/protocol/openid-connect/certs 获取公钥
-	// 3. 验证 JWT 签名
-	// 4. 解析 claims 并返回用户信息
-
-	// 暂时返回错误，需要完整实现
-	return nil, errors.New("OIDC authentication not fully implemented")
-}
+func (u *KeycloakUserInfo) GetRole() models.UserRole { return u.Role }
+func (u *KeycloakUserInfo) GetNickname() string  { return u.Nickname }
+func (u *KeycloakUserInfo) GetPicture() string   { return u.Picture }
 
 // AuthMiddleware 认证中间件
 type AuthMiddleware struct {
@@ -199,6 +294,8 @@ type UserInfo interface {
 	GetKeycloakID() string
 	GetUsername() string
 	GetEmail() string
+	GetNickname() string
+	GetPicture() string
 	GetRole() models.UserRole
 }
 
@@ -215,28 +312,38 @@ func (m *AuthMiddleware) SetUserService(svc *service.UserService) {
 }
 
 // Authenticate 认证中间件
+// 支持 Authorization header 和 Cookie (access_token)
 func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var token string
+
+		// 1. 首先尝试从 Authorization header 获取
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(401, gin.H{"error": "missing authorization header"})
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		// 2. 如果 header 中没有，尝试从 Cookie 获取
+		if token == "" {
+			if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
+				token = cookie
+			}
+		}
+
+		// 3. 仍然没有 token，返回 401
+		if token == "" {
+			c.JSON(401, gin.H{"error": "missing authorization token"})
 			c.Abort()
 			return
 		}
-
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(401, gin.H{"error": "invalid authorization header format"})
-			c.Abort()
-			return
-		}
-
-		token := parts[1]
 
 		// 从 Token 提取用户信息
 		userInfo, err := m.oidcAuth.ExtractUserInfo(token)
 		if err != nil {
-			c.JSON(401, gin.H{"error": "invalid token", "details": err.Error()})
+			c.JSON(401, gin.H{"error": "invalid token"})
 			c.Abort()
 			return
 		}
@@ -254,6 +361,8 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 				userInfo.GetKeycloakID(),
 				userInfo.GetUsername(),
 				userInfo.GetEmail(),
+				userInfo.GetNickname(),
+				userInfo.GetPicture(),
 			)
 			if err == nil {
 				c.Set("user", user)
@@ -266,21 +375,32 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 }
 
 // OptionalAuth 可选认证中间件
+// 支持 Authorization header 和 Cookie (access_token)
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var token string
+
+		// 1. 首先尝试从 Authorization header 获取
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		// 2. 如果 header 中没有，尝试从 Cookie 获取
+		if token == "" {
+			if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
+				token = cookie
+			}
+		}
+
+		// 3. 没有 token，直接继续
+		if token == "" {
 			c.Next()
 			return
 		}
-
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.Next()
-			return
-		}
-
-		token := parts[1]
 		userInfo, err := m.oidcAuth.ExtractUserInfo(token)
 		if err != nil {
 			c.Next()
@@ -298,6 +418,8 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 				userInfo.GetKeycloakID(),
 				userInfo.GetUsername(),
 				userInfo.GetEmail(),
+				userInfo.GetNickname(),
+				userInfo.GetPicture(),
 			)
 			if err == nil {
 				c.Set("user", user)

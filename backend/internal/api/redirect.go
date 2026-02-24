@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 	"github.com/surls/backend/pkg/cache"
@@ -22,8 +23,9 @@ type RedirectHandler struct {
 	cache          *cache.LinkCache
 	rateLimiter    *cache.RateLimitService
 	redisClient    *redis.Client
+	configService  *service.ConfigService
 	siteConfig     map[string]string
-	siteConfigMu   sync.RWMutex // 保护 siteConfig 的读写锁
+	siteConfigMu   sync.RWMutex
 }
 
 // NewRedirectHandler 创建跳转处理器
@@ -32,19 +34,21 @@ func NewRedirectHandler(
 	linkCache *cache.LinkCache,
 	rateLimiter *cache.RateLimitService,
 	redisClient *redis.Client,
+	configService *service.ConfigService,
 ) *RedirectHandler {
 	return &RedirectHandler{
-		linkService: linkService,
-		cache:       linkCache,
-		rateLimiter: rateLimiter,
-		redisClient: redisClient,
-		siteConfig:  make(map[string]string),
+		linkService:   linkService,
+		cache:         linkCache,
+		rateLimiter:   rateLimiter,
+		redisClient:   redisClient,
+		configService: configService,
+		siteConfig:    make(map[string]string),
 	}
 }
 
 // LoadSiteConfig 加载站点配置
 func (h *RedirectHandler) LoadSiteConfig(ctx context.Context) error {
-	// 从 Redis 或数据库加载站点配置
+	// 先从 Redis 加载
 	val, err := h.redisClient.Get(ctx, "site:config").Result()
 	if err == nil && val != "" {
 		var newConfig map[string]string
@@ -55,7 +59,29 @@ func (h *RedirectHandler) LoadSiteConfig(ctx context.Context) error {
 		h.siteConfigMu.Lock()
 		h.siteConfig = newConfig
 		h.siteConfigMu.Unlock()
+		return nil
 	}
+
+	// Redis 没有数据，从数据库加载配置
+	dbConfig, err := h.configService.GetPublicConfig(ctx)
+	if err != nil {
+		// 如果数据库也失败，使用默认值
+		dbConfig = map[string]string{
+			models.ConfigSiteName:             "Surls",
+			models.ConfigLogoURL:             "",
+			models.ConfigRedirectPage:        "false",
+			models.ConfigEnableSignup:        "true",
+		}
+	}
+
+	// 保存到内存和 Redis
+	h.siteConfigMu.Lock()
+	h.siteConfig = dbConfig
+	h.siteConfigMu.Unlock()
+
+	configJSON, _ := json.Marshal(dbConfig)
+	h.redisClient.Set(ctx, "site:config", configJSON, 24*time.Hour)
+
 	return nil
 }
 

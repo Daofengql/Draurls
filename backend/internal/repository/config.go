@@ -21,17 +21,17 @@ func NewSiteConfigRepository(db *gorm.DB) *SiteConfigRepository {
 // Get 根据键获取配置
 func (r *SiteConfigRepository) Get(ctx context.Context, key string) (string, error) {
 	var config models.SiteConfig
-	err := r.db.WithContext(ctx).Where("key = ?", key).First(&config).Error
+	err := r.db.WithContext(ctx).Where("`key` = ?", key).First(&config).Error
 	if err != nil {
 		return "", err
 	}
 	return config.Value, nil
 }
 
-// Set 设置配置（不存在则创建，存在则更新）
+// Set 设置配置（不存���则创建，存在则更新）
 func (r *SiteConfigRepository) Set(ctx context.Context, key, value, description string) error {
 	var config models.SiteConfig
-	err := r.db.WithContext(ctx).Where("key = ?", key).First(&config).Error
+	err := r.db.WithContext(ctx).Where("`key` = ?", key).First(&config).Error
 
 	if err == gorm.ErrRecordNotFound {
 		// 创建新配置
@@ -83,7 +83,7 @@ func (r *SiteConfigRepository) BatchSet(ctx context.Context, configs map[string]
 
 // Delete 删除配置
 func (r *SiteConfigRepository) Delete(ctx context.Context, key string) error {
-	return r.db.WithContext(ctx).Where("key = ?", key).Delete(&models.SiteConfig{}).Error
+	return r.db.WithContext(ctx).Where("`key` = ?", key).Delete(&models.SiteConfig{}).Error
 }
 
 // UserGroupRepository 用户组数据访问层
