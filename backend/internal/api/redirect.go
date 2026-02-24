@@ -310,7 +310,11 @@ func (h *RedirectHandler) renderError(c *gin.Context, message string, statusCode
 </body>
 </html>`
 
-	t, _ := template.New("error").Parse(tmpl)
+	t, err := template.New("error").Parse(tmpl)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Internal error")
+		return
+	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Status(statusCode)
 	t.Execute(c.Writer, data)

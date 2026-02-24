@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	apperrors "github.com/surls/backend/internal/errors"
 	"github.com/surls/backend/internal/models"
@@ -13,6 +14,7 @@ import (
 type DomainService struct {
 	domainRepo *repository.DomainRepository
 	cache      map[string]*models.Domain // 简单的内存缓存
+	cacheMu    sync.RWMutex               // 保护缓存的读写锁
 }
 
 // NewDomainService 创建域名服务
@@ -33,10 +35,15 @@ func (s *DomainService) loadCache(ctx context.Context) error {
 		return err
 	}
 
-	s.cache = make(map[string]*models.Domain)
+	newCache := make(map[string]*models.Domain)
 	for _, domain := range domains {
-		s.cache[domain.Name] = &domain
+		newCache[domain.Name] = &domain
 	}
+
+	s.cacheMu.Lock()
+	s.cache = newCache
+	s.cacheMu.Unlock()
+
 	return nil
 }
 
@@ -178,18 +185,27 @@ func (s *DomainService) BuildShortURL(ctx context.Context, code string, domainNa
 		}
 	} else {
 		// 从缓存或数据库查找指定域名
-		var ok bool
-		domain, ok = s.cache[domainName]
-		if !ok {
+		s.cacheMu.RLock()
+		cachedDomain, ok := s.cache[domainName]
+		s.cacheMu.RUnlock()
+
+		if ok {
+			domain = cachedDomain
+		} else {
 			domain, err = s.domainRepo.FindByName(ctx, domainName)
 			if err != nil {
 				return "", err
 			}
+			// 缓存未命中，更新缓存
+			s.cacheMu.Lock()
+			s.cache[domainName] = domain
+			s.cacheMu.Unlock()
 		}
-		// 检查是否启用
-		if !domain.IsActive {
-			return "", apperrors.ErrInvalidInput
-		}
+	}
+
+	// 检查是否启用
+	if !domain.IsActive {
+		return "", apperrors.ErrInvalidInput
 	}
 
 	baseURL := s.domainRepo.BuildDomainURL(domain)
@@ -198,14 +214,24 @@ func (s *DomainService) BuildShortURL(ctx context.Context, code string, domainNa
 
 // IsValidDomain 检查域名是否有效（已配置且启用）
 func (s *DomainService) IsValidDomain(ctx context.Context, domainName string) bool {
-	domain, ok := s.cache[domainName]
-	if !ok {
-		// 缓存未命中，查询数据库
-		var err error
-		domain, err = s.domainRepo.FindByName(ctx, domainName)
-		if err != nil {
-			return false
-		}
+	s.cacheMu.RLock()
+	cachedDomain, ok := s.cache[domainName]
+	s.cacheMu.RUnlock()
+
+	if ok {
+		return cachedDomain.IsActive
 	}
+
+	// 缓存未命中，查询数据库
+	domain, err := s.domainRepo.FindByName(ctx, domainName)
+	if err != nil {
+		return false
+	}
+
+	// 更新缓存
+	s.cacheMu.Lock()
+	s.cache[domainName] = domain
+	s.cacheMu.Unlock()
+
 	return domain.IsActive
 }

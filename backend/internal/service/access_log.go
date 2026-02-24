@@ -23,10 +23,6 @@ func NewAccessLogBatchWriter(accessLogRepo *repository.AccessLogRepository, buff
 		accessLogRepo: accessLogRepo,
 		buffer:        buffer,
 	}
-
-	// 将自己注册为批量写入器
-	// 这里需要在外部设置 buffer 的 writer
-
 	return w
 }
 
