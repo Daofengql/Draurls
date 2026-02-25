@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -93,6 +94,14 @@ func main() {
 		shortcodeModeStr = "sequence"
 	}
 
+	// 获取短码长度，默认为 6
+	shortcodeLength := 6
+	if lengthStr := allConfigs[models.ConfigMaxLinkLength]; lengthStr != "" {
+		if length, err := strconv.Atoi(lengthStr); err == nil && length >= 3 && length <= 20 {
+			shortcodeLength = length
+		}
+	}
+
 	// 根据配置确定模式
 	var shortcodeGeneratorMode shortcode.GeneratorMode
 	if shortcodeModeStr == "random" {
@@ -102,12 +111,12 @@ func main() {
 	}
 
 	codeGenerator := shortcode.NewGenerator(db, &shortcode.GeneratorConfig{
-		CodeLength: 6,
+		CodeLength: shortcodeLength,
 		Blacklist:  []string{"admin", "api", "static", "assets", "config", "user", "health", "readiness", "liveness", "r"},
 		Mode:       shortcodeGeneratorMode,
 		Redis:      redisClient,
 	})
-	log.Printf("Shortcode generator initialized: mode=%s", shortcodeModeStr)
+	log.Printf("Shortcode generator initialized: mode=%s, length=%d", shortcodeModeStr, shortcodeLength)
 
 	// 初始化Repository
 	userRepo := repository.NewUserRepository(db)

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -86,7 +87,7 @@ func (s *LinkService) SetCircularCheck(fn func(url string) bool) {
 	s.circularCheck = fn
 }
 
-// updateGeneratorModeIfNeeded 检查并更新短码生成器模式（每分钟最多检查一次）
+// updateGeneratorModeIfNeeded 检查并更新短码生成器配置（每分钟最多检查一次）
 func (s *LinkService) updateGeneratorModeIfNeeded(ctx context.Context) {
 	now := time.Now()
 	s.configCheckMu.RLock()
@@ -107,7 +108,7 @@ func (s *LinkService) updateGeneratorModeIfNeeded(ctx context.Context) {
 
 	s.lastConfigCheck = now
 
-	// 从配置服务获取短码模式
+	// 从配置服务获取短码配置
 	if s.configService == nil {
 		return
 	}
@@ -137,6 +138,13 @@ func (s *LinkService) updateGeneratorModeIfNeeded(ctx context.Context) {
 		log.Printf("Shortcode mode changed: %v -> %v", s.currentMode, newMode)
 		s.generator.SetMode(newMode)
 		s.currentMode = newMode
+	}
+
+	// 获取并更新短码长度
+	if lengthStr := configs[models.ConfigMaxLinkLength]; lengthStr != "" {
+		if length, err := strconv.Atoi(lengthStr); err == nil && length >= 3 && length <= 20 {
+			s.generator.SetLength(length)
+		}
 	}
 }
 
