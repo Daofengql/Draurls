@@ -41,10 +41,9 @@ export default function ApiKeysPage() {
     setCreating(true)
     try {
       const res = await apiKeysService.create({ name: newKeyName })
-      setNewKey((res as unknown as { Key: string }).Key)
+      setNewKey(res.key)
       setNewKeyName('')
       setShowCreateModal(false)
-      loadApiKeys()
       toast.success('API密钥创建成功')
     } catch (err: any) {
       toast.error(err.message || '创建失败')
@@ -255,12 +254,18 @@ export default function ApiKeysPage() {
       {newKey && (
         <Modal
           isOpen={!!newKey}
-          onClose={() => setNewKey(null)}
+          onClose={() => {
+            setNewKey(null)
+            loadApiKeys()
+          }}
           title="API密钥创建成功"
           footer={
             <div className="flex justify-end">
               <button
-                onClick={() => setNewKey(null)}
+                onClick={() => {
+                  setNewKey(null)
+                  loadApiKeys()
+                }}
                 className="btn btn-primary"
               >
                 我已保存

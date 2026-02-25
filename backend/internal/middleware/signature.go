@@ -51,6 +51,12 @@ type SecretProvider interface {
 	GetSecret(apiKey string) (string, error)
 }
 
+// UserInfoProvider 用户信息提供者接口（扩展 SecretProvider）
+type UserInfoProvider interface {
+	SecretProvider
+	GetUserID(apiKey string) (uint, error)
+}
+
 // APIAuthMiddleware API签名认证中间件
 type APIAuthMiddleware struct {
 	config     *SignatureConfig
@@ -147,6 +153,13 @@ func (m *APIAuthMiddleware) Authenticate() gin.HandlerFunc {
 
 		// 将apiKey存入上下文供后续使用
 		c.Set("api_key", apiKey)
+
+		// 如果提供了 UserInfoProvider，设置用户ID到上下文
+		if userInfoProvider, ok := m.config.secretProvider.(UserInfoProvider); ok {
+			if userID, err := userInfoProvider.GetUserID(apiKey); err == nil {
+				c.Set("user_id", userID)
+			}
+		}
 
 		c.Next()
 	}

@@ -80,8 +80,9 @@ func (s *APIKeyService) Create(ctx context.Context, req *CreateAPIKeyRequest) (*
 		return nil, apperrors.ErrInternalServer
 	}
 
+	// 创建时返回完整密钥，之后只会返回 mask 后的
 	return &CreateAPIKeyResponse{
-		Key:       maskAPIKey(key),
+		Key:       key, // 返回完整密钥
 		Name:      apiKey.Name,
 		ExpiresAt: expiresAt,
 		CreatedAt: apiKey.CreatedAt,

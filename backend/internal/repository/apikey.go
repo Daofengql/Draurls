@@ -107,3 +107,13 @@ func (r *APIKeyRepository) GetSecret(apiKey string) (string, error) {
 	// 使用API密钥的Key字段作为签名密钥
 	return key.Key, nil
 }
+
+// GetUserID 获取API密钥所属的用户ID（实现 UserInfoProvider 接口）
+func (r *APIKeyRepository) GetUserID(apiKey string) (uint, error) {
+	// 查找API密钥
+	key, err := r.FindByKey(context.Background(), apiKey)
+	if err != nil {
+		return 0, err
+	}
+	return key.UserID, nil
+}
