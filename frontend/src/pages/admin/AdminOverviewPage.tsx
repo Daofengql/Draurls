@@ -66,24 +66,12 @@ export default function AdminOverviewPage() {
       {/* 趋势图表 */}
       {trends.length > 0 && (
         <div className="card">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-              </svg>
-              近30天趋势
-            </h2>
-            <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-blue-500 rounded" />
-                <span className="text-gray-600">点击数</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-green-500 rounded" />
-                <span className="text-gray-600">链接数</span>
-              </div>
-            </div>
-          </div>
+          <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 mb-4">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+            近30天趋势
+          </h2>
           <div className="h-48 sm:h-64">
             <TrendChart data={trends} />
           </div>
@@ -212,35 +200,145 @@ function TrendChart({ data }: { data: TrendData[] }) {
     return `${date.getMonth() + 1}/${date.getDate()}`
   }
 
+  // SVG 尺寸配置
+  const svgWidth = 800
+  const svgHeight = 200
+  const padding = { top: 20, right: 20, bottom: 20, left: 40 }
+
+  // 计算绘图区域
+  const plotWidth = svgWidth - padding.left - padding.right
+  const plotHeight = svgHeight - padding.top - padding.bottom
+
+  // 生成点击数据路径
+  const clicksPath = data.map((item, i) => {
+    const x = padding.left + (i / (data.length - 1)) * plotWidth
+    const y = padding.top + plotHeight - (item.clicks / maxValues.clicks) * plotHeight
+    return `${x},${y}`
+  }).join(' ')
+
+  // 生成链接数据路径（缩放到同一高度范围，避免差异太大）
+  const linksPath = data.map((item, i) => {
+    const x = padding.left + (i / (data.length - 1)) * plotWidth
+    const y = padding.top + plotHeight - (item.links / maxValues.links) * plotHeight
+    return `${x},${y}`
+  }).join(' ')
+
+  // 生成数据点
+  const clicksPoints = data.map((item, i) => {
+    const x = padding.left + (i / (data.length - 1)) * plotWidth
+    const y = padding.top + plotHeight - (item.clicks / maxValues.clicks) * plotHeight
+    return { x, y, value: item.clicks, date: item.date }
+  })
+
+  const linksPoints = data.map((item, i) => {
+    const x = padding.left + (i / (data.length - 1)) * plotWidth
+    const y = padding.top + plotHeight - (item.links / maxValues.links) * plotHeight
+    return { x, y, value: item.links, date: item.date }
+  })
+
+  // Y轴刻度
+  const yAxisTicks = [0, 25, 50, 75, 100].map(pct => ({
+    y: padding.top + plotHeight - (pct / 100) * plotHeight,
+    label: Math.round(maxValues.clicks * pct / 100)
+  }))
+
   return (
-    <div className="h-full flex items-end gap-1">
+    <div className="h-full w-full relative">
+      <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+        {/* Y轴标签 */}
+        {yAxisTicks.map((tick, i) => (
+          <text
+            key={i}
+            x={padding.left - 8}
+            y={tick.y + 4}
+            textAnchor="end"
+            className="fill-gray-400 text-xs"
+          >
+            {tick.label}
+          </text>
+        ))}
+
+        {/* 水平网格线 */}
+        {[0, 25, 50, 75, 100].map((pct, i) => (
+          <line
+            key={i}
+            x1={padding.left}
+            y1={padding.top + plotHeight - (pct / 100) * plotHeight}
+            x2={svgWidth - padding.right}
+            y2={padding.top + plotHeight - (pct / 100) * plotHeight}
+            stroke="#e5e7eb"
+            strokeWidth="1"
+          />
+        ))}
+
+        {/* 点击折线 */}
+        <polyline
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="2"
+          points={clicksPath}
+        />
+
+        {/* 链接折线 */}
+        <polyline
+          fill="none"
+          stroke="#22c55e"
+          strokeWidth="2"
+          points={linksPath}
+        />
+
+        {/* 点击数据点 */}
+        {clicksPoints.map((point, i) => (
+          <circle
+            key={`click-${i}`}
+            cx={point.x}
+            cy={point.y}
+            r="4"
+            fill="#3b82f6"
+            className="hover:r-5 transition-all cursor-pointer"
+          />
+        ))}
+
+        {/* 链接数据点 */}
+        {linksPoints.map((point, i) => (
+          <circle
+            key={`link-${i}`}
+            cx={point.x}
+            cy={point.y}
+            r="4"
+            fill="#22c55e"
+            className="hover:r-5 transition-all cursor-pointer"
+          />
+        ))}
+      </svg>
+
+      {/* 图例 - 右上角 */}
+      <div className="absolute top-0 right-0 flex gap-4 text-xs bg-white/80 px-2 py-1 rounded">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+          <span className="text-gray-600">点击数</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <span className="text-gray-600">链接数</span>
+        </div>
+      </div>
+
+      {/* 悬停提示 */}
       {data.map((item, i) => (
         <div
           key={i}
-          className="flex-1 flex flex-col gap-0.5 group relative"
-          title={`${item.date}: ${item.links} 链接, ${item.clicks} 点击`}
+          className="absolute inset-0 group"
+          style={{
+            left: `${((i / (data.length - 1)) * plotWidth / svgWidth) * 100}%`,
+            width: `${(plotWidth / (data.length - 1) / svgWidth) * 100}%`,
+            top: 0,
+            height: '100%'
+          }}
         >
-          {/* Tooltip */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
             {formatDate(item.date)}: {item.links} 链接, {item.clicks} 点击
           </div>
-
-          {/* 点击条 */}
-          <div
-            className="bg-blue-500 hover:bg-blue-600 transition-colors rounded-t"
-            style={{
-              height: `${(item.clicks / maxValues.clicks) * 80}%`,
-              minHeight: item.clicks > 0 ? '2px' : '0',
-            }}
-          />
-          {/* 链接条 */}
-          <div
-            className="bg-green-500 hover:bg-green-600 transition-colors rounded-t"
-            style={{
-              height: `${(item.links / maxValues.links) * 20}%`,
-              minHeight: item.links > 0 ? '2px' : '0',
-            }}
-          />
         </div>
       ))}
     </div>

@@ -35,7 +35,7 @@ type ConfigDetail struct {
 // UpdateConfigRequest 更新配置请求
 type UpdateConfigRequest struct {
 	Key         string `json:"key" binding:"required"`
-	Value       string `json:"value" binding:"required"`
+	Value       string `json:"value"`
 	Description string `json:"description"`
 }
 
@@ -49,7 +49,6 @@ var predefinedConfigs = map[string]string{
 	models.ConfigSiteName:       "站点名称",
 	models.ConfigLogoURL:        "Logo URL",
 	models.ConfigRedirectPage:   "是否启用跳转中间页 (true/false)",
-	models.ConfigDefaultQuota:   "默认用户配额",
 	models.ConfigMaxLinkLength:  "最大短链长度",
 	models.ConfigEnableSignup:   "是否允许用户注��� (true/false)",
 	models.ConfigShortcodeMode:  "短码生成模式 (random/sequence)",

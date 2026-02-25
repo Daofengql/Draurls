@@ -27,6 +27,7 @@ type LinkService struct {
 	baseURL         string // 短链基础域名
 	clickCounter    *cache.ClickCounter // 点击计数器
 	workerPool      *worker.Pool // Worker Pool 用于异步任务
+	circularCheck    func(url string) bool // 循环链接检测函数
 }
 
 // NewLinkService 创建短链接服务
@@ -49,6 +50,7 @@ func NewLinkService(
 		baseURL:          baseURL,
 		clickCounter:     clickCounter,
 		workerPool:       workerPool,
+		circularCheck:    func(url string) bool { return false }, // 默认不检测
 	}
 }
 
@@ -71,6 +73,11 @@ type CreateLinkResponse struct {
 	ExpiresAt   *time.Time `json:"expires_at"`
 }
 
+// SetCircularCheck 设置循环链接检测函数
+func (s *LinkService) SetCircularCheck(fn func(url string) bool) {
+	s.circularCheck = fn
+}
+
 // Create 创建短链接
 func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*CreateLinkResponse, error) {
 	// 规范化 URL
@@ -82,6 +89,11 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 	// 验证 URL 有效性
 	if !urlutil.IsValidURL(normalizedURL) {
 		return nil, apperrors.ErrInvalidInput
+	}
+
+	// 检查循环链接（防止指向本系统自己的 URL）
+	if s.circularCheck != nil && s.circularCheck(normalizedURL) {
+		return nil, fmt.Errorf("cannot create short link to internal URL")
 	}
 
 	// 获取用户信息（用于事务中配额检查）

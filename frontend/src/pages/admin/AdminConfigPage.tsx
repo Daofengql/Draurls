@@ -6,7 +6,9 @@ interface ConfigItem {
   key: string
   value: string
   description: string
-  type: 'text' | 'number' | 'boolean' | 'textarea'
+  type: 'text' | 'number' | 'boolean' | 'textarea' | 'select'
+  options?: string[]
+  optionLabels?: string[]
 }
 
 const configDefinitions: ConfigItem[] = [
@@ -29,12 +31,6 @@ const configDefinitions: ConfigItem[] = [
     type: 'boolean',
   },
   {
-    key: 'default_quota',
-    value: '100',
-    description: '默认用户配额（-1为无限）',
-    type: 'number',
-  },
-  {
     key: 'max_link_length',
     value: '10',
     description: '最大短链长度',
@@ -48,9 +44,11 @@ const configDefinitions: ConfigItem[] = [
   },
   {
     key: 'shortcode_mode',
-    value: 'random',
-    description: '短码生成模式（random/sequence）',
-    type: 'text',
+    value: 'sequence',
+    description: '短码生成模式',
+    type: 'select',
+    options: ['random', 'sequence'],
+    optionLabels: ['随机字符串', '数据库自增'],
   },
   {
     key: 'allow_custom_shortcode',
@@ -107,10 +105,12 @@ export default function AdminConfigPage() {
         configMap[c.key] = c.value
       })
       await configService.batchUpdate(configMap)
-      toast.success('所有配置已保存')
+      toast.success('所有配置已保存，页面即将刷新')
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
     } catch (err: any) {
       toast.error(err.message || '保存失败')
-    } finally {
       setSaving(false)
     }
   }
@@ -118,6 +118,26 @@ export default function AdminConfigPage() {
   const renderInput = (config: ConfigItem) => {
     const handleChange = (value: string) => {
       setConfigs(configs.map((c) => (c.key === config.key ? { ...c, value } : c)))
+    }
+
+    if (config.type === 'select') {
+      return (
+        <select
+          value={config.value}
+          onChange={(e) => {
+            const newValue = e.target.value
+            handleChange(newValue)
+            handleUpdate(config.key, newValue)
+          }}
+          className="input w-full sm:max-w-xs text-sm"
+        >
+          {config.options?.map((opt, idx) => (
+            <option key={opt} value={opt}>
+              {config.optionLabels?.[idx] || opt}
+            </option>
+          ))}
+        </select>
+      )
     }
 
     if (config.type === 'boolean') {

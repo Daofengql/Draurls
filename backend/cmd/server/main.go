@@ -137,6 +137,9 @@ func main() {
 	templateHandler := api.NewTemplateHandler(templateService)
 	authHandler := api.NewAuthHandler(cfg)
 
+	// 设置循环链接检测（需要在 redirectHandler 初始化后）
+	linkService.SetCircularCheck(redirectHandler.CheckCircular)
+
 	// 设置Gin模式
 	gin.SetMode(cfg.Server.Mode)
 

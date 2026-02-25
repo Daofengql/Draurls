@@ -120,7 +120,6 @@ INSERT INTO site_config (`key`, value, description) VALUES
 ('site_name', 'Draurls', '站点名称'),
 ('logo_url', '', 'Logo URL'),
 ('redirect_page_enabled', 'false', '是否启用跳转页'),
-('default_quota', '-1', '默认配额'),
 ('max_link_length', '10', '最大短码长度'),
 ('enable_signup', 'true', '是否开放注册')
 ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
