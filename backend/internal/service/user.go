@@ -28,10 +28,38 @@ func NewUserService(
 }
 
 // GetOrCreateUser 根据Keycloak ID获取或创建用户
+// 如果用户已存在，会更新其 Nickname、Picture 等可能变化的信息
 func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username, email, nickname, picture string) (*models.User, error) {
 	// 尝试查找现有用户
 	user, err := s.userRepo.FindByKeycloakID(ctx, keycloakID)
 	if err == nil {
+		// 用户已存在，检查是否需要更新信息
+		updated := false
+		if user.Nickname != nickname && nickname != "" {
+			user.Nickname = nickname
+			updated = true
+		}
+		if user.Picture != picture && picture != "" {
+			user.Picture = picture
+			updated = true
+		}
+		if user.Username != username && username != "" {
+			user.Username = username
+			updated = true
+		}
+		if user.Email != email && email != "" {
+			user.Email = email
+			updated = true
+		}
+
+		// 如果有更新，保存到数据库
+		if updated {
+			user.UpdatedAt = time.Now()
+			if err := s.userRepo.Update(ctx, user); err != nil {
+				// 更新失败不影响返回用户，只是记录日志
+				// 生产环境应该记录日志
+			}
+		}
 		return user, nil
 	}
 

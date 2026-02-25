@@ -1,70 +1,72 @@
 // 用户类型
+// 【前置逻辑说明】后端 Go 模型使用驼峰命名，没有 json 标签
+// 所以 JSON 返回的字段名也是驼峰格式，需要与后端保持一致
 export interface User {
-  id: number
-  keycloak_id: string
-  username: string
-  email: string
-  nickname?: string
-  picture?: string
-  role: 'admin' | 'user'
-  group_id?: number
-  quota: number
-  quota_used: number
-  status: 'active' | 'disabled' | 'deleted'
-  created_at: string
-  updated_at: string
+  ID: number
+  KeycloakID: string
+  Username: string
+  Email: string
+  Nickname?: string
+  Picture?: string
+  Role: 'admin' | 'user'
+  GroupID?: number
+  Quota: number
+  QuotaUsed: number
+  Status: 'active' | 'disabled' | 'deleted'
+  CreatedAt: string
+  UpdatedAt: string
 }
 
 // 用户组类型
 export interface UserGroup {
-  id: number
-  name: string
-  description: string
-  default_quota: number
-  created_at: string
-  updated_at: string
+  ID: number
+  Name: string
+  Description: string
+  DefaultQuota: number
+  CreatedAt: string
+  UpdatedAt: string
 }
 
 // 域名类型
 export interface Domain {
-  id: number
-  name: string
-  is_active: boolean
-  is_default: boolean
-  ssl: boolean
-  description?: string
-  created_at: string
-  updated_at: string
+  ID: number
+  Name: string
+  IsActive: boolean
+  IsDefault: boolean
+  SSL: boolean
+  Description?: string
+  CreatedAt: string
+  UpdatedAt: string
 }
 
 // 短链接类型
 export interface ShortLink {
-  id: number
-  code: string
-  url: string
-  domain_id: number
-  domain?: Domain
-  user_id: number
-  title?: string
-  expires_at?: string
-  click_count: number
-  last_click_at?: string
-  status: 'active' | 'disabled' | 'expired'
-  created_at: string
-  updated_at: string
+  ID: number
+  Code: string
+  URL: string
+  DomainID: number
+  Domain?: Domain
+  UserID: number
+  Title?: string
+  ExpiresAt?: string
+  ClickCount: number
+  LastClickAt?: string
+  Status: 'active' | 'disabled' | 'expired'
+  CreatedAt: string
+  UpdatedAt: string
 }
 
 // API密钥类型
 export interface APIKey {
-  id: number
-  key: string
-  name: string
-  user_id: number
-  expires_at?: string
-  last_used_at?: string
-  status: 'active' | 'disabled' | 'expired'
-  created_at: string
-  updated_at: string
+  ID: number
+  Key: string
+  Name: string
+  UserID: number
+  ExpiresAt?: string
+  LastUsedAt?: string
+  Status: 'active' | 'disabled' | 'expired'
+  CreatedAt: string
+  UpdatedAt: string
 }
 
 // 站点配置类型
@@ -78,12 +80,30 @@ export interface SiteConfig {
   enable_signup: boolean
 }
 
-// 分页响应类型
+// 分页响应类型（前端期望格式）
 export interface PaginatedResponse<T> {
   data: T[]
   total: number
   page: number
   page_size: number
+}
+
+// 后端返回的分页格式（links 字段而非 data 字段）
+export interface BackendPaginatedLinksResponse {
+  links: any[]
+  total: number
+  page: number
+  page_size: number
+  total_page: number
+}
+
+// 后端用户列表分页格式
+export interface BackendPaginatedUsersResponse {
+  users: any[]
+  total: number
+  page: number
+  page_size: number
+  total_page: number
 }
 
 // API响应类型
@@ -107,4 +127,73 @@ export interface APIError {
   code: string
   message: string
   details?: unknown
+}
+
+// 访问日志类型
+export interface AccessLog {
+  id: number
+  link_id: number
+  ip: string
+  user_agent?: string
+  referer?: string
+  created_at: string
+}
+
+// 跳转模板类型
+export interface RedirectTemplate {
+  id: number
+  name: string
+  description?: string
+  content: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+// 用户配额状态
+export interface QuotaStatus {
+  quota: number
+  quota_used: number
+  quota_left: number
+  percentage: number
+  quota_source: 'user' | 'group' | 'unlimited'
+  group_name?: string
+}
+
+// 仪表盘统计
+export interface DashboardStats {
+  total_links: number
+  total_clicks: number
+  today_clicks: number
+  recent_links?: ShortLink[]
+}
+
+// 管理员统计
+export interface AdminSummary {
+  total_users: number
+  active_users: number
+  today_users: number
+  total_links: number
+  active_links?: number
+  today_links: number
+  total_clicks: number
+  today_clicks: number
+  uptime_seconds?: number
+  db_connections?: number
+}
+
+// 趋势数据（注意：后端返回的是嵌套在 daily_data 中的数组）
+export interface TrendDataResponse {
+  start_date: string
+  end_date: string
+  days: number
+  daily_data: TrendData[]
+}
+
+// 趋势数据
+export interface TrendData {
+  date: string
+  links: number
+  clicks: number
+  users: number
 }

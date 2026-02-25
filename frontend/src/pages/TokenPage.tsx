@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
 // 从 Cookie 读取 token 的辅助函数
 const getCookie = (name: string): string => {
   const value = '; ' + document.cookie
@@ -28,8 +30,9 @@ export default function TokenPage() {
       return
     }
 
-    // 获取用户信息
-    fetch('http://localhost:8080/api/user/profile', {
+    // 获取用户信息 - 使用相对路径或配置的 API URL
+    const apiUrl = API_BASE_URL ? `${API_BASE_URL}/api/user/profile` : '/api/user/profile'
+    fetch(apiUrl, {
       credentials: 'include',
     })
       .then(res => res.json())
@@ -57,7 +60,8 @@ export default function TokenPage() {
   const handleLogout = async () => {
     // 调用登出接口
     const refreshToken = getCookie('refresh_token')
-    await fetch('http://localhost:8080/api/auth/logout', {
+    const logoutUrl = API_BASE_URL ? `${API_BASE_URL}/api/auth/logout` : '/api/auth/logout'
+    await fetch(logoutUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -89,26 +93,26 @@ export default function TokenPage() {
                 <label className="label">用户信息</label>
                 <div className="mt-1 p-4 bg-gray-50 rounded border">
                   {/* 头像 */}
-                  {userInfo.Picture || userInfo.picture ? (
+                  {userInfo.Picture ? (
                     <div className="mb-4">
                       <img
-                        src={userInfo.Picture || userInfo.picture}
+                        src={userInfo.Picture}
                         alt="头像"
                         className="w-16 h-16 rounded-full"
                       />
                     </div>
                   ) : null}
-                  <p><strong>ID:</strong> {userInfo.ID || userInfo.id}</p>
-                  <p><strong>Keycloak ID:</strong> {userInfo.KeycloakID || userInfo.keycloak_id}</p>
-                  <p><strong>用户名:</strong> {userInfo.Username || userInfo.username}</p>
-                  {userInfo.Nickname || userInfo.nickname ? (
-                    <p><strong>昵称:</strong> {userInfo.Nickname || userInfo.nickname}</p>
+                  <p><strong>ID:</strong> {userInfo.ID}</p>
+                  <p><strong>Keycloak ID:</strong> {userInfo.KeycloakID}</p>
+                  <p><strong>用户名:</strong> {userInfo.Username}</p>
+                  {userInfo.Nickname ? (
+                    <p><strong>昵称:</strong> {userInfo.Nickname}</p>
                   ) : null}
-                  <p><strong>邮箱:</strong> {userInfo.Email || userInfo.email}</p>
-                  <p><strong>角色:</strong> {userInfo.Role || userInfo.role}</p>
-                  <p><strong>配额:</strong> {(userInfo.Quota || userInfo.quota) === -1 ? '无限制' : (userInfo.Quota || userInfo.quota)}</p>
-                  <p><strong>已用:</strong> {userInfo.QuotaUsed || userInfo.quota_used}</p>
-                  <p><strong>状态:</strong> {userInfo.Status || userInfo.status}</p>
+                  <p><strong>邮箱:</strong> {userInfo.Email}</p>
+                  <p><strong>角色:</strong> {userInfo.Role}</p>
+                  <p><strong>配额:</strong> {userInfo.Quota === -1 ? '无限制' : userInfo.Quota}</p>
+                  <p><strong>已用:</strong> {userInfo.QuotaUsed}</p>
+                  <p><strong>状态:</strong> {userInfo.Status}</p>
                 </div>
               </div>
             )}
@@ -138,7 +142,7 @@ export default function TokenPage() {
             <div>
               <label className="label">cURL 示例</label>
               <div className="mt-1 p-4 bg-gray-900 rounded text-green-400 text-sm overflow-x-auto">
-                <pre>curl http://localhost:8080/api/links \</pre>
+                <pre>{`curl ${API_BASE_URL || 'http://localhost:8080'}/api/links \\`}</pre>
                 <pre>  -H "Authorization: Bearer YOUR_TOKEN" \</pre>
                 <pre>  -H "Content-Type: application/json" \</pre>
                 <pre>{'  -d \'{"url":"https://example.com"}\''}</pre>

@@ -1,5 +1,7 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
+import { usersService } from '@/services/users'
 
 const navItems = [
   { path: '/dashboard', label: '仪表盘' },
@@ -10,11 +12,30 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation()
-  const { user, clearAuth } = useAuthStore()
-  const isAdmin = user?.role === 'admin'
+  const navigate = useNavigate()
+  const { user, setUser, clearAuth } = useAuthStore()
+  const isAdmin = user?.Role === 'admin'
 
   // 显示名称：优先使用 nickname，其次 username
-  const displayName = user?.nickname || user?.username
+  const displayName = user?.Nickname || user?.Username
+
+  // 如果没有用户信息，尝试获取
+  useEffect(() => {
+    if (!user || !user.Username) {
+      usersService.getProfile()
+        .then((userData) => {
+          if (userData) {
+            setUser(userData)
+          }
+        })
+        .catch(() => {
+          // 获取失败，可能认证已过期
+          clearAuth()
+          navigate('/login')
+        })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -42,7 +63,7 @@ export default function Layout() {
                   <Link
                     to="/admin"
                     className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      location.pathname === '/admin'
+                      location.pathname.startsWith('/admin')
                         ? 'bg-blue-100 text-blue-700'
                         : 'text-gray-700 hover:text-gray-900'
                     }`}
@@ -54,22 +75,24 @@ export default function Layout() {
             </div>
             <div className="flex items-center space-x-4">
               {/* 头像 */}
-              {user?.picture ? (
+              {user?.Picture ? (
                 <img
-                  src={user.picture}
+                  src={user.Picture}
                   alt={displayName}
                   className="w-8 h-8 rounded-full"
                 />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                  {displayName?.charAt(0).toUpperCase()}
+                  {displayName?.charAt(0).toUpperCase() || '?'}
                 </div>
               )}
               <span className="text-sm text-gray-700">
-                {displayName}
-                <span className="ml-2 text-xs text-gray-500">
-                  配额: {user?.quota === -1 ? '无限' : `${user?.quota_used}/${user?.quota}`}
-                </span>
+                {displayName || '加载中...'}
+                {user && user.Quota !== undefined && (
+                  <span className="ml-2 text-xs text-gray-500">
+                    配额: {user?.Quota === -1 ? '无限' : `${user?.QuotaUsed}/${user?.Quota}`}
+                  </span>
+                )}
               </span>
               <button
                 onClick={clearAuth}

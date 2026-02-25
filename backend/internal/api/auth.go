@@ -173,6 +173,21 @@ func (h *AuthHandler) KeycloakCallback(c *gin.Context) {
 		)
 	}
 
+	// 同时保存 id_token，用于获取用户信息（包含 nickname, picture 等）
+	// id_token 的过期时间通常与 access_token 相同
+	if tokenResp.IDToken != "" {
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(
+			"id_token",
+			tokenResp.IDToken,
+			int(tokenResp.ExpiresIn),
+			"/",
+			cookieDomain,
+			secure,
+			httpOnly,
+		)
+	}
+
 	// 4. 返回 HTML 页面，通知父窗口登录成功
 	h.renderCallbackPage(c, true, "Login successful", redirectTo)
 }
@@ -481,6 +496,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	c.SetSameSite(http.SameSiteStrictMode)
 	c.SetCookie("access_token", "", -1, "/", cookieDomain, secure, true)
+	c.SetCookie("id_token", "", -1, "/", cookieDomain, secure, true)
 	c.SetCookie("refresh_token", "", -1, "/", cookieDomain, secure, true)
 
 	response.Success(c, gin.H{"message": "logged out successfully"})

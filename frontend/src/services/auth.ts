@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+// 【前置逻辑说明】
+// 统一使用 VITE_API_URL 环境变量，与 api.ts 保持一致
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 interface LoginURLResponse {
   login_url: string
@@ -112,33 +114,68 @@ export class AuthService {
         `width=${width},height=${height},left=${left},top=${top},resizable=no,scrollbars=yes`,
       )
 
+      console.log('Login window opened:', loginWindow)
+
       if (!loginWindow) {
         reject(new Error('无法打开登录窗口，请检查弹窗是否被阻止'))
         return
       }
 
+      // 用于跟踪是否已收到消息
+      let messageReceived = false
+
       // 监听来自回调窗口的消息
-      const messageHandler = (event: MessageEvent) => {
+      const messageHandler = async (event: MessageEvent) => {
+        console.log('Received postMessage:', event)
+        console.log('Event origin:', event.origin)
+
         // 验证消息来源（生产环境应该更严格地验证）
         const allowedOrigins = [
           'http://localhost:8080',
           'http://localhost:3000',
           'http://localhost:5173',
+          window.location.origin,
         ]
 
         if (!allowedOrigins.includes(event.origin)) {
+          console.log('Origin not in allowed list:', event.origin)
           return
         }
 
-        const { type, message, redirectTarget } = event.data
+        const { type, message } = event.data
+        console.log('Message data:', event.data)
 
         if (type === 'LOGIN_SUCCESS') {
-          // 登录成功，延迟关闭监听器以确保 Cookie 已设置
-          setTimeout(() => {
-            window.removeEventListener('message', messageHandler)
+          console.log('LOGIN_SUCCESS received')
+          messageReceived = true
+          window.removeEventListener('message', messageHandler)
+
+          // 登录成功，等待 Cookie 设置完成
+          // 先尝试获取用户信息来验证
+          await new Promise(r => setTimeout(r, 1000))
+
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+              credentials: 'include',
+            })
+            if (response.ok) {
+              // Cookie 已经有效
+              console.log('Cookie verified, resolving login')
+              resolve(true)
+            } else {
+              // Cookie 还没设置好，再等一下
+              await new Promise(r => setTimeout(r, 1000))
+              console.log('Cookie may not be set yet, but resolving')
+              resolve(true)
+            }
+          } catch (e) {
+            console.error('Profile fetch error:', e)
+            // 即使获取失败也认为登录成功（可能是网络问题）
             resolve(true)
-          }, 500)
+          }
         } else if (type === 'LOGIN_FAILED') {
+          console.log('LOGIN_FAILED received:', message)
+          messageReceived = true
           window.removeEventListener('message', messageHandler)
           reject(new Error(message || '登录失败'))
         }
@@ -147,22 +184,30 @@ export class AuthService {
       window.addEventListener('message', messageHandler)
 
       // 获取登录 URL 并在新窗口中打开
-      this.getLoginURL(window.location.pathname).then(({ loginUrl }) => {
+      console.log('Fetching login URL...')
+      // 使用前端完整的 URL 作为 redirect_to
+      const redirectUrl = window.location.origin + '/dashboard'
+      this.getLoginURL(redirectUrl).then(({ loginUrl }) => {
+        console.log('Login URL fetched, navigating popup to:', loginUrl)
         loginWindow!.location.href = loginUrl
       }).catch((err) => {
+        console.error('Failed to get login URL:', err)
         loginWindow?.close()
         window.removeEventListener('message', messageHandler)
         reject(err)
       })
 
-      // 检查窗口是否被关闭
-      const checkClosed = setInterval(() => {
-        if (loginWindow.closed) {
-          clearInterval(checkClosed)
-          window.removeEventListener('message', messageHandler)
-          resolve(false) // 用户关闭了窗口，视为取消登录
-        }
-      }, 1000)
+      // 检查窗口是否被关闭 - 延迟启动以避免在页面加载期间误判
+      setTimeout(() => {
+        const checkClosed = setInterval(() => {
+          if (loginWindow.closed && !messageReceived) {
+            console.log('Login window was closed by user')
+            clearInterval(checkClosed)
+            window.removeEventListener('message', messageHandler)
+            resolve(false) // 用户关闭了窗口，视为取消登录
+          }
+        }, 500)
+      }, 3000) // 3秒后开始检查，给页面跳转和加载留出充足时间
     })
   }
 }

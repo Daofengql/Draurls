@@ -135,13 +135,25 @@ func (k *KeycloakOIDCAuthenticator) ExtractUserInfo(tokenString string) (UserInf
 	// 从 realm_access 提取角色
 	role := k.extractRole(claims.RealmAccess)
 
+	// 处理 Nickname 和 Picture
+	// Keycloak 默认不返回 nickname 和 picture 字段
+	// 如果 nickname 为空，使用 name 或 preferred_username 作为 fallback
+	nickname := claims.Nickname
+	if nickname == "" {
+		if claims.Name != "" {
+			nickname = claims.Name
+		} else {
+			nickname = claims.PreferredUsername
+		}
+	}
+
 	return &KeycloakUserInfo{
 		KeycloakID: claims.KeycloakID,
 		Username:   claims.PreferredUsername,
 		Email:      claims.Email,
 		Name:       claims.Name,
-		Nickname:   claims.Nickname,
-		Picture:    claims.Picture,
+		Nickname:   nickname,
+		Picture:    claims.Picture, // Keycloak 默认不返回此字段
 		Claims:     claims,
 		Role:       role,
 	}, nil
@@ -312,7 +324,7 @@ func (m *AuthMiddleware) SetUserService(svc *service.UserService) {
 }
 
 // Authenticate 认证中间件
-// 支持 Authorization header 和 Cookie (access_token)
+// 支持 Authorization header 和 Cookie (优先使用 id_token，其次是 access_token)
 func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var token string
@@ -327,9 +339,12 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		}
 
 		// 2. 如果 header 中没有，尝试从 Cookie 获取
+		// 优先使用 id_token（包含 nickname, picture 等用户信息）
 		if token == "" {
-			if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
-				token = cookie
+			if idToken, err := c.Cookie("id_token"); err == nil && idToken != "" {
+				token = idToken
+			} else if accessToken, err := c.Cookie("access_token"); err == nil && accessToken != "" {
+				token = accessToken
 			}
 		}
 
@@ -375,7 +390,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 }
 
 // OptionalAuth 可选认证中间件
-// 支持 Authorization header 和 Cookie (access_token)
+// 支持 Authorization header 和 Cookie (优先使用 id_token，其次是 access_token)
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var token string
@@ -390,9 +405,12 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 		}
 
 		// 2. 如果 header 中没有，尝试从 Cookie 获取
+		// 优先使用 id_token（包含 nickname, picture 等用户信息）
 		if token == "" {
-			if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
-				token = cookie
+			if idToken, err := c.Cookie("id_token"); err == nil && idToken != "" {
+				token = idToken
+			} else if accessToken, err := c.Cookie("access_token"); err == nil && accessToken != "" {
+				token = accessToken
 			}
 		}
 
