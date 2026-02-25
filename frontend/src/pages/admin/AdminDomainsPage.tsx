@@ -97,9 +97,9 @@ export default function AdminDomainsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">域名管理</h2>
-        <button onClick={handleCreate} className="btn btn-primary">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold">域名管理</h2>
+        <button onClick={handleCreate} className="btn btn-primary w-full sm:w-auto">
           添加域名
         </button>
       </div>
@@ -110,36 +110,30 @@ export default function AdminDomainsPage() {
         ) : domains.length === 0 ? (
           <div className="text-center py-8 text-gray-500">暂无域名</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4">域名</th>
-                  <th className="text-left py-3 px-4">描述</th>
-                  <th className="text-left py-3 px-4">协议</th>
-                  <th className="text-left py-3 px-4">状态</th>
-                  <th className="text-left py-3 px-4">默认</th>
-                  <th className="text-left py-3 px-4">创建时间</th>
-                  <th className="text-right py-3 px-4">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {domains.map((domain) => (
-                  <tr key={domain.ID} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{domain.Name}</span>
-                        {domain.IsDefault && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                            默认
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {domain.Description || '-'}
-                    </td>
-                    <td className="py-3 px-4">
+          <>
+            {/* 移动端卡片布局 */}
+            <div className="sm:hidden space-y-4">
+              {domains.map((domain) => (
+                <div key={domain.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{domain.Name}</span>
+                      {domain.IsDefault && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                          默认
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {domain.Description && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">描述</p>
+                      <p className="text-sm text-gray-600">{domain.Description}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">协议</p>
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           domain.SSL
@@ -149,8 +143,9 @@ export default function AdminDomainsPage() {
                       >
                         {domain.SSL ? 'HTTPS' : 'HTTP'}
                       </span>
-                    </td>
-                    <td className="py-3 px-4">
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">状态</p>
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           domain.IsActive
@@ -160,43 +155,127 @@ export default function AdminDomainsPage() {
                       >
                         {domain.IsActive ? '启用' : '禁用'}
                       </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      {!domain.IsDefault && (
-                        <button
-                          onClick={() => handleSetDefault(domain.ID)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
+                    </div>
+                  </div>
+                  <div className="text-sm">
+                    <p className="text-xs text-gray-500 mb-1">创建时间</p>
+                    <p className="text-gray-600">{formatDateTime(domain.CreatedAt)}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                    {!domain.IsDefault && (
+                      <button
+                        onClick={() => handleSetDefault(domain.ID)}
+                        className="text-xs px-3 py-1.5 text-purple-600 hover:bg-purple-50 rounded"
+                      >
+                        设为默认
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleEdit(domain)}
+                      className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                    >
+                      编辑
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(domain)}
+                      className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 桌面端表格布局 */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4">域名</th>
+                    <th className="text-left py-3 px-4">描述</th>
+                    <th className="text-left py-3 px-4">协议</th>
+                    <th className="text-left py-3 px-4">状态</th>
+                    <th className="text-left py-3 px-4">默认</th>
+                    <th className="text-left py-3 px-4">创建时间</th>
+                    <th className="text-right py-3 px-4">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {domains.map((domain) => (
+                    <tr key={domain.ID} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{domain.Name}</span>
+                          {domain.IsDefault && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                              默认
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {domain.Description || '-'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${
+                            domain.SSL
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
                         >
-                          设为默认
-                        </button>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-500">
-                      {formatDateTime(domain.CreatedAt)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(domain)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
+                          {domain.SSL ? 'HTTPS' : 'HTTP'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${
+                            domain.IsActive
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
                         >
-                          编辑
-                        </button>
-                        {!domain.IsDefault && (
+                          {domain.IsActive ? '启用' : '禁用'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {domain.IsDefault ? (
+                          <span className="text-green-600">是</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSetDefault(domain.ID)}
+                            className="text-purple-600 hover:text-purple-800 text-sm"
+                          >
+                            设为默认
+                          </button>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-500">
+                        {formatDateTime(domain.CreatedAt)}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(domain)}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            编辑
+                          </button>
                           <button
                             onClick={() => setDeleteConfirm(domain)}
                             className="text-red-600 hover:text-red-800 text-sm"
                           >
                             删除
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -205,6 +284,7 @@ export default function AdminDomainsPage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingDomain ? '编辑域名' : '添加域名'}
+        size="medium"
         footer={
           <div className="flex justify-end gap-3">
             <button
@@ -232,7 +312,7 @@ export default function AdminDomainsPage() {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input w-full"
+              className="input w-full text-sm"
               placeholder="例如：example.com"
             />
             <p className="mt-1 text-sm text-gray-500">不包含 http:// 或 https://</p>
@@ -247,11 +327,11 @@ export default function AdminDomainsPage() {
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              className="input w-full"
+              className="input w-full text-sm"
               placeholder="域名用途说明"
             />
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row sm:gap-4 gap-3">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"

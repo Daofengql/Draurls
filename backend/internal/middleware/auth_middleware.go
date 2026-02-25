@@ -367,7 +367,6 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		c.Set("keycloak_id", userInfo.GetKeycloakID())
 		c.Set("username", userInfo.GetUsername())
 		c.Set("email", userInfo.GetEmail())
-		c.Set("role", userInfo.GetRole())
 
 		// 从数据库加载或创建用户
 		if m.userService != nil {
@@ -382,7 +381,15 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 			if err == nil {
 				c.Set("user", user)
 				c.Set("user_id", user.ID)
+				// 使用数据库中的角色，而不是 JWT 中的角色
+				c.Set("role", user.Role)
+			} else {
+				// 如果数据库加载失败，使用 JWT 中的角色作为 fallback
+				c.Set("role", userInfo.GetRole())
 			}
+		} else {
+			// 如果没有 userService，使用 JWT 中的角色
+			c.Set("role", userInfo.GetRole())
 		}
 
 		c.Next()

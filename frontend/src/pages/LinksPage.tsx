@@ -103,10 +103,10 @@ export default function LinksPage() {
     if (!editLink) return
 
     try {
-      await linksService.update(editLink.code, {
-        title: editForm.title,
-        url: editForm.url,
-        status: editForm.status as any,
+      await linksService.update(editLink.Code, {
+        Title: editForm.title,
+        URL: editForm.url,
+        Status: editForm.status as any,
       })
       toast.success('链接更新成功')
       setEditLink(null)
@@ -146,9 +146,9 @@ export default function LinksPage() {
     const domain = domains.find((d) => d.ID === link.DomainID) || domains[0]
     if (domain) {
       const protocol = domain.SSL ? 'https' : 'http'
-      return `${protocol}://${domain.Name}/${link.Code}`
+      return `${protocol}://${domain.Name}/r/${link.Code}`
     }
-    return `/${link.Code}`
+    return `/r/${link.Code}`
   }
 
   const getStatusBadge = (status: string) => {
@@ -199,7 +199,74 @@ export default function LinksPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* 移动端卡片布局 */}
+            <div className="sm:hidden space-y-4">
+              {links.map((link) => {
+                const fullUrl = getFullUrl(link)
+                return (
+                  <div key={link.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <a
+                        href={fullUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 font-medium text-sm break-all"
+                      >
+                        {fullUrl}
+                      </a>
+                      {getStatusBadge(link.Status)}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">目标URL</p>
+                      <p className="text-sm text-gray-600 truncate" title={link.URL}>
+                        {truncate(link.URL, 60)}
+                      </p>
+                    </div>
+                    {link.Title && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">标题</p>
+                        <p className="text-sm text-gray-600">{link.Title}</p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500">点击数</p>
+                        <button
+                          onClick={() => viewStats(link)}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          {link.ClickCount}
+                        </button>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">创建时间</p>
+                        <p className="text-gray-600">{formatDateTime(link.CreatedAt)}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                      <CopyButton text={fullUrl} className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded">
+                        复制
+                      </CopyButton>
+                      <button
+                        onClick={() => openEditModal(link)}
+                        className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(link)}
+                        className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 桌面端表格布局 */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
@@ -292,6 +359,7 @@ export default function LinksPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="创建短链接"
+        size="medium"
         footer={
           <div className="flex justify-end gap-3">
             <button
@@ -321,11 +389,11 @@ export default function LinksPage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/very/long/url"
-              className="input w-full"
+              className="input w-full text-sm"
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 自定义短码
@@ -335,7 +403,7 @@ export default function LinksPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="留空自动生成"
-                className="input w-full"
+                className="input w-full text-sm"
               />
             </div>
             <div>
@@ -345,7 +413,7 @@ export default function LinksPage() {
               <select
                 value={selectedDomain}
                 onChange={(e) => setSelectedDomain(Number(e.target.value))}
-                className="input w-full"
+                className="input w-full text-sm"
               >
                 {domains.map((domain) => (
                   <option key={domain.ID} value={domain.ID}>
@@ -364,7 +432,7 @@ export default function LinksPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="链接标题"
-              className="input w-full"
+              className="input w-full text-sm"
             />
           </div>
         </form>
@@ -375,6 +443,7 @@ export default function LinksPage() {
         isOpen={!!editLink}
         onClose={() => setEditLink(null)}
         title="编辑短链接"
+        size="medium"
         footer={
           <div className="flex justify-end gap-3">
             <button
@@ -398,7 +467,7 @@ export default function LinksPage() {
               type="url"
               value={editForm.url}
               onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
-              className="input w-full"
+              className="input w-full text-sm"
             />
           </div>
           <div>
@@ -409,7 +478,7 @@ export default function LinksPage() {
               type="text"
               value={editForm.title}
               onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              className="input w-full"
+              className="input w-full text-sm"
             />
           </div>
           <div>
@@ -419,7 +488,7 @@ export default function LinksPage() {
             <select
               value={editForm.status}
               onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-              className="input w-full"
+              className="input w-full text-sm"
             >
               <option key="active" value="active">正常</option>
               <option key="disabled" value="disabled">禁用</option>

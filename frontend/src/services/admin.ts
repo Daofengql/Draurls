@@ -54,16 +54,25 @@ export const groupsService = {
     api.get<UserGroup[]>('/admin/groups'),
 
   get: (id: number) =>
-    api.get<UserGroup>(`/admin/groups/${id}`),
+    api.get<any>(`/admin/groups/${id}`),
 
-  create: (data: { name: string; description: string; default_quota: number }) =>
+  create: (data: { name: string; description: string; default_quota: number; is_default?: boolean }) =>
     api.post<UserGroup>('/admin/groups', data),
 
-  update: (id: number, data: { name?: string; description?: string; default_quota?: number }) =>
+  update: (id: number, data: { name?: string; description?: string; default_quota?: number; is_default?: boolean }) =>
     api.put<UserGroup>(`/admin/groups/${id}`, data),
 
   delete: (id: number) =>
     api.delete<void>(`/admin/groups/${id}`),
+
+  setDefault: (id: number) =>
+    api.post<void>(`/admin/groups/${id}/default`),
+
+  addDomain: (groupId: number, domainId: number) =>
+    api.post<void>(`/admin/groups/${groupId}/domains`, { domain_id: domainId }),
+
+  removeDomain: (groupId: number, domainId: number) =>
+    api.delete<void>(`/admin/groups/${groupId}/domains/${domainId}`),
 }
 
 // 域名管理

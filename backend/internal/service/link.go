@@ -440,9 +440,9 @@ func URLHash(url string) string {
 // buildShortURL 构建短链接 URL
 func (s *LinkService) buildShortURL(code string) string {
 	if s.baseURL == "" {
-		return fmt.Sprintf("/%s", code)
+		return fmt.Sprintf("/r/%s", code)
 	}
-	return fmt.Sprintf("%s/%s", s.baseURL, code)
+	return fmt.Sprintf("%s/r/%s", s.baseURL, code)
 }
 
 // buildShortURLWithDomain 根据域名ID构建短链接 URL
@@ -455,7 +455,7 @@ func (s *LinkService) buildShortURLWithDomain(code string, domainID uint) string
 				protocol = "http"
 			}
 			domainURL := protocol + "://" + domain.Name
-			return fmt.Sprintf("%s/%s", domainURL, code)
+			return fmt.Sprintf("%s/r/%s", domainURL, code)
 		}
 	}
 	// 降级到基础URL

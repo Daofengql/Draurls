@@ -380,20 +380,24 @@ func (h *RedirectHandler) CheckCircular(targetURL string) bool {
 
 // GetSiteConfig 获取站点配置（供前端使用）
 func (h *RedirectHandler) GetSiteConfig(c *gin.Context) {
-	if err := h.LoadSiteConfig(c.Request.Context()); err != nil {
-		response.InternalError(c, "failed to load config")
-		return
+	// 直接从数据库读取最新配置，不使用缓存
+	dbConfig, err := h.configService.GetPublicConfig(c.Request.Context())
+	if err != nil {
+		// 如果数据库失败，使用默认值
+		dbConfig = map[string]string{
+			models.ConfigSiteName:       "Surls",
+			models.ConfigLogoURL:        "",
+			models.ConfigRedirectPage:   "false",
+			models.ConfigEnableSignup:   "true",
+		}
 	}
 
-	h.siteConfigMu.RLock()
-	defer h.siteConfigMu.RUnlock()
-
-	// 隐藏敏感信��
+	// 隐藏敏感信息
 	publicConfig := map[string]string{
-		"site_name":             h.siteConfig["site_name"],
-		"logo_url":              h.siteConfig["logo_url"],
-		"redirect_page_enabled": h.siteConfig["redirect_page_enabled"],
-		"enable_signup":         h.siteConfig["enable_signup"],
+		"site_name":             dbConfig[models.ConfigSiteName],
+		"logo_url":              dbConfig[models.ConfigLogoURL],
+		"redirect_page_enabled": dbConfig[models.ConfigRedirectPage],
+		"enable_signup":         dbConfig[models.ConfigEnableSignup],
 	}
 
 	response.Success(c, publicConfig)

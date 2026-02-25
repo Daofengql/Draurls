@@ -46,6 +46,7 @@ type UserGroup struct {
 	Name         string    `gorm:"size:50;uniqueIndex;not null;comment:组名"`
 	Description  string    `gorm:"size:200;comment:描述"`
 	DefaultQuota int       `gorm:"not null;default:-1;comment:默认配额"`
+	IsDefault    bool      `gorm:"not null;default:false;comment:是否默认组(新用户自动加入)"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    *time.Time `gorm:"index"`
@@ -134,7 +135,6 @@ const (
 	ConfigSiteName      = "site_name"
 	ConfigLogoURL       = "logo_url"
 	ConfigRedirectPage  = "redirect_page_enabled"
-	ConfigCustomDomains = "custom_domains"
 	ConfigDefaultQuota  = "default_quota"
 	ConfigMaxLinkLength = "max_link_length"
 	ConfigEnableSignup  = "enable_signup"

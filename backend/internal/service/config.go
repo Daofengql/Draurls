@@ -41,7 +41,7 @@ type UpdateConfigRequest struct {
 
 // BatchUpdateConfigRequest 批量更新配置请求
 type BatchUpdateConfigRequest struct {
-	Configs map[string]string `json:"configs" binding:"required"`
+	Configs map[string]string `json:"configs"`
 }
 
 // predefinedConfigs 预定义的配置项及其描述
@@ -49,7 +49,6 @@ var predefinedConfigs = map[string]string{
 	models.ConfigSiteName:       "站点名称",
 	models.ConfigLogoURL:        "Logo URL",
 	models.ConfigRedirectPage:   "是否启用跳转中间页 (true/false)",
-	models.ConfigCustomDomains:  "自定义域名列表 (逗号分隔)",
 	models.ConfigDefaultQuota:   "默认用户配额",
 	models.ConfigMaxLinkLength:  "最大短链长度",
 	models.ConfigEnableSignup:   "是否允许用户注��� (true/false)",
@@ -58,27 +57,21 @@ var predefinedConfigs = map[string]string{
 }
 
 // GetAllConfig 获取所有配置（管理员专用）
-func (s *ConfigService) GetAllConfig(ctx context.Context) (*ConfigDetail, error) {
+func (s *ConfigService) GetAllConfig(ctx context.Context) (map[string]string, error) {
 	// 从数据库获取所有配置
 	configs, err := s.configRepo.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// 转换为 ConfigItem 数组
-	items := make([]*ConfigItem, 0, len(predefinedConfigs))
-	for key, description := range predefinedConfigs {
-		item := &ConfigItem{
-			Key:         key,
-			Value:       configs[key],
-			Description: description,
+	// 确保所有预定义配置都有值（即使数据库中没有）
+	for key := range predefinedConfigs {
+		if _, exists := configs[key]; !exists {
+			configs[key] = ""
 		}
-		items = append(items, item)
 	}
 
-	return &ConfigDetail{
-		Configs: items,
-	}, nil
+	return configs, nil
 }
 
 // Update 更新单个配置
@@ -92,6 +85,9 @@ func (s *ConfigService) Update(ctx context.Context, req *UpdateConfigRequest) er
 
 // BatchUpdate 批量更新配置
 func (s *ConfigService) BatchUpdate(ctx context.Context, req *BatchUpdateConfigRequest) error {
+	if len(req.Configs) == 0 {
+		return nil // 空配置不处理
+	}
 	return s.configRepo.BatchSet(ctx, req.Configs)
 }
 

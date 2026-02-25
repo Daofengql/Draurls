@@ -248,7 +248,7 @@ func (s *DomainService) BuildShortURL(ctx context.Context, code string, domainNa
 	}
 
 	baseURL := s.domainRepo.BuildDomainURL(domain)
-	return fmt.Sprintf("%s/%s", baseURL, code), nil
+	return fmt.Sprintf("%s/r/%s", baseURL, code), nil
 }
 
 // IsValidDomain 检查域名是否有效（已配置且启用）

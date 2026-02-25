@@ -29,12 +29,6 @@ const configDefinitions: ConfigItem[] = [
     type: 'boolean',
   },
   {
-    key: 'custom_domains',
-    value: '',
-    description: '自定义域名列表（逗号分隔）',
-    type: 'textarea',
-  },
-  {
     key: 'default_quota',
     value: '100',
     description: '默认用户配额（-1为无限）',
@@ -135,7 +129,7 @@ export default function AdminConfigPage() {
             handleChange(newValue)
             handleUpdate(config.key, newValue)
           }}
-          className="input w-full max-w-xs"
+          className="input w-full sm:max-w-xs text-sm"
         >
           <option value="true">是</option>
           <option value="false">否</option>
@@ -150,7 +144,7 @@ export default function AdminConfigPage() {
           value={config.value}
           onChange={(e) => handleChange(e.target.value)}
           onBlur={(e) => handleUpdate(config.key, e.target.value)}
-          className="input w-full max-w-xs"
+          className="input w-full sm:max-w-xs text-sm"
         />
       )
     }
@@ -161,7 +155,7 @@ export default function AdminConfigPage() {
           value={config.value}
           onChange={(e) => handleChange(e.target.value)}
           onBlur={(e) => handleUpdate(config.key, e.target.value)}
-          className="input w-full"
+          className="input w-full text-sm"
           rows={3}
         />
       )
@@ -173,19 +167,19 @@ export default function AdminConfigPage() {
         value={config.value}
         onChange={(e) => handleChange(e.target.value)}
         onBlur={(e) => handleUpdate(config.key, e.target.value)}
-        className="input w-full max-w-xs"
+        className="input w-full sm:max-w-xs text-sm"
       />
     )
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">站点配置</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold">站点配置</h2>
         <button
           onClick={handleSaveAll}
           disabled={saving}
-          className="btn btn-primary disabled:bg-gray-300"
+          className="btn btn-primary disabled:bg-gray-300 w-full sm:w-auto"
         >
           {saving ? '保存中...' : '保存所有配置'}
         </button>
@@ -195,15 +189,15 @@ export default function AdminConfigPage() {
         {loading ? (
           <div className="text-center py-8 text-gray-500">加载中...</div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {configs.map((config) => (
-              <div key={config.key} className="flex items-start gap-4 pb-4 border-b">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <label className="font-medium text-gray-700">
+              <div key={config.key} className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 pb-4 border-b">
+                <div className="flex-1 w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2 sm:mb-0">
+                    <label className="font-medium text-gray-700 text-sm sm:text-base">
                       {config.description}
                     </label>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 w-max">
                       {config.key}
                     </code>
                   </div>
@@ -215,9 +209,9 @@ export default function AdminConfigPage() {
         )}
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="font-medium text-blue-800 mb-2">配置说明</h3>
-        <ul className="text-sm text-blue-700 space-y-1">
+      <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 className="font-medium text-blue-800 mb-2 text-sm sm:text-base">配置说明</h3>
+        <ul className="text-xs sm:text-sm text-blue-700 space-y-1">
           <li>• <strong>shortcode_mode</strong>: random=随机字符串, sequence=数据库自增</li>
           <li>• <strong>allow_custom_shortcode</strong>: 开启后普通用户可使用自定义短码</li>
           <li>• <strong>default_quota</strong>: 新用户默认配额，-1表示无限</li>

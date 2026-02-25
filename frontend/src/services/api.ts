@@ -2,8 +2,9 @@ import axios, { AxiosError } from 'axios'
 import type { ApiResponse } from '@/types'
 
 // 【前置逻辑说明】
-// 优先使用环境变量配置的 API 地址。如果不配置，默认请求相对路径，
-// 这样在生产环境中不需要改动代码即可自适应当前域名。
+// 开发环境：使用 Vite proxy，API_BASE_URL 为空字符串
+// 生产环境（同域）：API_BASE_URL 为空字符串，请求相对路径
+// 生产环境（跨域）：通过 VITE_API_URL 环境变量指定完整的 API 地址
 const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 // 扩展 axios 类型以支持我们的响应拦截器
@@ -20,7 +21,7 @@ declare module 'axios' {
 }
 
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
+  baseURL: API_BASE_URL ? `${API_BASE_URL}/api` : '/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

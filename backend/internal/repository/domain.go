@@ -91,8 +91,8 @@ func (r *DomainRepository) GetDefault(ctx context.Context) (*models.Domain, erro
 // SetDefault 设置默认域名（会先将其他域名的 is_default 设为 false）
 func (r *DomainRepository) SetDefault(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 将所有域名设为非默认
-		if err := tx.Model(&models.Domain{}).Update("is_default", false).Error; err != nil {
+		// 将所有当前默认的域名设为非默认
+		if err := tx.Model(&models.Domain{}).Where("is_default = ?", true).Update("is_default", false).Error; err != nil {
 			return err
 		}
 		// 将指定域名设为默认

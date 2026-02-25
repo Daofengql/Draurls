@@ -140,3 +140,90 @@ func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 
 	response.Success(c, gin.H{"message": "group deleted successfully"})
 }
+
+// SetDefaultGroup 设置默认用户组
+// @Summary 设置默认用户组
+// @Tags admin
+// @Produce json
+// @Param id path int true "用户组ID"
+// @Success 200 {object} response.Response
+// @Router /api/admin/groups/{id}/default [post]
+func (h *GroupHandler) SetDefaultGroup(c *gin.Context) {
+	idStr := c.Param("id")
+	groupID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+
+	if err := h.groupService.SetDefault(c.Request.Context(), uint(groupID)); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "default group set successfully"})
+}
+
+// AddDomainToGroup 添加域名到用户组
+// @Summary 添加域名到用户组
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param id path int true "用户组ID"
+// @Param request body object{domain_id=int} true "域名ID"
+// @Success 200 {object} response.Response
+// @Router /api/admin/groups/{id}/domains [post]
+func (h *GroupHandler) AddDomainToGroup(c *gin.Context) {
+	idStr := c.Param("id")
+	groupID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+
+	var req struct {
+		DomainID uint `json:"domain_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.groupService.AddDomain(c.Request.Context(), uint(groupID), req.DomainID); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "domain added to group successfully"})
+}
+
+// RemoveDomainFromGroup 从用户组移除域名
+// @Summary 从用户组移除域名
+// @Tags admin
+// @Produce json
+// @Param id path int true "用户组ID"
+// @Param domainId path int true "域名ID"
+// @Success 200 {object} response.Response
+// @Router /api/admin/groups/{id}/domains/{domainId} [delete]
+func (h *GroupHandler) RemoveDomainFromGroup(c *gin.Context) {
+	idStr := c.Param("id")
+	groupID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+
+	domainIdStr := c.Param("domainId")
+	domainID, err := strconv.ParseUint(domainIdStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid domain id")
+		return
+	}
+
+	if err := h.groupService.RemoveDomain(c.Request.Context(), uint(groupID), uint(domainID)); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "domain removed from group successfully"})
+}

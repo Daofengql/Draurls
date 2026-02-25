@@ -77,7 +77,7 @@ func main() {
 	// 初始化短码生成器（使用 Redis 序列号模式，高并发性能更好）
 	codeGenerator := shortcode.NewGenerator(db, &shortcode.GeneratorConfig{
 		CodeLength: 6,
-		Blacklist:  []string{"admin", "api", "static", "assets", "config", "user", "health", "readiness", "liveness"},
+		Blacklist:  []string{"admin", "api", "static", "assets", "config", "user", "health", "readiness", "liveness", "r"},
 		Mode:       shortcode.ModeSequence, // 使用 Redis INCR 发号器
 		Redis:      redisClient,
 	})
@@ -226,6 +226,9 @@ func main() {
 			admin.GET("/groups/:id", groupHandler.GetGroup)
 			admin.PUT("/groups/:id", groupHandler.UpdateGroup)
 			admin.DELETE("/groups/:id", groupHandler.DeleteGroup)
+			admin.POST("/groups/:id/default", groupHandler.SetDefaultGroup)
+			admin.POST("/groups/:id/domains", groupHandler.AddDomainToGroup)
+			admin.DELETE("/groups/:id/domains/:domainId", groupHandler.RemoveDomainFromGroup)
 
 			// 站点配置管理
 			admin.GET("/config", configHandler.GetAdminConfig)
@@ -263,12 +266,12 @@ func main() {
 		apiSignature.POST("/shorten", linkHandler.CreateLinkAPI)
 	}
 
-	// 短链接跳转（显式注册路由，避免使用 NoRoute）
-	// 只匹配单段路径（不含斜杠和点号）
-	router.GET("/:code", func(c *gin.Context) {
+	// 短链接跳转（使用 /r/:code 格式）
+	// 这样可以避免与前端路由冲突
+	router.GET("/r/:code", func(c *gin.Context) {
 		code := c.Param("code")
 
-		// 跳过包含点号的请求（如 favicon.ico, robots.txt 等）
+		// 跳过包含点号的请求（如 favicon.ico）
 		if strings.Contains(code, ".") {
 			c.JSON(404, gin.H{"error": "not found"})
 			return

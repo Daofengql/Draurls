@@ -156,3 +156,51 @@ func (r *UserGroupRepository) CountUsers(ctx context.Context, groupID uint) (int
 		Count(&count).Error
 	return count, err
 }
+
+// FindDefault 查找默认用户组
+func (r *UserGroupRepository) FindDefault(ctx context.Context) (*models.UserGroup, error) {
+	var group models.UserGroup
+	err := r.db.WithContext(ctx).Where("is_default = ?", true).First(&group).Error
+	if err != nil {
+		return nil, err
+	}
+	return &group, nil
+}
+
+// SetDefault 设置默认用户组（会先将其他组的 is_default 设为 false）
+func (r *UserGroupRepository) SetDefault(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 将所有当前默认的组设为非默认
+		if err := tx.Model(&models.UserGroup{}).Where("is_default = ?", true).Update("is_default", false).Error; err != nil {
+			return err
+		}
+		// 将指定组设为默认
+		return tx.Model(&models.UserGroup{}).Where("id = ?", id).Update("is_default", true).Error
+	})
+}
+
+// GetAllowedDomains 获取用户组允许使用的域名列表
+func (r *UserGroupRepository) GetAllowedDomains(ctx context.Context, groupID uint) ([]models.Domain, error) {
+	var domains []models.Domain
+	err := r.db.WithContext(ctx).
+		Table("domains d").
+		Joins("JOIN domain_group_domains dgd ON dgd.domain_id = d.id").
+		Where("dgd.group_id = ?", groupID).
+		Find(&domains).Error
+	return domains, err
+}
+
+// AddDomainToGroup 将域名添加到用户组的允许列表
+func (r *UserGroupRepository) AddDomainToGroup(ctx context.Context, domainID, groupID uint) error {
+	return r.db.WithContext(ctx).Create(&models.DomainGroupDomain{
+		DomainID: domainID,
+		GroupID:  groupID,
+	}).Error
+}
+
+// RemoveDomainFromGroup 从用户组的允许列表中移除域名
+func (r *UserGroupRepository) RemoveDomainFromGroup(ctx context.Context, domainID, groupID uint) error {
+	return r.db.WithContext(ctx).
+		Where("domain_id = ? AND group_id = ?", domainID, groupID).
+		Delete(&models.DomainGroupDomain{}).Error
+}

@@ -139,8 +139,8 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">用户管理</h2>
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold">用户管理</h2>
       </div>
 
       <div className="card">
@@ -148,7 +148,88 @@ export default function AdminUsersPage() {
           <div className="text-center py-8 text-gray-500">加载中...</div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* 移动端卡片布局 */}
+            <div className="sm:hidden space-y-4">
+              {users.map((user) => (
+                <div key={user.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {user.Picture && (
+                        <img
+                          src={user.Picture}
+                          alt=""
+                          className="w-8 h-8 rounded-full"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium text-gray-900">{user.Username}</p>
+                        <p className="text-xs text-gray-500">ID: {user.ID}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {getStatusBadge(user.Status)}
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs ${
+                          user.Role === 'admin'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {user.Role === 'admin' ? '管理员' : '用户'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">邮箱</p>
+                    <p className="text-sm text-gray-700">{user.Email}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">配额</p>
+                      <p className="text-sm text-gray-700">
+                        {user.Quota === -1 ? '无限' : `${user.QuotaUsed}/${user.Quota}`}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">创建时间</p>
+                      <p className="text-sm text-gray-700">{formatDateTime(user.CreatedAt)}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => openQuotaModal(user)}
+                      className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                    >
+                      配额
+                    </button>
+                    <button
+                      onClick={() => openGroupModal(user)}
+                      className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
+                    >
+                      分组
+                    </button>
+                    {user.Status === 'active' ? (
+                      <button
+                        onClick={() => setActionConfirm({ type: 'disable', user })}
+                        className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        禁用
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setActionConfirm({ type: 'enable', user })}
+                        className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
+                      >
+                        启用
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 桌面端表格布局 */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
@@ -254,6 +335,7 @@ export default function AdminUsersPage() {
         isOpen={!!quotaUser}
         onClose={() => setQuotaUser(null)}
         title="设置配额"
+        size="medium"
         footer={
           <div className="flex justify-end gap-3">
             <button
@@ -269,7 +351,7 @@ export default function AdminUsersPage() {
         }
       >
         <div>
-          <p className="mb-4 text-gray-600">
+          <p className="mb-4 text-gray-600 text-sm">
             为用户 <strong>{quotaUser?.Username}</strong> 设置配额限制
           </p>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -279,7 +361,7 @@ export default function AdminUsersPage() {
             type="number"
             value={quotaValue}
             onChange={(e) => setQuotaValue(Number(e.target.value))}
-            className="input w-full"
+            className="input w-full text-sm"
             min={-1}
           />
           <p className="mt-2 text-sm text-gray-500">
@@ -293,6 +375,7 @@ export default function AdminUsersPage() {
         isOpen={!!groupUser}
         onClose={() => setGroupUser(null)}
         title="设置用户组"
+        size="medium"
         footer={
           <div className="flex justify-end gap-3">
             <button
@@ -308,7 +391,7 @@ export default function AdminUsersPage() {
         }
       >
         <div>
-          <p className="mb-4 text-gray-600">
+          <p className="mb-4 text-gray-600 text-sm">
             为用户 <strong>{groupUser?.Username}</strong> 设置用户组
           </p>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -319,7 +402,7 @@ export default function AdminUsersPage() {
             onChange={(e) =>
               setSelectedGroupId(e.target.value ? Number(e.target.value) : null)
             }
-            className="input w-full"
+            className="input w-full text-sm"
           >
             <option value="">无用户组</option>
             {groups.map((g) => (

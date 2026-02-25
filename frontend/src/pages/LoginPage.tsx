@@ -3,13 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import { authService } from '@/services/auth'
 import { usersService } from '@/services/users'
+import { useSiteConfig } from '@/hooks/useSiteConfig'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const setAuth = useAuthStore((state) => state.setAuth)
   const setUser = useAuthStore((state) => state.setUser)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const { config: siteConfig } = useSiteConfig()
+
+  const siteName = siteConfig.site_name || 'Surls'
+  const logoUrl = siteConfig.logo_url
 
   const handleLogin = async () => {
     setLoading(true)
@@ -54,7 +59,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="card w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6">Surls 短链接服务</h1>
+        <div className="flex flex-col items-center mb-6">
+          {logoUrl ? (
+            <img src={logoUrl} alt={siteName} className="h-12 mb-4" />
+          ) : (
+            <h1 className="text-2xl font-bold text-blue-600">{siteName}</h1>
+          )}
+          <p className="text-gray-500 text-center">短链接服务</p>
+        </div>
         <p className="text-gray-500 text-center mb-6">使用 Keycloak 账号登录</p>
 
         {error && (

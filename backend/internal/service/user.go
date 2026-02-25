@@ -29,6 +29,7 @@ func NewUserService(
 
 // GetOrCreateUser 根据Keycloak ID获取或创建用户
 // 如果用户已存在，会更新其 Nickname、Picture 等可能变化的信息
+// 第一个用户自动成为管理员
 func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username, email, nickname, picture string) (*models.User, error) {
 	// 尝试查找现有用户
 	user, err := s.userRepo.FindByKeycloakID(ctx, keycloakID)
@@ -75,6 +76,16 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 		role = models.RoleAdmin
 	}
 
+	// 查找默认用户组（非管理员用户自动加入）
+	var groupID *uint
+	if role == models.RoleUser {
+		defaultGroup, err := s.groupRepo.FindDefault(ctx)
+		if err == nil {
+			groupID = &defaultGroup.ID
+		}
+		// 如果没有默认组，groupID 保持为 nil
+	}
+
 	// 创建新用户
 	now := time.Now()
 	user = &models.User{
@@ -84,11 +95,17 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 		Nickname:   nickname,
 		Picture:    picture,
 		Role:       role,
-		Quota:      -1, // 默认无限配额
+		GroupID:    groupID,
+		Quota:      -2, // 默认继承用户组配额
 		QuotaUsed:  0,
 		Status:     models.UserStatusActive,
 		CreatedAt:  now,
 		UpdatedAt:  now,
+	}
+
+	// 如果没有用户组，设置无限配额
+	if groupID == nil {
+		user.Quota = -1
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {

@@ -23,6 +23,7 @@ export interface UserGroup {
   Name: string
   Description: string
   DefaultQuota: number
+  IsDefault: boolean
   CreatedAt: string
   UpdatedAt: string
 }
