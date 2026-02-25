@@ -74,13 +74,40 @@ func main() {
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	sigMiddleware := middleware.NewAPIAuthMiddleware(apiKeyRepo, 5*time.Minute)
 
-	// 初始化短码生成器（使用 Redis 序列号模式，高并发性能更好）
+	// 初始化短码生成器
+	// 先创建 siteConfigRepo 和 configService 以获取数据库配置
+	siteConfigRepo := repository.NewSiteConfigRepository(db)
+	configService := service.NewConfigService(siteConfigRepo)
+
+	// 从数据库获取短码配置（使用默认值作为回退）
+	ctx := context.Background()
+	allConfigs, err := configService.GetAllConfig(ctx)
+	if err != nil {
+		log.Printf("Warning: failed to load site config, using defaults: %v", err)
+		allConfigs = make(map[string]string)
+	}
+
+	// 获取短码模式，默认为 sequence
+	shortcodeModeStr := allConfigs[models.ConfigShortcodeMode]
+	if shortcodeModeStr == "" {
+		shortcodeModeStr = "sequence"
+	}
+
+	// 根据配置确定模式
+	var shortcodeGeneratorMode shortcode.GeneratorMode
+	if shortcodeModeStr == "random" {
+		shortcodeGeneratorMode = shortcode.ModeRandom
+	} else {
+		shortcodeGeneratorMode = shortcode.ModeSequence
+	}
+
 	codeGenerator := shortcode.NewGenerator(db, &shortcode.GeneratorConfig{
 		CodeLength: 6,
 		Blacklist:  []string{"admin", "api", "static", "assets", "config", "user", "health", "readiness", "liveness", "r"},
-		Mode:       shortcode.ModeSequence, // 使用 Redis INCR 发号器
+		Mode:       shortcodeGeneratorMode,
 		Redis:      redisClient,
 	})
+	log.Printf("Shortcode generator initialized: mode=%s", shortcodeModeStr)
 
 	// 初始化Repository
 	userRepo := repository.NewUserRepository(db)
@@ -88,7 +115,6 @@ func main() {
 	groupRepo := repository.NewUserGroupRepository(db)
 	accessLogRepo := repository.NewAccessLogRepository(db)
 	domainRepo := repository.NewDomainRepository(db)
-	siteConfigRepo := repository.NewSiteConfigRepository(db)
 	templateRepo := repository.NewRedirectTemplateRepository(db)
 
 	// 初始化访问日志缓冲区（需要先创建 batchWriter）
@@ -116,9 +142,8 @@ func main() {
 	baseURL := cfg.Server.GetBaseURL()
 	userService := service.NewUserService(userRepo, groupRepo)
 	groupService := service.NewGroupService(groupRepo, userRepo)
-	configService := service.NewConfigService(siteConfigRepo)
 	accessLogService := service.NewAccessLogService(accessLogRepo, accessLogBuffer)
-	linkService := service.NewLinkService(linkRepo, userRepo, domainRepo, accessLogService, codeGenerator, baseURL, clickCounter, workerPool)
+	linkService := service.NewLinkService(linkRepo, userRepo, domainRepo, accessLogService, configService, codeGenerator, baseURL, clickCounter, workerPool)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo)
 	domainService := service.NewDomainService(domainRepo)
 	dashboardService := service.NewDashboardService(userRepo, linkRepo, accessLogRepo)
@@ -358,8 +383,17 @@ func (a *App) run() {
 func initDB(cfg *config.Config) (*gorm.DB, error) {
 	dsn := cfg.Database.GetDSN()
 
+	// 根据服务器模式决定日志级别
+	var logLevel logger.LogLevel
+	switch cfg.Server.Mode {
+	case "debug", "test":
+		logLevel = logger.Info
+	default: // release
+		logLevel = logger.Silent
+	}
+
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)

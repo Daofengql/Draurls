@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	apperrors "github.com/surls/backend/internal/errors"
@@ -23,11 +24,15 @@ type LinkService struct {
 	userRepo        *repository.UserRepository
 	domainRepo      *repository.DomainRepository
 	accessLogService *AccessLogService // 使用访问日志服务
+	configService   *ConfigService     // 用于获取动态配置
 	generator       *shortcode.Generator
 	baseURL         string // 短链基础域名
 	clickCounter    *cache.ClickCounter // 点击计数器
 	workerPool      *worker.Pool // Worker Pool 用于异步任务
 	circularCheck    func(url string) bool // 循环链接检测函数
+	lastConfigCheck time.Time // 上次检查配置的时间
+	currentMode     shortcode.GeneratorMode // 当前缓存的模式
+	configCheckMu   sync.RWMutex // 配置检查锁
 }
 
 // NewLinkService 创建短链接服务
@@ -36,6 +41,7 @@ func NewLinkService(
 	userRepo *repository.UserRepository,
 	domainRepo *repository.DomainRepository,
 	accessLogService *AccessLogService,
+	configService *ConfigService,
 	generator *shortcode.Generator,
 	baseURL string,
 	clickCounter *cache.ClickCounter,
@@ -46,11 +52,13 @@ func NewLinkService(
 		userRepo:         userRepo,
 		domainRepo:       domainRepo,
 		accessLogService: accessLogService,
+		configService:    configService,
 		generator:        generator,
 		baseURL:          baseURL,
 		clickCounter:     clickCounter,
 		workerPool:       workerPool,
 		circularCheck:    func(url string) bool { return false }, // 默认不检测
+		currentMode:      generator.GetMode(), // 初始化当前模式
 	}
 }
 
@@ -78,8 +86,65 @@ func (s *LinkService) SetCircularCheck(fn func(url string) bool) {
 	s.circularCheck = fn
 }
 
+// updateGeneratorModeIfNeeded 检查并更新短码生成器模式（每分钟最多检查一次）
+func (s *LinkService) updateGeneratorModeIfNeeded(ctx context.Context) {
+	now := time.Now()
+	s.configCheckMu.RLock()
+	needsUpdate := now.Sub(s.lastConfigCheck) > time.Minute
+	s.configCheckMu.RUnlock()
+
+	if !needsUpdate {
+		return
+	}
+
+	s.configCheckMu.Lock()
+	defer s.configCheckMu.Unlock()
+
+	// 双重检查
+	if now.Sub(s.lastConfigCheck) <= time.Minute {
+		return
+	}
+
+	s.lastConfigCheck = now
+
+	// 从配置服务获取短码模式
+	if s.configService == nil {
+		return
+	}
+
+	configs, err := s.configService.GetAllConfig(ctx)
+	if err != nil {
+		log.Printf("Failed to get shortcode config: %v", err)
+		return
+	}
+
+	// 获取配置的模式
+	modeStr := configs[models.ConfigShortcodeMode]
+	if modeStr == "" {
+		modeStr = "sequence" // 默认值
+	}
+
+	// 确定新模式
+	var newMode shortcode.GeneratorMode
+	if modeStr == "random" {
+		newMode = shortcode.ModeRandom
+	} else {
+		newMode = shortcode.ModeSequence
+	}
+
+	// 如果模式改变，更新生成器
+	if newMode != s.currentMode {
+		log.Printf("Shortcode mode changed: %v -> %v", s.currentMode, newMode)
+		s.generator.SetMode(newMode)
+		s.currentMode = newMode
+	}
+}
+
 // Create 创建短链接
 func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*CreateLinkResponse, error) {
+	// 检查并更新短码生成器模式（配置可能已动态更改）
+	s.updateGeneratorModeIfNeeded(ctx)
+
 	// 规范化 URL
 	normalizedURL, err := urlutil.NormalizeURL(req.URL)
 	if err != nil {

@@ -17,7 +17,6 @@ type Config struct {
 	Keycloak KeycloakConfig
 	Cache    CacheConfig
 	Security SecurityConfig
-	Shortcode ShortcodeConfig
 	Worker   WorkerConfig
 	RateLimit RateLimitConfig
 }
@@ -51,7 +50,6 @@ type DatabaseConfig struct {
 	MaxIdleConns int
 	MaxOpenConns int
 	MaxLifetime  time.Duration
-	LogLevel     string // 日志级别: silent, error, warn, info
 }
 
 // GetDSN 获取数据库连接字符串
@@ -65,18 +63,6 @@ func (c *DatabaseConfig) GetDSN() string {
 		c.Charset,
 		c.ParseTime,
 	)
-}
-
-// GetLogLevel 获取数据库日志级别
-func (c *DatabaseConfig) GetLogLevel(serverMode string) string {
-	if c.LogLevel != "" {
-		return c.LogLevel
-	}
-	// 根据 Server Mode 决定
-	if serverMode == "debug" || serverMode == "test" {
-		return "info"
-	}
-	return "silent"
 }
 
 // RedisConfig Redis 配置
@@ -111,12 +97,6 @@ type SecurityConfig struct {
 	EnableHTTPS   bool
 	AllowOrigins  []string
 	APIKeyExpiry  time.Duration
-}
-
-// ShortcodeConfig 短码生成配置
-type ShortcodeConfig struct {
-	Mode     string // random, sequence
-	Length   int    // 随机模式下的短码长度
 }
 
 // WorkerConfig Worker 配置
@@ -159,7 +139,6 @@ func Load() (*Config, error) {
 			MaxIdleConns: getEnvInt("DB_MAX_IDLE_CONNS", 10),
 			MaxOpenConns: getEnvInt("DB_MAX_OPEN_CONNS", 100),
 			MaxLifetime:  time.Duration(getEnvInt("DB_CONN_MAX_LIFETIME", 300)) * time.Second,
-			LogLevel:     getEnv("DB_LOG_LEVEL", ""),
 		},
 		Redis: RedisConfig{
 			Host:         getEnv("REDIS_HOST", "127.0.0.1"),
@@ -186,10 +165,6 @@ func Load() (*Config, error) {
 			EnableHTTPS:  getEnvBool("ENABLE_HTTPS", false),
 			AllowOrigins: []string{"http://localhost:3000"},
 			APIKeyExpiry: 365 * 24 * time.Hour,
-		},
-		Shortcode: ShortcodeConfig{
-			Mode:   getEnv("SHORTCODE_MODE", "sequence"),
-			Length: getEnvInt("SHORTCODE_LENGTH", 6),
 		},
 		Worker: WorkerConfig{
 			PoolSize:     getEnvInt("WORKER_POOL_SIZE", 100),
