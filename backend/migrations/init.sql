@@ -1,6 +1,6 @@
 -- 创建数据库
-CREATE DATABASE IF NOT EXISTS surls CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE surls;
+CREATE DATABASE IF NOT EXISTS draurls CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE draurls;
 
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
@@ -117,10 +117,9 @@ CREATE TABLE IF NOT EXISTS redirect_templates (
 
 -- 插入默认站点配置
 INSERT INTO site_config (`key`, value, description) VALUES
-('site_name', 'Surls', '站点名称'),
+('site_name', 'Draurls', '站点名称'),
 ('logo_url', '', 'Logo URL'),
 ('redirect_page_enabled', 'false', '是否启用跳转页'),
-('custom_domains', '[]', '自定义域名列表'),
 ('default_quota', '-1', '默认配额'),
 ('max_link_length', '10', '最大短码长度'),
 ('enable_signup', 'true', '是否开放注册')
@@ -129,7 +128,7 @@ ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
 -- 插入默认管理员用户（需要与Keycloak同步后才能正常使用）
 -- 密码需要在Keycloak中设置
 INSERT INTO users (keycloak_id, username, email, role, quota, status) VALUES
-('admin', 'admin', 'admin@surls.local', 'admin', -1, 'active')
+('admin', 'admin', 'admin@draurls.local', 'admin', -1, 'active')
 ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
 
 -- 插入默认用户组

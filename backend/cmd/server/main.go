@@ -131,7 +131,7 @@ func main() {
 	groupHandler := api.NewGroupHandler(groupService)
 	configHandler := api.NewConfigHandler(configService)
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
-	redirectHandler := api.NewRedirectHandler(linkService, linkCache, rateLimitService, redisClient, configService)
+	redirectHandler := api.NewRedirectHandler(linkService, domainService, linkCache, rateLimitService, redisClient, configService)
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
 	domainHandler := api.NewDomainHandler(domainService)
 	templateHandler := api.NewTemplateHandler(templateService)

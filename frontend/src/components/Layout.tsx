@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import { useSiteConfig } from '@/hooks/useSiteConfig'
 
@@ -11,7 +11,6 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation()
-  const navigate = useNavigate()
   const { user, clearAuth } = useAuthStore()
   const isAdmin = user?.Role === 'admin'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -22,7 +21,7 @@ export default function Layout() {
   // 显示名称：优先使用 nickname，其次 username
   const displayName = user?.Nickname || user?.Username
 
-  const siteName = siteConfig.site_name || 'Surls'
+  const siteName = siteConfig.site_name || 'Draurls'
   const logoUrl = siteConfig.logo_url
 
   return (

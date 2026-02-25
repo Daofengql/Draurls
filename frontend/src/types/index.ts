@@ -75,7 +75,6 @@ export interface SiteConfig {
   site_name: string
   logo_url: string
   redirect_page_enabled: boolean
-  custom_domains: string[]
   default_quota: number
   max_link_length: number
   enable_signup: boolean

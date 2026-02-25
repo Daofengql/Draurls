@@ -1,4 +1,4 @@
-# Surls 后端服务启动指南
+# Draurls 后端服务启动指南
 
 ## 前置要求
 
@@ -27,7 +27,7 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=your_password
-DB_NAME=surls
+DB_NAME=draurls
 
 # Redis 配置
 REDIS_HOST=127.0.0.1
@@ -38,7 +38,7 @@ REDIS_PASSWORD=
 ### 2. 创建数据库
 
 ```sql
-CREATE DATABASE IF NOT EXISTS surls CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS draurls CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 > **注意**：表结构会在服务启动时自动创建 (AutoMigrate)
@@ -98,8 +98,8 @@ docker-compose up backend
 ### 构建镜像
 
 ```bash
-docker build -t surls-backend .
-docker run -p 8080:8080 --env-file .env surls-backend
+docker build -t draurls-backend .
+docker run -p 8080:8080 --env-file .env draurls-backend
 ```
 
 ---
@@ -111,7 +111,7 @@ docker run -p 8080:8080 --env-file .env surls-backend
 | SERVER_PORT | 8080 | 服务监听端口 |
 | DB_HOST | 127.0.0.1 | MySQL 主机 |
 | DB_PORT | 3306 | MySQL 端口 |
-| DB_NAME | surls | 数据库名称 |
+| DB_NAME | draurls | 数据库名称 |
 | REDIS_HOST | 127.0.0.1 | Redis 主机 |
 | REDIS_PORT | 6379 | Redis 端口 |
 
@@ -119,7 +119,7 @@ docker run -p 8080:8080 --env-file .env surls-backend
 
 ## API 文档
 
-导入 Postman 集合进行测试：`Surls-API.postman.json`
+导入 Postman 集合进行测试：`Draurls-API.postman.json`
 
 主要 API 端点：
 

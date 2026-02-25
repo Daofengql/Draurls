@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   const { config: siteConfig } = useSiteConfig()
 
-  const siteName = siteConfig.site_name || 'Surls'
+  const siteName = siteConfig.site_name || 'Draurls'
   const logoUrl = siteConfig.logo_url
 
   const handleLogin = async () => {

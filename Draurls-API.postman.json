@@ -1,8 +1,8 @@
 {
 	"info": {
-		"_postman_id": "surls-api-collection",
-		"name": "Surls 短链接服务 API",
-		"description": "Surls 短链接服务的完整 API 测试集合\n\n## 认证说明\n\n### Keycloak OIDC 认证\n1. 调用 `获取登录 URL` 获取 Keycloak 登录地址\n2. 在浏览器中完成登录\n3. 登录成功后 token 会自动存储在 Cookie 中\n4. 或从 Cookie 中复制 `access_token` 用于 Authorization Header\n\n### 使用 Cookie 认证（Postman 设置）\n1. 打开 Postman Cookie Manager\n2. 添加 Cookie: `access_token` = `<你的token>`\n3. Domain: `localhost:8080`\n\n### 使用 Bearer Token\n在请求头中添加: `Authorization: Bearer <你的token>`",
+		"_postman_id": "draurls-api-collection",
+		"name": "Draurls 麟云短链 API",
+		"description": "Draurls 麟云短链的完整 API 测试集合\n\n## 认证说明\n\n### Keycloak OIDC 认证\n1. 调用 `获取登录 URL` 获取 Keycloak 登录地址\n2. 在浏览器中完成登录\n3. 登录成功后 token 会自动存储在 Cookie 中\n4. 或从 Cookie 中复制 `access_token` 用于 Authorization Header\n\n### 使用 Cookie 认证（Postman 设置）\n1. 打开 Postman Cookie Manager\n2. 添加 Cookie: `access_token` = `<你的token>`\n3. Domain: `localhost:8080`\n\n### 使用 Bearer Token\n在请求头中添加: `Authorization: Bearer <你的token>`",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -801,14 +801,14 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"key\": \"site_name\",\n    \"value\": \"Surls短链接服务\"\n}"
+									"raw": "{\n    \"key\": \"site_name\",\n    \"value\": \"麟云短链\"\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/config",
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "admin", "config"]
 								},
-								"description": "更新单个站点配置项\n\n可用的配置项:\n- site_name: 站点名称\n- logo_url: Logo URL\n- redirect_page: 是否启用跳转中间页 (true/false)\n- custom_domains: 自定义域名列表 (逗号分隔)\n- default_quota: 默认用户配额\n- max_link_length: 最大短链长度\n- enable_signup: 是否允许用户注册 (true/false)"
+								"description": "更新单个站点配置项\n\n可用的配置项:\n- site_name: 站点名称\n- logo_url: Logo URL\n- redirect_page: 是否启用跳转中间页 (true/false)\n- default_quota: 默认用户配额\n- max_link_length: 最大短链长度\n- enable_signup: 是否允许用户注册 (true/false)\n\n注意: 域名管理请使用「域名管理」接口"
 							}
 						},
 						{
@@ -827,7 +827,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"configs\": {\n        \"site_name\": \"Surls短链接\",\n        \"logo_url\": \"https://example.com/logo.png\",\n        \"enable_signup\": \"true\"\n    }\n}"
+									"raw": "{\n    \"configs\": {\n        \"site_name\": \"麟云短链\",\n        \"logo_url\": \"https://example.com/logo.png\",\n        \"enable_signup\": \"true\"\n    }\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/config/batch",

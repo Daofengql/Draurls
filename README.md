@@ -1,4 +1,4 @@
-# Surls - 短链接服务
+# Draurls - 麟云短链
 
 一个功能完整的短链接服务系统，使用 Golang + React 构建，支持 Keycloak 认证、多租户用户分组、API 签名验证、冷热数据缓存等功能。
 
@@ -49,7 +49,7 @@
 ## 项目结构
 
 ```
-Surls/
+Draurls/
 ├── backend/               # 后端服务
 │   ├── cmd/              # 主程序入口
 │   │   └── server/
@@ -93,8 +93,8 @@ Surls/
 
 ```bash
 # 克隆项目
-git clone https://github.com/your/surls.git
-cd surls
+git clone https://github.com/your/draurls.git
+cd draurls
 
 # 启动所有服务
 docker-compose up -d
@@ -146,11 +146,11 @@ npm run build
 | `DB_PORT` | 数据库端口 | 3306 |
 | `DB_USER` | 数据库用户 | root |
 | `DB_PASSWORD` | 数据库密码 | - |
-| `DB_NAME` | 数据库名称 | surls |
+| `DB_NAME` | 数据库名称 | draurls |
 | `REDIS_HOST` | Redis 地址 | 127.0.0.1 |
 | `REDIS_PORT` | Redis 端口 | 6379 |
 | `KEYCLOAK_BASE_URL` | Keycloak 地址 | http://localhost:8081 |
-| `KEYCLOAK_REALM` | Keycloak 域名 | surls |
+| `KEYCLOAK_REALM` | Keycloak 域名 | draurls |
 | `JWT_SECRET` | JWT 密钥 | - |
 
 ## API 文档

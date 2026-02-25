@@ -20,6 +20,7 @@ import (
 // RedirectHandler 跳转处理器
 type RedirectHandler struct {
 	linkService    *service.LinkService
+	domainService  *service.DomainService
 	cache          *cache.LinkCache
 	rateLimiter    *cache.RateLimitService
 	redisClient    *redis.Client
@@ -31,6 +32,7 @@ type RedirectHandler struct {
 // NewRedirectHandler 创建跳转处理器
 func NewRedirectHandler(
 	linkService *service.LinkService,
+	domainService *service.DomainService,
 	linkCache *cache.LinkCache,
 	rateLimiter *cache.RateLimitService,
 	redisClient *redis.Client,
@@ -38,6 +40,7 @@ func NewRedirectHandler(
 ) *RedirectHandler {
 	return &RedirectHandler{
 		linkService:   linkService,
+		domainService: domainService,
 		cache:         linkCache,
 		rateLimiter:   rateLimiter,
 		redisClient:   redisClient,
@@ -67,7 +70,7 @@ func (h *RedirectHandler) LoadSiteConfig(ctx context.Context) error {
 	if err != nil {
 		// 如果数据库也失败，使用默认值
 		dbConfig = map[string]string{
-			models.ConfigSiteName:             "Surls",
+			models.ConfigSiteName:             "Draurls",
 			models.ConfigLogoURL:             "",
 			models.ConfigRedirectPage:        "false",
 			models.ConfigEnableSignup:        "true",
@@ -150,7 +153,7 @@ func (h *RedirectHandler) renderRedirectPage(c *gin.Context, targetURL, code str
 	h.siteConfigMu.RUnlock()
 
 	if siteName == "" {
-		siteName = "Surls"
+		siteName = "Draurls"
 	}
 
 	data := gin.H{
@@ -302,7 +305,7 @@ func (h *RedirectHandler) renderError(c *gin.Context, message string, statusCode
 	h.siteConfigMu.RUnlock()
 
 	if siteName == "" {
-		siteName = "Surls"
+		siteName = "Draurls"
 	}
 
 	data := gin.H{
@@ -362,20 +365,23 @@ func (h *RedirectHandler) renderError(c *gin.Context, message string, statusCode
 
 // CheckCircular 检查是否为循环链接（供服务层使用）
 func (h *RedirectHandler) CheckCircular(targetURL string) bool {
-	// 从配置中获取自定义域名
-	h.siteConfigMu.RLock()
-	domainsJSON := h.siteConfig["custom_domains"]
-	h.siteConfigMu.RUnlock()
-
-	var domains []string
-	if domainsJSON != "" {
-		json.Unmarshal([]byte(domainsJSON), &domains)
+	// 从域名管理模块获取所有启用的域名
+	domains, err := h.domainService.ListActive(context.Background())
+	if err != nil {
+		// 如果获取失败，使用默认域名
+		domains = []models.Domain{{Name: "localhost:8080"}, {Name: "draurls.local"}}
 	}
 
-	// 添加默认域名
-	domains = append(domains, "localhost:8080", "surls.local")
+	// 提取域名列表
+	domainNames := make([]string, 0, len(domains)+2)
+	for _, d := range domains {
+		domainNames = append(domainNames, d.Name)
+	}
 
-	return urlutil.IsInternalURL(targetURL, domains)
+	// 添加默认域名（兜底）
+	domainNames = append(domainNames, "localhost:8080", "draurls.local")
+
+	return urlutil.IsInternalURL(targetURL, domainNames)
 }
 
 // GetSiteConfig 获取站点配置（供前端使用）
@@ -385,7 +391,7 @@ func (h *RedirectHandler) GetSiteConfig(c *gin.Context) {
 	if err != nil {
 		// 如果数据库失败，使用默认值
 		dbConfig = map[string]string{
-			models.ConfigSiteName:       "Surls",
+			models.ConfigSiteName:       "Draurls",
 			models.ConfigLogoURL:        "",
 			models.ConfigRedirectPage:   "false",
 			models.ConfigEnableSignup:   "true",

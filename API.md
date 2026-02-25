@@ -1,4 +1,4 @@
-# Surls 短链接服务 API 文档
+# Draurls 短链接服务 API 文档
 
 ## 基本信息
 
@@ -98,7 +98,7 @@ Content-Type: application/json
 {
   "code": 0,
   "data": {
-    "login_url": "http://localhost:8081/realms/surls/protocol/openid-connect/auth?client_id=surls&redirect_uri=...&state=...",
+    "login_url": "http://localhost:8081/realms/draurls/protocol/openid-connect/auth?client_id=draurls&redirect_uri=...&state=...",
     "state": "base64_encoded_state"
   }
 }
@@ -170,7 +170,7 @@ GET /api/config
 {
   "code": 0,
   "data": {
-    "site_name": "Surls",
+    "site_name": "Draurls",
     "logo_url": "https://example.com/logo.png",
     "redirect_page_enabled": "false",
     "enable_signup": "true"
@@ -191,7 +191,7 @@ GET /api/domains
   "data": [
     {
       "id": 1,
-      "name": "surls.local",
+      "name": "draurls.local",
       "is_active": true,
       "is_default": true,
       "ssl": true
@@ -591,7 +591,7 @@ Authorization: Bearer <admin_token>
 **更新配置请求体**:
 ```json
 {
-  "site_name": "Surls短链接服务",
+  "site_name": "麟云短链",
   "logo_url": "https://example.com/logo.png"
 }
 ```
