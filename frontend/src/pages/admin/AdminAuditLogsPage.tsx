@@ -26,6 +26,9 @@ const actionOptions = [
   { value: 'group.create', label: '创建用户组' },
   { value: 'group.update', label: '更新用户组' },
   { value: 'group.delete', label: '删除用户组' },
+  { value: 'template.create', label: '创建模板' },
+  { value: 'template.update', label: '更新模板' },
+  { value: 'template.delete', label: '删除模板' },
 ]
 
 // 操作类型显示标签映射
@@ -49,6 +52,9 @@ const actionLabels: Record<string, string> = {
   'group.create': '创建用户组',
   'group.update': '更新用户组',
   'group.delete': '删除用户组',
+  'template.create': '创建模板',
+  'template.update': '更新模板',
+  'template.delete': '删除模板',
 }
 
 // 资源类型显示标签映射
@@ -59,6 +65,7 @@ const resourceLabels: Record<string, string> = {
   'config': '配置',
   'domain': '域名',
   'group': '用户组',
+  'template': '跳转模板',
 }
 
 // 获取操作类型标签
