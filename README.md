@@ -1,6 +1,6 @@
 # Draurls - 麟云短链
 
-一个功能完整的短链接服务系统，使用 Golang + React 构建，支持 Keycloak 认证、多租户用户分组、API 签名验证、冷热数据缓存等功能。
+一个功能完整的短链接服务系统，使用 Golang + React 构建，支持用户认证、多租户用户分组、API 签名验证、跳转模板、审计日志等功能。
 
 ## 功能特性
 
@@ -10,12 +10,26 @@
 - **时效控制** - 支持永久和限时链接
 - **跳转页面** - 可配置中间跳转提示页
 - **循环检测** - 自动检测并阻止本系统 URL 嵌套
+- **跳转模板** - 用户可自定义跳转页面模板
 
 ### 用户系统
-- **Keycloak 集成** - OIDC 认证
+- **OIDC 认证** - 支持 Keycloak 等标准 OIDC 提供商
 - **角色管理** - 普通用户/管理员
 - **用户分组** - 灵活的分组配额管理
 - **独立配额** - 配额精确到用户
+- **用户资料** - 完整的用户个人信息管理
+- **登录追踪** - 记录用户最后登录时间和 IP
+
+### 跳转模板
+- **模板管理** - 管理员可创建/编辑/删除跳转模板
+- **用户选择** - 用户创建链接时可选择模板
+- **默认模板** - 支持设置系统默认模板
+- **自定义 HTML** - 完全自定义的跳转页面样式
+
+### 审计日志
+- **操作记录** - 完整记录用户操作行为
+- **多维度查询** - 按操作人、操作类型、资源类型筛选
+- **详细追踪** - 记录 IP、User-Agent 等信息
 
 ### API 功能
 - **RESTful API** - 完整的 API 接口
@@ -30,10 +44,12 @@
 - **接口限流** - IP/用户/API 多维度限速
 
 ### 管理功能
-- **统一管理面板** - 用户和管理员共用
-- **站点配置** - 名称、Logo、域名等
+- **统一管理面板** - 响应式设计，支持移动端
+- **站点配置** - 分组配置（基本设置、跳转页面、短链、用户）
 - **用户管理** - 用户分组、配额分配
-- **统计报表** - 链接点击统计
+- **统计报表** - 链接点击统计、趋势分析
+- **域名管理** - 多域名支持，SSL 配置
+- **模板管理** - 跳转模板 CRUD 操作
 
 ## 技术栈
 
@@ -43,22 +59,20 @@
 | 前端 | React 18 + TypeScript + Vite + TailwindCSS |
 | 数据库 | MySQL 8.0 |
 | 缓存 | Redis 7 |
-| 认证 | Keycloak 24 |
+| 认证 | OIDC (Keycloak) |
 | 部署 | Docker + Docker Compose |
 
 ## 项目结构
 
 ```
 Draurls/
-├── backend/               # 后端服务
+���── backend/               # 后端服务
 │   ├── cmd/              # 主程序入口
 │   │   └── server/
 │   ├── internal/         # 内部代码
 │   │   ├── api/         # API 处理器
 │   │   ├── auth/        # 认证模块
 │   │   ├── config/      # 配置管理
-│   │   ├── link/        # 短链接服务
-│   │   ├── user/        # 用户服务
 │   │   ├── middleware/  # 中间件
 │   │   ├── models/      # 数据模型
 │   │   ├── repository/  # 数据访问层
@@ -74,8 +88,16 @@ Draurls/
 │   ├── src/
 │   │   ├── components/  # 组件
 │   │   ├── pages/       # 页面
+│   │   │   ├── admin/  # 管理员页面
+│   │   │   │   ├── AdminConfigPage.tsx    # 站点配置
+│   │   │   │   ├── AdminDomainsPage.tsx   # 域名管理
+│   │   │   │   ├── AdminGroupsPage.tsx    # 用户组管理
+│   │   │   │   ├── AdminTemplatesPage.tsx # 模板管理
+│   │   │   │   ├── AdminUsersPage.tsx     # 用户管理
+│   │   │   │   └── AuditLogsPage.tsx      # 审计日志
+│   │   │   ├── LinksPage.tsx              # 链接管理
+│   │   │   └── ProfilePage.tsx            # 个人资料
 │   │   ├── services/    # API 服务
-│   │   ├── store/       # 状态管理
 │   │   ├── types/       # 类型定义
 │   │   ├── hooks/       # 自定义 Hooks
 │   │   └── utils/       # 工具函数
@@ -93,8 +115,8 @@ Draurls/
 
 ```bash
 # 克隆项目
-git clone https://github.com/your/draurls.git
-cd draurls
+git clone https://github.com/Daofengql/Draurls.git
+cd Draurls
 
 # 启动所有服务
 docker-compose up -d
@@ -117,6 +139,8 @@ go mod download
 
 # 复制配置文件
 cp .env.example .env
+
+# 编辑 .env 文件，配置数据库和 Redis
 
 # 运行
 go run cmd/server/main.go
@@ -149,17 +173,61 @@ npm run build
 | `DB_NAME` | 数据库名称 | draurls |
 | `REDIS_HOST` | Redis 地址 | 127.0.0.1 |
 | `REDIS_PORT` | Redis 端口 | 6379 |
-| `KEYCLOAK_BASE_URL` | Keycloak 地址 | http://localhost:8081 |
-| `KEYCLOAK_REALM` | Keycloak 域名 | draurls |
+| `REDIS_PASSWORD` | Redis 密码 | - |
+| `OIDC_ISSUER` | OIDC 发行地址 | - |
+| `OIDC_CLIENT_ID` | OIDC 客户端 ID | - |
+| `OIDC_CLIENT_SECRET` | OIDC 客户端密钥 | - |
 | `JWT_SECRET` | JWT 密钥 | - |
+
+## 站点配置
+
+系统支持以下配置项，可在管理后台修改：
+
+### 基本设置
+- **站点名称** - 显示在页面标题和导航
+- **Logo URL** - 站点 Logo 图片地址
+
+### 跳转页面设置
+- **启用跳转中间页** - 是否显示跳转提示页面
+- **允许用户选择模板** - 用户创建链接时是否可选择跳转模板
+
+### 短链设置
+- **最大短链长度** - 自定义短码的最大长度
+- **短码生成模式** - 随机字符串 / 数据库自增
+- **允许普通用户使用自定义短码** - 是否开放自定义短码功能
+
+### 用户设置
+- **允许用户注册** - 是否开放新用户注册
 
 ## API 文档
 
 ### 认证方式
 
 支持两种认证方式：
-1. **OIDC 认证** - 通过 Keycloak 进行 OAuth2/OIDC 登录
+1. **OIDC 认证** - 通过 Keycloak 等标准 OIDC 提供商登录
 2. **API 签名认证** - 使用 API Key + HMAC 签名
+
+### 主要 API 端点
+
+| 端点 | 方法 | 说明 | 认证 |
+|------|------|------|------|
+| `/health` | GET | 健康检查 | - |
+| `/api/links` | POST | 创建短链接 | 用户 |
+| `/api/links` | GET | 获取我的链接列表 | 用户 |
+| `/api/links/:id` | PUT | 更新链接 | 用户 |
+| `/api/links/:id` | DELETE | 删除链接 | 用户 |
+| `/api/user/profile` | GET | 获取个人信息 | 用户 |
+| `/api/user/dashboard` | GET | 用户仪表盘统计 | 用户 |
+| `/api/config` | GET | 获取站点配置 | - |
+| `/api/templates` | GET | 获取可用模板 | - |
+| `/api/admin/users` | GET | 获取用户列表 | 管理员 |
+| `/api/admin/groups` | GET | 获取用户组列表 | 管理员 |
+| `/api/admin/domains` | GET | 获取域名列表 | 管理员 |
+| `/api/admin/templates` | GET | 获取模板列表 | 管理员 |
+| `/api/admin/config` | GET | 获取站点配置 | 管理员 |
+| `/api/admin/audit-logs` | GET | 获取审计日志 | 管理员 |
+| `/api/admin/dashboard/summary` | GET | 管理员统计摘要 | 管理员 |
+| `/:code` | GET | 短链跳转 | - |
 
 ### API 签名示例
 
@@ -201,6 +269,13 @@ curl -X POST http://localhost:8080/api/links \
 | 用户限流 | 200 次/分钟 |
 | API 限流 | 500 次/分钟 |
 | 全局限流 | 10000 次/秒 |
+
+## 移动端支持
+
+前端采用响应式设计，完全支持移动端访问：
+- 自适应布局
+- 触摸优化
+- 移动端专属交互体验
 
 ## 许可证
 

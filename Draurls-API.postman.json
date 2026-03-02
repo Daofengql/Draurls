@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "draurls-api-collection",
 		"name": "Draurls 麟云短链 API",
-		"description": "Draurls 麟云短链的完整 API 测试集合\n\n## 认证说明\n\n### Keycloak OIDC 认证\n1. 调用 `获取登录 URL` 获取 Keycloak 登录地址\n2. 在浏览器中完成登录\n3. 登录成功后 token 会自动存储在 Cookie 中\n4. 或从 Cookie 中复制 `access_token` 用于 Authorization Header\n\n### 使用 Cookie 认证（Postman 设置）\n1. 打开 Postman Cookie Manager\n2. 添加 Cookie: `access_token` = `<你的token>`\n3. Domain: `localhost:8080`\n\n### 使用 Bearer Token\n在请求头中添加: `Authorization: Bearer <你的token>`",
+		"description": "Draurls 麟云短链的完整 API 测试集合\n\n## 认证说明\n\n### OIDC 认证\n1. 调用 `获取登录 URL` 获取 OIDC 提供商��录地址\n2. 在浏览器中完成登录\n3. 登录成功后 token 会自动存储在 Cookie 中\n4. 或从 Cookie 中复制 `access_token` 用于 Authorization Header\n\n### 使用 Cookie 认证（Postman 设置）\n1. 打开 Postman Cookie Manager\n2. 添加 Cookie: `access_token` = `<你的token>`\n3. Domain: `localhost:8080`\n\n### 使用 Bearer Token\n在请求头中添加: `Authorization: Bearer <你的token>`",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -10,7 +10,7 @@
 			"name": "认证相关",
 			"item": [
 				{
-					"name": "获取登录 URL",
+					"name": "获取登�� URL",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -28,11 +28,11 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "login-url"]
 						},
-						"description": "获取 Keycloak 登录 URL，用于前端弹窗登录"
+						"description": "获取 OIDC 提供商登录 URL，用于前端弹窗登录"
 					}
 				},
 				{
-					"name": "Keycloak 回调",
+					"name": "OIDC 回调",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -51,7 +51,7 @@
 								}
 							]
 						},
-						"description": "Keycloak OAuth 回调端点（返回 HTML 页面）"
+						"description": "OIDC OAuth 回调端点（返回 HTML 页面）"
 					}
 				},
 				{
@@ -99,7 +99,7 @@
 					}
 				}
 			],
-			"description": "Keycloak OIDC 认证相关接口"
+			"description": "OIDC 认证相关接口"
 		},
 		{
 			"name": "健康检查",
@@ -159,7 +159,20 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "config"]
 						},
-						"description": "获取公开的站点配置信息（站点名称、Logo等）"
+						"description": "获取公开的站点配置信息（站点名称、Logo、跳转页设置等）"
+					}
+				},
+				{
+					"name": "获取可用跳转模板",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/templates",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "templates"]
+						},
+						"description": "获取所有启用的跳转模板列表"
 					}
 				},
 				{
@@ -189,7 +202,7 @@
 							{
 								"key": "Authorization",
 								"value": "Bearer {{accessToken}}",
-								"description": "Keycloak 返回的 access_token"
+								"description": "OIDC 返回的 access_token"
 							}
 						],
 						"url": {
@@ -198,6 +211,32 @@
 							"path": ["api", "user", "profile"]
 						},
 						"description": "获取当前登录用户的个人信息"
+					}
+				},
+				{
+					"name": "更新用户资料",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nickname\": \"我的昵称\",\n    \"bio\": \"个人简介\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/user/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "user", "profile"]
+						},
+						"description": "更新当前用户的个人信息"
 					}
 				},
 				{
@@ -258,14 +297,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"url\": \"https://www.example.com\",\n    \"code\": \"example123\",\n    \"title\": \"示例网站\"\n}"
+							"raw": "{\n    \"url\": \"https://www.example.com\",\n    \"code\": \"example123\",\n    \"title\": \"示例网站\",\n    \"domain_id\": 1,\n    \"template_id\": 1\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/links",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "links"]
 						},
-						"description": "创建一个新的短链接（指定短码）"
+						"description": "创建一个新的短链接（可指定短码、域名、模板）"
 					}
 				},
 				{
@@ -382,14 +421,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"url\": \"https://www.newurl.com\",\n    \"title\": \"更新后的标题\"\n}"
+							"raw": "{\n    \"url\": \"https://www.newurl.com\",\n    \"title\": \"更新后的标题\",\n    \"template_id\": 2\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/links/example123",
+							"raw": "{{baseUrl}}/api/links/1",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "links", "example123"]
+							"path": ["api", "links", "1"]
 						},
-						"description": "更新短链接的目标URL、标题等信息"
+						"description": "更新短链接的目标URL、标题、模板等"
 					}
 				},
 				{
@@ -403,9 +442,9 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/links/example123",
+							"raw": "{{baseUrl}}/api/links/1",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "links", "example123"]
+							"path": ["api", "links", "1"]
 						},
 						"description": "删除指定的短链接（软删除）"
 					}
@@ -427,37 +466,9 @@
 						},
 						"description": "获取短链接的点击统计信息"
 					}
-				},
-				{
-					"name": "获取短链接访问日志",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/links/example123/logs?page=1&page_size=20",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links", "example123", "logs"],
-							"query": [
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "page_size",
-									"value": "20"
-								}
-							]
-						},
-						"description": "获取短链接的访问日志明细"
-					}
 				}
 			],
-			"description": "短链接的增删改查、统计及访问日志功能"
+			"description": "短链接的增删改查、统计功能"
 		},
 		{
 			"name": "API密钥管理",
@@ -481,9 +492,9 @@
 							"raw": "{\n    \"name\": \"我的应用\",\n    \"expires_in\": 2592000\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/apikeys",
+							"raw": "{{baseUrl}}/api/api-keys",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "apikeys"]
+							"path": ["api", "api-keys"]
 						},
 						"description": "创建新的API密钥用于接口调用。expires_in 为秒数，0 表示永久"
 					}
@@ -499,9 +510,9 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/apikeys",
+							"raw": "{{baseUrl}}/api/api-keys",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "apikeys"]
+							"path": ["api", "api-keys"]
 						},
 						"description": "获取当前用户的所有API密钥"
 					}
@@ -517,9 +528,9 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/apikeys/1",
+							"raw": "{{baseUrl}}/api/api-keys/1",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "apikeys", "1"]
+							"path": ["api", "api-keys", "1"]
 						},
 						"description": "删除指定的API密钥"
 					}
@@ -689,7 +700,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"name\": \"普通用户组\",\n    \"description\": \"普通用户默认组\",\n    \"default_quota\": 100\n}"
+									"raw": "{\n    \"name\": \"普通用户组\",\n    \"description\": \"普通用户默认组\",\n    \"default_quota\": 100,\n    \"is_default\": true\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups",
@@ -760,6 +771,68 @@
 								},
 								"description": "删除用户组（有用户的组不能删除）"
 							}
+						},
+						{
+							"name": "设置默认用户组",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{accessToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/groups/1/default",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "admin", "groups", "1", "default"]
+								},
+								"description": "设置默认用户组"
+							}
+						},
+						{
+							"name": "添加用户组域名",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{accessToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"domain_id\": 1\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/groups/1/domains",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "admin", "groups", "1", "domains"]
+								},
+								"description": "为用户组添加可用域名"
+							}
+						},
+						{
+							"name": "移除用户组域名",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{accessToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/groups/1/domains/1",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "admin", "groups", "1", "domains", "1"]
+								},
+								"description": "从用户组移除域名"
+							}
 						}
 					],
 					"description": "用户组管理接口"
@@ -808,7 +881,7 @@
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "admin", "config"]
 								},
-								"description": "更新单个站点配置项\n\n可用的配置项:\n- site_name: 站点名称\n- logo_url: Logo URL\n- redirect_page: 是否启用跳转中间页 (true/false)\n- default_quota: 默认用户配额\n- max_link_length: 最大短链长度\n- enable_signup: 是否允许用户注册 (true/false)\n\n注意: 域名管理请使用「域名管理」接口"
+								"description": "更新单个站点配置项\n\n可用的配置项:\n- site_name: 站点名称\n- logo_url: Logo URL\n- redirect_page_enabled: 是否启用跳转中间页 (true/false)\n- allow_user_template: 是否允许用户选择跳转模板 (true/false)\n- max_link_length: 最大短链长度\n- shortcode_mode: 短码生成模式 (random/sequence)\n- allow_custom_shortcode: 允许普通用户使用自定义短码 (true/false)\n- enable_signup: 是否允许用户注册 (true/false)"
 							}
 						},
 						{
@@ -827,7 +900,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"configs\": {\n        \"site_name\": \"麟云短链\",\n        \"logo_url\": \"https://example.com/logo.png\",\n        \"enable_signup\": \"true\"\n    }\n}"
+									"raw": "{\n    \"configs\": {\n        \"site_name\": \"麟云短链\",\n        \"logo_url\": \"https://example.com/logo.png\",\n        \"enable_signup\": \"true\",\n        \"redirect_page_enabled\": \"true\",\n        \"allow_user_template\": \"true\"\n    }\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/config/batch",
@@ -1018,7 +1091,7 @@
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "admin", "templates"]
 								},
-								"description": "获取所有跳转模板"
+								"description": "获取所有跳转模板（包括已禁用的）"
 							}
 						},
 						{
@@ -1168,7 +1241,7 @@
 										}
 									]
 								},
-								"description": "查询系统审计日志，支持按操作者、操作类型筛选\n\n可用操作类型:\n- user.create/update/delete/disable/enable/set_group/update_quota\n- link.create/update/delete\n- apikey.create/delete\n- config.update\n- domain.create/update/delete\n- group.create/update/delete"
+								"description": "查询系统审计日志，支持按操作者、操作类型筛选\n\n可用操作类型:\n- user.create/update/delete/disable/enable/set_group/update_quota\n- link.create/update/delete\n- template.create/update/delete/set_default\n- apikey.create/delete\n- config.update\n- domain.create/update/delete/set_default\n- group.create/update/delete/set_default/add_domain/remove_domain"
 							}
 						}
 					],
@@ -1257,7 +1330,7 @@
 			"key": "accessToken",
 			"value": "",
 			"type": "string",
-			"description": "Keycloak Access Token（登录后从 Cookie 获取）"
+			"description": "OIDC Access Token（登录后从 Cookie 获取）"
 		},
 		{
 			"key": "apiKey",
