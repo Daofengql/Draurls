@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
@@ -13,12 +14,14 @@ import (
 // LinkHandler 短链接处理器
 type LinkHandler struct {
 	linkService *service.LinkService
+	auditService *service.AuditService
 }
 
 // NewLinkHandler 创建短链接处理器
-func NewLinkHandler(linkService *service.LinkService) *LinkHandler {
+func NewLinkHandler(linkService *service.LinkService, auditService *service.AuditService) *LinkHandler {
 	return &LinkHandler{
 		linkService: linkService,
+		auditService: auditService,
 	}
 }
 
@@ -37,7 +40,7 @@ func (h *LinkHandler) CreateLink(c *gin.Context) {
 		return
 	}
 
-	// 获取用户ID（从认证中间件设置）
+	// 获取用户ID（从认���中间件设置）
 	userID := c.GetUint("user_id")
 	if userID == 0 {
 		response.BadRequest(c, "user not authenticated")
@@ -49,6 +52,23 @@ func (h *LinkHandler) CreateLink(c *gin.Context) {
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(0)
+		details := service.DetailLinkCreate(result.Code, req.URL)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionLinkCreate,
+			"link",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, result)
@@ -101,9 +121,13 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 		return
 	}
 
-	link, err := h.linkService.GetLink(c.Request.Context(), code)
+	userID := c.GetUint("user_id")
+	role := c.GetString("role")
+	isAdmin := role == "admin"
+
+	link, err := h.linkService.GetLink(c.Request.Context(), code, userID, isAdmin)
 	if err != nil {
-		response.NotFound(c, err.Error())
+		response.Error(c, http.StatusForbidden, err.Error())
 		return
 	}
 
@@ -140,6 +164,25 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		return
 	}
 
+	// 记录审计日志
+	if h.auditService != nil {
+		details := "code:" + code
+		if req.URL != "" {
+			details += ",url:" + req.URL
+		}
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionLinkUpdate,
+			"link",
+			nil,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
+	}
+
 	response.Success(c, gin.H{"message": "link updated successfully"})
 }
 
@@ -162,6 +205,21 @@ func (h *LinkHandler) DeleteLink(c *gin.Context) {
 	if err := h.linkService.Delete(c.Request.Context(), code, userID); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionLinkDelete,
+			"link",
+			nil,
+			"code:"+code,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "link deleted successfully"})

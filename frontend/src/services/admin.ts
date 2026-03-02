@@ -7,6 +7,7 @@ import type {
   AdminSummary,
   TrendDataResponse,
   PaginatedResponse,
+  AuditLogsResponse,
 } from '@/types'
 
 // 后端用户列表分页响应格式
@@ -133,4 +134,10 @@ export const dashboardService = {
 
   getTrends: (days: number = 30) =>
     api.get<TrendDataResponse>(`/admin/dashboard/trends?days=${days}`),
+}
+
+// 审计日志
+export const auditLogsService = {
+  list: async (params: { page?: number; page_size?: number; actor_id?: number; action?: string }) =>
+    api.get<AuditLogsResponse>('/admin/audit-logs', { params }),
 }

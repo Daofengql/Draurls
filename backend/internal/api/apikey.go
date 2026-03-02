@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
@@ -13,12 +14,14 @@ import (
 // APIKeyHandler API密钥处理器
 type APIKeyHandler struct {
 	apiKeyService *service.APIKeyService
+	auditService *service.AuditService
 }
 
 // NewAPIKeyHandler 创建API密钥处理器
-func NewAPIKeyHandler(apiKeyService *service.APIKeyService) *APIKeyHandler {
+func NewAPIKeyHandler(apiKeyService *service.APIKeyService, auditService *service.AuditService) *APIKeyHandler {
 	return &APIKeyHandler{
 		apiKeyService: apiKeyService,
+		auditService:  auditService,
 	}
 }
 
@@ -49,6 +52,21 @@ func (h *APIKeyHandler) CreateAPIKey(c *gin.Context) {
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionAPIKeyCreate,
+			"apikey",
+			nil,
+			"name:"+result.Name,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, result)
@@ -100,6 +118,22 @@ func (h *APIKeyHandler) DeleteAPIKey(c *gin.Context) {
 	if err := h.apiKeyService.Delete(c.Request.Context(), uint(keyID), userID); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(keyID)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionAPIKeyDelete,
+			"apikey",
+			&resourceID,
+			"id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "API key deleted successfully"})

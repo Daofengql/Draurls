@@ -1,10 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
@@ -12,12 +14,14 @@ import (
 // GroupHandler 用户组处理器
 type GroupHandler struct {
 	groupService *service.GroupService
+	auditService *service.AuditService
 }
 
 // NewGroupHandler 创建用户组处理器
-func NewGroupHandler(groupService *service.GroupService) *GroupHandler {
+func NewGroupHandler(groupService *service.GroupService, auditService *service.AuditService) *GroupHandler {
 	return &GroupHandler{
 		groupService: groupService,
+		auditService: auditService,
 	}
 }
 
@@ -52,10 +56,29 @@ func (h *GroupHandler) CreateGroup(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+
 	group, err := h.groupService.Create(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := group.ID
+		details := fmt.Sprintf("name:%s,quota:%d", group.Name, group.DefaultQuota)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionGroupCreate,
+			"group",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, group)
@@ -109,10 +132,31 @@ func (h *GroupHandler) UpdateGroup(c *gin.Context) {
 	}
 
 	req.ID = uint(groupID)
+	userID := c.GetUint("user_id")
 
 	if err := h.groupService.Update(c.Request.Context(), &req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(groupID)
+		details := fmt.Sprintf("id:%s", idStr)
+		if req.Name != "" {
+			details += ",name:" + req.Name
+		}
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionGroupUpdate,
+			"group",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "group updated successfully"})
@@ -133,9 +177,27 @@ func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+
 	if err := h.groupService.Delete(c.Request.Context(), uint(groupID)); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(groupID)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			userID,
+			models.ActionGroupDelete,
+			"group",
+			&resourceID,
+			"id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "group deleted successfully"})

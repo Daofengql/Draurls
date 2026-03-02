@@ -14,6 +14,7 @@ import AdminGroupsPage from './pages/admin/AdminGroupsPage'
 import AdminDomainsPage from './pages/admin/AdminDomainsPage'
 import AdminConfigPage from './pages/admin/AdminConfigPage'
 import AdminTemplatesPage from './pages/admin/AdminTemplatesPage'
+import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage'
 import RedirectPage from './pages/RedirectPage'
 
 // 受保护路由组件：认证中不进行重定向
@@ -83,6 +84,7 @@ function App() {
             <Route path="domains" element={<AdminDomainsPage />} />
             <Route path="config" element={<AdminConfigPage />} />
             <Route path="templates" element={<AdminTemplatesPage />} />
+            <Route path="audit-logs" element={<AdminAuditLogsPage />} />
           </Route>
         </Route>
 

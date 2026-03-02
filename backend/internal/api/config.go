@@ -1,9 +1,11 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
@@ -11,12 +13,14 @@ import (
 // ConfigHandler 站点配置处理器
 type ConfigHandler struct {
 	configService *service.ConfigService
+	auditService  *service.AuditService
 }
 
 // NewConfigHandler 创建站点配置处理器
-func NewConfigHandler(configService *service.ConfigService) *ConfigHandler {
+func NewConfigHandler(configService *service.ConfigService, auditService *service.AuditService) *ConfigHandler {
 	return &ConfigHandler{
 		configService: configService,
+		auditService:  auditService,
 	}
 }
 
@@ -51,9 +55,27 @@ func (h *ConfigHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	if err := h.configService.Update(c.Request.Context(), &req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		details := fmt.Sprintf("key:%s,value:%s", req.Key, req.Value)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionConfigUpdate,
+			"config",
+			nil,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "config updated successfully"})
@@ -74,9 +96,27 @@ func (h *ConfigHandler) BatchUpdateConfig(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	if err := h.configService.BatchUpdate(c.Request.Context(), &req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		details := fmt.Sprintf("count:%d", len(req.Configs))
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionConfigUpdate,
+			"config",
+			nil,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "config updated successfully"})

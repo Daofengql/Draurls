@@ -181,3 +181,58 @@ type DomainGroupDomain struct {
 	Domain   *Domain    `gorm:"foreignKey:DomainID"`
 	Group    *UserGroup `gorm:"foreignKey:GroupID"`
 }
+
+// AuditLog 审计日志
+type AuditLog struct {
+	ID        uint      `gorm:"primarykey"`
+	ActorID   uint      `gorm:"index;not null;comment:操作者ID"`
+	Actor     *User     `gorm:"foreignKey:ActorID"`
+	Action    string    `gorm:"size:50;not null;index;comment:操作类型"`
+	Resource  string    `gorm:"size:50;not null;comment:资源类型"`
+	ResourceID *uint    `gorm:"index;comment:资源ID"`
+	Details   string    `gorm:"type:text;comment:详细信息"`
+	IPAddress string    `gorm:"size:50;comment:IP地址"`
+	UserAgent string    `gorm:"type:text;comment:User-Agent"`
+	CreatedAt time.Time `gorm:"index;comment:操作时间"`
+}
+
+// AuditAction 审计操作类型
+type AuditAction string
+
+const (
+	// 用户相关
+	ActionUserCreate      AuditAction = "user.create"
+	ActionUserUpdate      AuditAction = "user.update"
+	ActionUserDelete      AuditAction = "user.delete"
+	ActionUserDisable     AuditAction = "user.disable"
+	ActionUserEnable      AuditAction = "user.enable"
+	ActionUserSetGroup    AuditAction = "user.set_group"
+	ActionUserUpdateQuota AuditAction = "user.update_quota"
+
+	// 短链接相关
+	ActionLinkCreate AuditAction = "link.create"
+	ActionLinkUpdate AuditAction = "link.update"
+	ActionLinkDelete AuditAction = "link.delete"
+
+	// API密钥相关
+	ActionAPIKeyCreate AuditAction = "apikey.create"
+	ActionAPIKeyDelete AuditAction = "apikey.delete"
+
+	// 配置相关
+	ActionConfigUpdate AuditAction = "config.update"
+
+	// 域名相关
+	ActionDomainCreate AuditAction = "domain.create"
+	ActionDomainUpdate AuditAction = "domain.update"
+	ActionDomainDelete AuditAction = "domain.delete"
+
+	// 用户组相关
+	ActionGroupCreate AuditAction = "group.create"
+	ActionGroupUpdate AuditAction = "group.update"
+	ActionGroupDelete AuditAction = "group.delete"
+)
+
+// TableName 指定审计日志表名
+func (AuditLog) TableName() string {
+	return "audit_logs"
+}

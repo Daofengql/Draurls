@@ -1,9 +1,11 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
@@ -11,12 +13,14 @@ import (
 // TemplateHandler 跳转模板处理器
 type TemplateHandler struct {
 	templateService *service.TemplateService
+	auditService    *service.AuditService
 }
 
 // NewTemplateHandler 创建模板处理器
-func NewTemplateHandler(templateService *service.TemplateService) *TemplateHandler {
+func NewTemplateHandler(templateService *service.TemplateService, auditService *service.AuditService) *TemplateHandler {
 	return &TemplateHandler{
 		templateService: templateService,
+		auditService:    auditService,
 	}
 }
 
@@ -35,10 +39,29 @@ func (h *TemplateHandler) CreateTemplate(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	template, err := h.templateService.Create(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := template.ID
+		details := fmt.Sprintf("name:%s", template.Name)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionGroupCreate, // 没有专门的模板操作类型，复用group.create
+			"template",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, template)
@@ -60,6 +83,8 @@ func (h *TemplateHandler) UpdateTemplate(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	var req service.UpdateTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
@@ -70,6 +95,23 @@ func (h *TemplateHandler) UpdateTemplate(c *gin.Context) {
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := id
+		details := fmt.Sprintf("id:%d", id)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionGroupUpdate, // 没有专门的模板操作类型，复用group.update
+			"template",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, template)
@@ -89,9 +131,27 @@ func (h *TemplateHandler) DeleteTemplate(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	if err := h.templateService.Delete(c.Request.Context(), id); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := id
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionGroupDelete, // 没有专门的模板操作类型，复用group.delete
+			"template",
+			&resourceID,
+			fmt.Sprintf("id:%d", id),
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "template deleted successfully"})

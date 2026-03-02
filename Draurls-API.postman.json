@@ -1129,6 +1129,50 @@
 						}
 					],
 					"description": "跳转页面模板管理接口"
+				},
+				{
+					"name": "审计日志查询",
+					"item": [
+						{
+							"name": "查询审计日志",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{accessToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/audit-logs?page=1&page_size=20&actor_id=1&action=link.create",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "admin", "audit-logs"],
+									"query": [
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "page_size",
+											"value": "20"
+										},
+										{
+											"key": "actor_id",
+											"value": "1",
+											"description": "筛选指定操作者的日志"
+										},
+										{
+											"key": "action",
+											"value": "link.create",
+											"description": "筛选指定操作类型"
+										}
+									]
+								},
+								"description": "查询系统审计日志，支持按操作者、操作类型筛选\n\n可用操作类型:\n- user.create/update/delete/disable/enable/set_group/update_quota\n- link.create/update/delete\n- apikey.create/delete\n- config.update\n- domain.create/update/delete\n- group.create/update/delete"
+							}
+						}
+					],
+					"description": "审计日志查询接口"
 				}
 			],
 			"description": "管理员专用的系统管理接口（需要管理员角色）"

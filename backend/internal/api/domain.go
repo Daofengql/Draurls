@@ -1,10 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
@@ -12,12 +14,14 @@ import (
 // DomainHandler 域名处理器
 type DomainHandler struct {
 	domainService *service.DomainService
+	auditService  *service.AuditService
 }
 
 // NewDomainHandler 创建域名处理器
-func NewDomainHandler(domainService *service.DomainService) *DomainHandler {
+func NewDomainHandler(domainService *service.DomainService, auditService *service.AuditService) *DomainHandler {
 	return &DomainHandler{
 		domainService: domainService,
+		auditService:  auditService,
 	}
 }
 
@@ -35,10 +39,29 @@ func (h *DomainHandler) CreateDomain(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	domain, err := h.domainService.Create(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := domain.ID
+		details := fmt.Sprintf("name:%s,ssl:%v", domain.Name, domain.SSL)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionDomainCreate,
+			"domain",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, domain)
@@ -99,9 +122,27 @@ func (h *DomainHandler) UpdateDomain(c *gin.Context) {
 	}
 	req.ID = uint(id)
 
+	actorID := c.GetUint("user_id")
+
 	if err := h.domainService.Update(c.Request.Context(), &req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(id)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionDomainUpdate,
+			"domain",
+			&resourceID,
+			"id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "domain updated successfully"})
@@ -122,9 +163,27 @@ func (h *DomainHandler) DeleteDomain(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	if err := h.domainService.Delete(c.Request.Context(), uint(id)); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(id)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionDomainDelete,
+			"domain",
+			&resourceID,
+			"id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "domain deleted successfully"})

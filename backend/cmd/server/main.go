@@ -125,6 +125,7 @@ func main() {
 	accessLogRepo := repository.NewAccessLogRepository(db)
 	domainRepo := repository.NewDomainRepository(db)
 	templateRepo := repository.NewRedirectTemplateRepository(db)
+	auditLogRepo := repository.NewAuditLogRepository(db)
 
 	// 初始化访问日志缓冲区（需要先创建 batchWriter）
 	// 1. 先创建一个没有 batchWriter 的 buffer
@@ -151,6 +152,7 @@ func main() {
 	baseURL := cfg.Server.GetBaseURL()
 	userService := service.NewUserService(userRepo, groupRepo)
 	groupService := service.NewGroupService(groupRepo, userRepo)
+	auditService := service.NewAuditService(auditLogRepo)
 	accessLogService := service.NewAccessLogService(accessLogRepo, accessLogBuffer)
 	linkService := service.NewLinkService(linkRepo, userRepo, domainRepo, accessLogService, configService, codeGenerator, baseURL, clickCounter, workerPool)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo)
@@ -159,17 +161,18 @@ func main() {
 	templateService := service.NewTemplateService(templateRepo)
 
 	// 初始化Handler
-	linkHandler := api.NewLinkHandler(linkService)
-	apiKeyHandler := api.NewAPIKeyHandler(apiKeyService)
-	userHandler := api.NewUserHandler(userService)
-	groupHandler := api.NewGroupHandler(groupService)
-	configHandler := api.NewConfigHandler(configService)
+	linkHandler := api.NewLinkHandler(linkService, auditService)
+	apiKeyHandler := api.NewAPIKeyHandler(apiKeyService, auditService)
+	userHandler := api.NewUserHandler(userService, auditService)
+	groupHandler := api.NewGroupHandler(groupService, auditService)
+	configHandler := api.NewConfigHandler(configService, auditService)
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
 	redirectHandler := api.NewRedirectHandler(linkService, domainService, linkCache, rateLimitService, redisClient, configService)
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
-	domainHandler := api.NewDomainHandler(domainService)
-	templateHandler := api.NewTemplateHandler(templateService)
+	domainHandler := api.NewDomainHandler(domainService, auditService)
+	templateHandler := api.NewTemplateHandler(templateService, auditService)
 	authHandler := api.NewAuthHandler(cfg)
+	auditHandler := api.NewAuditHandler(auditService)
 
 	// 设置循环链接检测（需要在 redirectHandler 初始化后）
 	linkService.SetCircularCheck(redirectHandler.CheckCircular)
@@ -290,6 +293,9 @@ func main() {
 			admin.PUT("/templates/:id", templateHandler.UpdateTemplate)
 			admin.DELETE("/templates/:id", templateHandler.DeleteTemplate)
 			admin.POST("/templates/:id/default", templateHandler.SetDefaultTemplate)
+
+			// 审计日志
+			admin.GET("/audit-logs", auditHandler.ListAuditLogs)
 		}
 	}
 
@@ -445,6 +451,7 @@ func autoMigrate(db *gorm.DB) error {
 		&models.RedirectTemplate{},
 		&models.Domain{},
 		&models.DomainGroupDomain{},
+		&models.AuditLog{},
 	)
 }
 

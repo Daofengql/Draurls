@@ -8,6 +8,7 @@ const adminTabs = [
   { path: '/admin/domains', label: '域名管理', id: 'domains' },
   { path: '/admin/config', label: '站点配置', id: 'config' },
   { path: '/admin/templates', label: '跳转模板', id: 'templates' },
+  { path: '/admin/audit-logs', label: '审计日志', id: 'audit-logs' },
 ]
 
 export default function AdminPage() {

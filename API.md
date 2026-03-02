@@ -665,6 +665,58 @@ Authorization: Bearer <admin_token>
 }
 ```
 
+#### 8.7 审计日志查询
+
+##### 查询审计日志
+
+```http
+GET /api/admin/audit-logs?page=1&page_size=20&actor_id=1&action=link.create
+Authorization: Bearer <admin_token>
+```
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | int | 否 | 页码，默认 1 |
+| page_size | int | 否 | 每页数量，默认 20 |
+| actor_id | int | 否 | 筛选指定操作者的日志 |
+| action | string | 否 | 筛选指定操作类型 |
+
+**可用操作类型**:
+- `user.create/update/delete/disable/enable/set_group/update_quota`
+- `link.create/update/delete`
+- `apikey.create/delete`
+- `config.update`
+- `domain.create/update/delete`
+- `group.create/update/delete`
+
+**响应**:
+```json
+{
+  "code": 0,
+  "data": {
+    "logs": [
+      {
+        "id": 1,
+        "actor_id": 1,
+        "action": "link.create",
+        "resource": "link",
+        "resource_id": 123,
+        "details": "code:abc123,url:https://example.com",
+        "ip_address": "192.168.1.1",
+        "user_agent": "Mozilla/5.0...",
+        "created_at": "2024-01-01T12:00:00Z"
+      }
+    ],
+    "total": 100,
+    "page": 1,
+    "page_size": 20,
+    "total_page": 5
+  }
+}
+```
+
 ---
 
 ### 九、短链接跳转

@@ -1,23 +1,27 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
 
 // UserHandler 用户处理器
 type UserHandler struct {
-	userService *service.UserService
+	userService  *service.UserService
+	auditService *service.AuditService
 }
 
 // NewUserHandler 创建用户处理器
-func NewUserHandler(userService *service.UserService) *UserHandler {
+func NewUserHandler(userService *service.UserService, auditService *service.AuditService) *UserHandler {
 	return &UserHandler{
-		userService: userService,
+		userService:  userService,
+		auditService: auditService,
 	}
 }
 
@@ -115,9 +119,28 @@ func (h *UserHandler) UpdateQuota(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	if err := h.userService.UpdateQuota(c.Request.Context(), &req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := req.UserID
+		details := fmt.Sprintf("user_id:%d,quota:%d", req.UserID, req.Quota)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionUserUpdateQuota,
+			"user",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "quota updated successfully"})
@@ -138,9 +161,28 @@ func (h *UserHandler) SetGroup(c *gin.Context) {
 		return
 	}
 
+	actorID := c.GetUint("user_id")
+
 	if err := h.userService.SetGroup(c.Request.Context(), &req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := req.UserID
+		details := fmt.Sprintf("user_id:%d,group_id:%d", req.UserID, req.GroupID)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionUserSetGroup,
+			"user",
+			&resourceID,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "group updated successfully"})
@@ -155,15 +197,33 @@ func (h *UserHandler) SetGroup(c *gin.Context) {
 // @Router /api/admin/users/{id}/disable [post]
 func (h *UserHandler) DisableUser(c *gin.Context) {
 	idStr := c.Param("id")
-	userID, err := strconv.ParseUint(idStr, 10, 32)
+	targetUserID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		response.BadRequest(c, "invalid user id")
 		return
 	}
 
-	if err := h.userService.Disable(c.Request.Context(), uint(userID)); err != nil {
+	actorID := c.GetUint("user_id")
+
+	if err := h.userService.Disable(c.Request.Context(), uint(targetUserID)); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(targetUserID)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionUserDisable,
+			"user",
+			&resourceID,
+			"id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "user disabled successfully"})
@@ -178,15 +238,33 @@ func (h *UserHandler) DisableUser(c *gin.Context) {
 // @Router /api/admin/users/{id}/enable [post]
 func (h *UserHandler) EnableUser(c *gin.Context) {
 	idStr := c.Param("id")
-	userID, err := strconv.ParseUint(idStr, 10, 32)
+	targetUserID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		response.BadRequest(c, "invalid user id")
 		return
 	}
 
-	if err := h.userService.Enable(c.Request.Context(), uint(userID)); err != nil {
+	actorID := c.GetUint("user_id")
+
+	if err := h.userService.Enable(c.Request.Context(), uint(targetUserID)); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(targetUserID)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionUserEnable,
+			"user",
+			&resourceID,
+			"id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
 	}
 
 	response.Success(c, gin.H{"message": "user enabled successfully"})

@@ -257,7 +257,7 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 }
 
 // GetLink 获取短链接信息
-func (s *LinkService) GetLink(ctx context.Context, code string) (*models.ShortLink, error) {
+func (s *LinkService) GetLink(ctx context.Context, code string, userID uint, isAdmin bool) (*models.ShortLink, error) {
 	link, err := s.linkRepo.FindByCode(ctx, code)
 	if err != nil {
 		return nil, err
@@ -273,6 +273,11 @@ func (s *LinkService) GetLink(ctx context.Context, code string) (*models.ShortLi
 		return nil, apperrors.ErrLinkExpired
 	}
 
+	// 权限检查：只有管理员或链接创建者可以查看详情
+	if !isAdmin && link.UserID != userID {
+		return nil, apperrors.ErrForbidden
+	}
+
 	return link, nil
 }
 
@@ -286,9 +291,19 @@ type ResolveOptions struct {
 
 // Resolve 解析短链接（用于跳转）并记录访问日志
 func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOptions) (*models.ShortLink, error) {
-	link, err := s.GetLink(ctx, code)
+	link, err := s.linkRepo.FindByCode(ctx, code)
 	if err != nil {
 		return nil, err
+	}
+
+	// 检查状态
+	if link.Status == models.LinkStatusDisabled {
+		return nil, apperrors.ErrLinkDisabled
+	}
+
+	// 检查过期
+	if link.ExpiresAt != nil && link.ExpiresAt.Before(time.Now()) {
+		return nil, apperrors.ErrLinkExpired
 	}
 
 	// 异步更新点击计数和访问日志（使用 Worker Pool 防止无界 Goroutine）

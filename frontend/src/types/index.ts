@@ -197,3 +197,25 @@ export interface TrendData {
   clicks: number
   users: number
 }
+
+// 审计日志类型
+export interface AuditLog {
+  ID: number
+  ActorID: number
+  Action: string
+  Resource: string
+  ResourceID?: number
+  Details?: string
+  IPAddress?: string
+  UserAgent?: string
+  CreatedAt: string
+}
+
+// 审计日志列表响应
+export interface AuditLogsResponse {
+  Logs: AuditLog[]
+  Total: number
+  Page: number
+  PageSize: number
+  TotalPage: number
+}
