@@ -68,20 +68,23 @@ export default function Layout() {
 
             {/* 桌面端用户信息 */}
             <div className="hidden sm:flex items-center space-x-4">
-              {user?.Picture ? (
-                <img
-                  src={user.Picture}
-                  alt={displayName}
-                  className="w-8 h-8 rounded-full"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                  {displayName?.charAt(0).toUpperCase() || '?'}
-                </div>
-              )}
-              <span className="text-sm text-gray-700">
-                {displayName || '加载中...'}
-              </span>
+              <Link
+                to="/profile"
+                className="flex items-center space-x-2 hover:bg-gray-50 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                {user?.Picture ? (
+                  <img
+                    src={user.Picture}
+                    alt={displayName}
+                    className="w-8 h-8 rounded-full"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                    {displayName?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                )}
+                <span className="text-sm text-gray-700">{displayName || '加载中...'}</span>
+              </Link>
               <button
                 onClick={clearAuth}
                 className="text-sm text-gray-500 hover:text-gray-700"
@@ -137,25 +140,31 @@ export default function Layout() {
                   管理后台
                 </Link>
               )}
-              <div className="border-t pt-3 mt-3 flex items-center space-x-3">
-                {user?.Picture ? (
-                  <img
-                    src={user.Picture}
-                    alt={displayName}
-                    className="w-8 h-8 rounded-full"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                    {displayName?.charAt(0).toUpperCase() || '?'}
-                  </div>
-                )}
-                <span className="text-sm text-gray-700">{displayName || '加载中...'}</span>
+              <div className="border-t pt-3 mt-3">
+                <Link
+                  to="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 mb-2"
+                >
+                  {user?.Picture ? (
+                    <img
+                      src={user.Picture}
+                      alt={displayName}
+                      className="w-8 h-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                      {displayName?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                  )}
+                  <span>{displayName || '加载中...'}</span>
+                </Link>
                 <button
                   onClick={() => {
                     clearAuth()
                     setMobileMenuOpen(false)
                   }}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
                 >
                   退出
                 </button>

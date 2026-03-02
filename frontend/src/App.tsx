@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import LinksPage from './pages/LinksPage'
 import ApiKeysPage from './pages/ApiKeysPage'
+import ProfilePage from './pages/ProfilePage'
 import AdminPage from './pages/admin/AdminLayout'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
@@ -75,6 +76,7 @@ function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="links" element={<LinksPage />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
+          <Route path="profile" element={<ProfilePage />} />
 
           {/* 管理后台路由 */}
           <Route path="admin" element={<AdminPage />}>
