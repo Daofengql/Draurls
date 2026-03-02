@@ -230,6 +230,11 @@ const (
 	ActionGroupCreate AuditAction = "group.create"
 	ActionGroupUpdate AuditAction = "group.update"
 	ActionGroupDelete AuditAction = "group.delete"
+
+	// 模板相关
+	ActionTemplateCreate AuditAction = "template.create"
+	ActionTemplateUpdate AuditAction = "template.update"
+	ActionTemplateDelete AuditAction = "template.delete"
 )
 
 // TableName 指定审计日志表名

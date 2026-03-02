@@ -54,7 +54,7 @@ func (h *TemplateHandler) CreateTemplate(c *gin.Context) {
 		h.auditService.RecordFromGin(
 			c.Request.Context(),
 			actorID,
-			models.ActionGroupCreate, // 没有专门的模板操作类型，复用group.create
+			models.ActionTemplateCreate,
 			"template",
 			&resourceID,
 			details,
@@ -104,7 +104,7 @@ func (h *TemplateHandler) UpdateTemplate(c *gin.Context) {
 		h.auditService.RecordFromGin(
 			c.Request.Context(),
 			actorID,
-			models.ActionGroupUpdate, // 没有专门的模板操作类型，复用group.update
+			models.ActionTemplateUpdate,
 			"template",
 			&resourceID,
 			details,
@@ -144,7 +144,7 @@ func (h *TemplateHandler) DeleteTemplate(c *gin.Context) {
 		h.auditService.RecordFromGin(
 			c.Request.Context(),
 			actorID,
-			models.ActionGroupDelete, // 没有专门的模板操作类型，复用group.delete
+			models.ActionTemplateDelete,
 			"template",
 			&resourceID,
 			fmt.Sprintf("id:%d", id),
