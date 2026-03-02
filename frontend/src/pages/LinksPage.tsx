@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal from '@/components/Modal'
 import { toast } from '@/components/Toast'
 import { formatDateTime, truncate } from '@/utils/format'
+import { HelpModal } from '@/components/HelpTooltip'
 
 export default function LinksPage() {
   const [links, setLinks] = useState<ShortLink[]>([])
@@ -39,6 +40,9 @@ export default function LinksPage() {
 
   // 删除确认
   const [deleteConfirm, setDeleteConfirm] = useState<ShortLink | null>(null)
+
+  // 帮助文档弹窗
+  const [showHelpModal, setShowHelpModal] = useState(false)
 
   // 加载域名列表和站点配置
   useEffect(() => {
@@ -380,7 +384,21 @@ export default function LinksPage() {
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="创建短链接"
+        title={
+          <div className="flex items-center gap-2">
+            创建短链接
+            <button
+              type="button"
+              onClick={() => setShowHelpModal(true)}
+              className="text-gray-400 hover:text-gray-600 focus:outline-none"
+              title="查看使用说明"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        }
         size="medium"
         footer={
           <div className="flex justify-end gap-3">
@@ -606,6 +624,70 @@ export default function LinksPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {/* 创建链接帮助文档 */}
+      <HelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="创建短链接说明"
+      >
+        <div className="space-y-4">
+          <section>
+            <h4 className="font-medium text-gray-900 mb-2">字段说明</h4>
+            <dl className="space-y-2">
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">目标URL *</dt>
+                <dd className="text-sm text-gray-600">需要缩短的长链接，必须以 http:// 或 https:// 开头</dd>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">自定义短码</dt>
+                <dd className="text-sm text-gray-600">
+                  可选。留空则系统自动生成随机短码。
+                  自定义短码建议使用字母、数字组合，便于记忆。
+                </dd>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">选择域名</dt>
+                <dd className="text-sm text-gray-600">
+                  选择短链接使用的域名。不同域名可以用于不同业务场景。
+                </dd>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">标题</dt>
+                <dd className="text-sm text-gray-600">
+                  可选。为链接添加描述性标题，便于后续管理和识别。
+                </dd>
+              </div>
+              <div className="bg-blue-50 p-3 rounded">
+                <dt className="font-medium text-blue-700">跳转模板</dt>
+                <dd className="text-sm text-gray-600">
+                  选择用户访问短链接时显示的跳转页面模板。
+                  仅在管理员启用了跳转页面并允许用户选择模板时可用。
+                  不同模板可以有不同的视觉风格和提示信息。
+                </dd>
+              </div>
+            </dl>
+          </section>
+          <section>
+            <h4 className="font-medium text-gray-900 mb-2">使用提示</h4>
+            <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+              <li>相同的目标URL会自动复用已有的短链接</li>
+              <li>自定义短码不能与已有短码重复</li>
+              <li>短链接创建后可以随时编辑目标URL和标题</li>
+              <li>如果未选择模板，将使用系统默认跳转模板</li>
+            </ul>
+          </section>
+          {siteConfig?.redirect_page_enabled !== 'true' && (
+            <section className="bg-yellow-50 border border-yellow-200 p-3 rounded">
+              <h4 className="font-medium text-yellow-800 mb-1">模板功能未启用</h4>
+              <p className="text-sm text-yellow-700">
+                当前跳转页面功能未启用，模板选择不可用。
+                如需使用，请联系管理员在"站点配置"中启用"跳转页面设置"。
+              </p>
+            </section>
+          )}
+        </div>
+      </HelpModal>
     </div>
   )
 }

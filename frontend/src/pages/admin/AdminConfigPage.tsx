@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { configService } from '@/services/admin'
 import { toast } from '@/components/Toast'
+import { HelpModal } from '@/components/HelpTooltip'
 
 interface ConfigItem {
   key: string
@@ -134,6 +135,7 @@ export default function AdminConfigPage() {
   const [configValues, setConfigValues] = useState<Record<string, string>>(defaultValues)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
 
   // 根据当前值构建配置项
   const configItems: ConfigItem[] = useMemo(() => {
@@ -324,7 +326,19 @@ export default function AdminConfigPage() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold">站点配置</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold">站点配置</h2>
+          <button
+            type="button"
+            onClick={() => setShowHelpModal(true)}
+            className="text-gray-400 hover:text-gray-600 focus:outline-none"
+            title="查看配置说明"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
         <button
           onClick={handleSaveAll}
           disabled={saving}
@@ -383,6 +397,100 @@ export default function AdminConfigPage() {
           <li>• 配置修改后即时生效（部分配置可能需要刷新页面）</li>
         </ul>
       </div>
+
+      {/* 配置帮助文档弹窗 */}
+      <HelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="站点配置说明"
+      >
+        <div className="space-y-4">
+          <section>
+            <h4 className="font-medium text-gray-900 mb-2">基本设置</h4>
+            <dl className="space-y-2">
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">站点名称</dt>
+                <dd className="text-sm text-gray-600">显示在页面标题和导航中的站点名称</dd>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">Logo URL</dt>
+                <dd className="text-sm text-gray-600">站点 Logo 图片地址，支持外链</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section>
+            <h4 className="font-medium text-gray-900 mb-2">跳转页面设置</h4>
+            <dl className="space-y-2">
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">启用跳转中间页</dt>
+                <dd className="text-sm text-gray-600">
+                  开启后，用户访问短链接时会显示一个中间跳转页面，
+                  提示用户即将跳转到目标URL。可以增强用户体验，也可以用于广告展示。
+                </dd>
+              </div>
+              <div className="bg-blue-50 p-3 rounded">
+                <dt className="font-medium text-blue-700">允许用户选择跳转模板</dt>
+                <dd className="text-sm text-gray-600">
+                  开启后，用户在创建短链接时可以选择自己喜欢的跳转页面模板。
+                  需要先启用"跳转中间页"才能使用此功能。
+                  <br /><br />
+                  <strong>模板管理：</strong>请在"模板管理"页面创建和管理跳转模板。
+                  不同模板可以有不同的设计风格、动画效果和提示信息。
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section>
+            <h4 className="font-medium text-gray-900 mb-2">短链设置</h4>
+            <dl className="space-y-2">
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">最大短链长度</dt>
+                <dd className="text-sm text-gray-600">自定义短码的最大长度限制</dd>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">短码生成模式</dt>
+                <dd className="text-sm text-gray-600">
+                  <ul className="list-disc list-inside text-xs space-y-1">
+                    <li><strong>随机字符串</strong>：生成随机字符组成的短码，更安全，适合公开使用</li>
+                    <li><strong>数据库自增</strong>：使用数字自增ID，短链接更短，按顺序生成</li>
+                  </ul>
+                </dd>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">允许普通用户使用自定义短码</dt>
+                <dd className="text-sm text-gray-600">
+                  开放后，普通用户在创建链接时可以自定义短码。
+                  关闭后，只有管理员可以使用自定义短码功能。
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section>
+            <h4 className="font-medium text-gray-900 mb-2">用户设置</h4>
+            <dl className="space-y-2">
+              <div className="bg-gray-50 p-3 rounded">
+                <dt className="font-medium text-gray-700">允许用户注册</dt>
+                <dd className="text-sm text-gray-600">
+                  关闭后，新用户无法注册。已有用户不受影响。
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="bg-green-50 border border-green-200 p-3 rounded">
+            <h4 className="font-medium text-green-800 mb-2">💡 使用建议</h4>
+            <ul className="text-sm text-green-700 space-y-1">
+              <li>• 建议先在"模板管理"中创建几个跳转模板</li>
+              <li>• 开启"跳转中间页"后，用户才能看到模板效果</li>
+              <li>• 开放"允许用户选择模板"可以让用户自由选择风格</li>
+              <li>• 配置修改后会立即生效，无需重启服务</li>
+            </ul>
+          </section>
+        </div>
+      </HelpModal>
     </div>
   )
 }

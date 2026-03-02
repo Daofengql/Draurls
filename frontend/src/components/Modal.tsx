@@ -3,7 +3,7 @@ import { ReactNode, useEffect } from 'react'
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
-  title: string
+  title: string | ReactNode
   children: ReactNode
   footer?: ReactNode
   size?: 'small' | 'medium' | 'large'
