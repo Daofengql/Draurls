@@ -145,10 +145,6 @@ export default function AdminTemplatesPage() {
                     {template.Description && (
                       <p className="text-sm text-gray-600 mb-3">{template.Description}</p>
                     )}
-                    <div className="bg-gray-50 rounded-md p-3 text-xs sm:text-sm font-mono text-gray-700 max-h-32 overflow-auto">
-                      {template.Content?.substring(0, 200) || ''}
-                      {template.Content && template.Content.length > 200 && '...'}
-                    </div>
                     <p className="text-xs text-gray-400 mt-2">
                       创建于 {formatDateTime(template.CreatedAt)}
                     </p>
