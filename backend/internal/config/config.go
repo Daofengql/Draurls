@@ -11,13 +11,13 @@ import (
 
 // Config 应用配置
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	Keycloak KeycloakConfig
-	Cache    CacheConfig
-	Security SecurityConfig
-	Worker   WorkerConfig
+	Server    ServerConfig
+	Database  DatabaseConfig
+	Redis     RedisConfig
+	Keycloak  KeycloakConfig
+	Cache     CacheConfig
+	Security  SecurityConfig
+	Worker    WorkerConfig
 	RateLimit RateLimitConfig
 }
 
@@ -25,7 +25,7 @@ type Config struct {
 type ServerConfig struct {
 	Port         int
 	Mode         string
-	BaseURL      string        // 短链基础域名（用于生成完整短链接）
+	BaseURL      string // 短链基础域名（用于生成完整短链接）
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 }
@@ -78,10 +78,10 @@ type RedisConfig struct {
 
 // KeycloakConfig Keycloak 配置
 type KeycloakConfig struct {
-	BaseURL    string
-	Realm      string
-	ClientID   string
-	Secret     string
+	BaseURL     string
+	Realm       string
+	ClientID    string
+	Secret      string
 	CallbackURL string
 }
 
@@ -95,14 +95,13 @@ type CacheConfig struct {
 // SecurityConfig 安全配置
 type SecurityConfig struct {
 	JWTSecret    string
-	EnableHTTPS   bool
-	AllowOrigins  []string
-	APIKeyExpiry  time.Duration
+	EnableHTTPS  bool
+	APIKeyExpiry time.Duration
 }
 
 // WorkerConfig Worker 配置
 type WorkerConfig struct {
-	PoolSize     int
+	PoolSize      int
 	TaskQueueSize int
 }
 
@@ -164,11 +163,10 @@ func Load() (*Config, error) {
 		Security: SecurityConfig{
 			JWTSecret:    getEnv("JWT_SECRET", "change-me-in-production"),
 			EnableHTTPS:  getEnvBool("ENABLE_HTTPS", false),
-			AllowOrigins: []string{"http://localhost:3000"},
 			APIKeyExpiry: 365 * 24 * time.Hour,
 		},
 		Worker: WorkerConfig{
-			PoolSize:     getEnvInt("WORKER_POOL_SIZE", 100),
+			PoolSize:      getEnvInt("WORKER_POOL_SIZE", 100),
 			TaskQueueSize: getEnvInt("WORKER_TASK_QUEUE_SIZE", 1000),
 		},
 		RateLimit: RateLimitConfig{

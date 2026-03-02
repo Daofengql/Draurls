@@ -97,29 +97,15 @@
             if (window.opener) {
                 var redirectTo = {{ if .RedirectTo }}"{{ .RedirectTo }}"{{ else }}""{{ end }};
 
-                // 从 redirectTo 提取 origin
-                var frontendOrigin = null;
+                // 从 redirectTo 提取 origin 作为目标
+                var targetOrigin = '*';
                 if (redirectTo) {
                     try {
                         var url = new URL(redirectTo);
-                        frontendOrigin = url.origin;
+                        targetOrigin = url.origin;
                     } catch (e) {
-                        console.error('Invalid redirect URL:', redirectTo);
+                        console.warn('Invalid redirect URL:', redirectTo);
                     }
-                }
-
-                // 基础允许的源（开发环境）
-                var allowedOrigins = [
-                    'http://localhost:8080',
-                    'http://localhost:3000',
-                    'http://localhost:5173',
-                    'http://127.0.0.1:3000',
-                    'http://127.0.0.1:5173'
-                ];
-
-                // 如果能从 redirectTo 提取 origin，添加到允许列表
-                if (frontendOrigin && allowedOrigins.indexOf(frontendOrigin) === -1) {
-                    allowedOrigins.push(frontendOrigin);
                 }
 
                 var messageData = {
@@ -129,17 +115,15 @@
                     timestamp: Date.now()
                 };
 
-                console.log('Sending postMessage to origins:', allowedOrigins);
+                console.log('Sending postMessage to origin:', targetOrigin);
                 console.log('Message data:', messageData);
 
-                allowedOrigins.forEach(function(origin) {
-                    try {
-                        window.opener.postMessage(messageData, origin);
-                        console.log('PostMessage sent to:', origin);
-                    } catch (e) {
-                        console.error('Failed to send to', origin, e);
-                    }
-                });
+                try {
+                    window.opener.postMessage(messageData, targetOrigin);
+                    console.log('PostMessage sent successfully');
+                } catch (e) {
+                    console.error('Failed to send postMessage:', e);
+                }
             } else {
                 console.error('No window.opener found');
             }

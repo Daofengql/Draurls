@@ -138,10 +138,20 @@ func (h *RedirectHandler) Redirect(c *gin.Context) {
 	}
 
 	// 获取目标URL并记录访问日志
+	// 获取请求的 Host（用于分域名跳转）
+	host := c.GetHeader("X-Forwarded-Host")
+	if host == "" {
+		host = c.GetHeader("X-Real-IP")
+	}
+	if host == "" {
+		host = c.Request.Host
+	}
+
 	resolveOpts := &service.ResolveOptions{
 		IP:        c.ClientIP(),
 		UserAgent: c.GetHeader("User-Agent"),
 		Referer:   c.GetHeader("Referer"),
+		Host:      host, // 传递 Host 用于域名解析
 	}
 	link, err := h.linkService.Resolve(c.Request.Context(), code, resolveOpts)
 	if err != nil {

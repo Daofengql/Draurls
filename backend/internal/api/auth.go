@@ -94,8 +94,8 @@ func (h *AuthHandler) GetLoginURL(c *gin.Context) {
 	// 生成 state = base64(redirect_to|timestamp|signature)
 	state := h.buildState(redirectTo)
 
-	// 构建 Keycloak 登录 URL
-	authURL := h.buildKeycloakAuthURL(state)
+	// 构建 Keycloak 登录 URL（传入 redirectTo 以获取正确的 origin）
+	authURL := h.buildKeycloakAuthURL(state, redirectTo)
 
 	response.Success(c, GetLoginURLResponse{
 		LoginURL: authURL,
@@ -126,8 +126,8 @@ func (h *AuthHandler) KeycloakCallback(c *gin.Context) {
 		return
 	}
 
-	// 2. 用授权码换取 Token
-	tokenResp, err := h.requestTokenFromKeycloak(req.Code)
+	// 2. 用授权码换取 Token（使用正确的 callback URL）
+	tokenResp, err := h.requestTokenFromKeycloak(req.Code, redirectTo)
 	if err != nil {
 		h.renderCallbackPage(c, false, fmt.Sprintf("Failed to get token: %v", err), redirectTo)
 		return
@@ -261,12 +261,20 @@ func (h *AuthHandler) sign(data string) string {
 }
 
 // buildKeycloakAuthURL 构建 Keycloak 认证 URL
-func (h *AuthHandler) buildKeycloakAuthURL(state string) string {
+func (h *AuthHandler) buildKeycloakAuthURL(state string, redirectTo string) string {
 	baseURL := strings.TrimSuffix(h.config.Keycloak.BaseURL, "/")
 	realm := h.config.Keycloak.Realm
 	authURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/auth", baseURL, realm)
 
-	callbackURL := fmt.Sprintf("%s/api/auth/callback", h.config.Server.GetBaseURL())
+	// 从 redirectTo 提取 origin 作为 callback URL
+	// 如果 redirectTo 是完整 URL，使用它的 origin；否则使用配置的 BaseURL
+	callbackOrigin := h.config.Server.GetBaseURL()
+	if strings.HasPrefix(redirectTo, "http://") || strings.HasPrefix(redirectTo, "https://") {
+		if parsedURL, err := url.Parse(redirectTo); err == nil {
+			callbackOrigin = fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+		}
+	}
+	callbackURL := fmt.Sprintf("%s/api/auth/callback", callbackOrigin)
 
 	params := url.Values{}
 	params.Set("client_id", h.config.Keycloak.ClientID)
@@ -279,18 +287,25 @@ func (h *AuthHandler) buildKeycloakAuthURL(state string) string {
 }
 
 // requestTokenFromKeycloak 向 Keycloak 请求 Token
-func (h *AuthHandler) requestTokenFromKeycloak(code string) (*TokenResponse, error) {
+func (h *AuthHandler) requestTokenFromKeycloak(code string, redirectTo string) (*TokenResponse, error) {
 	baseURL := strings.TrimSuffix(h.config.Keycloak.BaseURL, "/")
 	realm := h.config.Keycloak.Realm
 	tokenURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token", baseURL, realm)
+
+	// 从 redirectTo 提取 origin 作为 callback URL（必须与登录时的 redirect_uri 一致）
+	callbackOrigin := h.config.Server.GetBaseURL()
+	if strings.HasPrefix(redirectTo, "http://") || strings.HasPrefix(redirectTo, "https://") {
+		if parsedURL, err := url.Parse(redirectTo); err == nil {
+			callbackOrigin = fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+		}
+	}
+	callbackURL := fmt.Sprintf("%s/api/auth/callback", callbackOrigin)
 
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")
 	data.Set("client_id", h.config.Keycloak.ClientID)
 	data.Set("client_secret", h.config.Keycloak.Secret)
 	data.Set("code", code)
-	// redirect_uri 必须与之前发送的一致
-	callbackURL := fmt.Sprintf("%s/api/auth/callback", h.config.Server.GetBaseURL())
 	data.Set("redirect_uri", callbackURL)
 
 	resp, err := http.PostForm(tokenURL, data)

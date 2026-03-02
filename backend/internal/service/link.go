@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -288,12 +289,36 @@ type ResolveOptions struct {
 	IP        string
 	UserAgent string
 	Referer   string
-	DomainID  uint // 域名ID，用于域名隔离
+	Host      string // 请求的 Host，用于分域名跳转
+	DomainID  uint   // 域名ID，用于域名隔离（已废弃，保留兼容性）
 }
 
 // Resolve 解析短链接（用于跳转）并记录访问日志
+// 支持分域名跳转：根据请求的 Host 查找对应的域名，然后用 code 和 domain_id 查询链接
 func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOptions) (*models.ShortLink, error) {
-	link, err := s.linkRepo.FindByCode(ctx, code)
+	var link *models.ShortLink
+	var err error
+
+	// 根据请求的 Host 查找域名
+	var domainID uint = 1 // 默认域名 ID
+
+	if opts != nil && opts.Host != "" {
+		// 从 Host 中提取域名（去除端口）
+		host := opts.Host
+		if parts := strings.Split(host, ":"); len(parts) > 1 {
+			host = parts[0]
+		}
+
+		// 查找域名
+		domain, findErr := s.domainRepo.FindByName(ctx, host)
+		if findErr == nil && domain != nil && domain.IsActive {
+			domainID = domain.ID
+		}
+		// 如果找不到域名或域名未启用，使用默认域名 ID=1
+	}
+
+	// 使用 code 和 domain_id 查询链接
+	link, err = s.linkRepo.FindByCodeAndDomain(ctx, code, domainID)
 	if err != nil {
 		return nil, err
 	}

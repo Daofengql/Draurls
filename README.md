@@ -129,7 +129,7 @@ docker-compose up -d
 
 ### 本地开发
 
-#### 后端开发
+#### 后端开发（API 模式）
 
 ```bash
 cd backend
@@ -160,6 +160,194 @@ npm run dev
 # 构建
 npm run build
 ```
+
+### 统一构建（生产部署）
+
+项目支持将前端静态文件嵌入后端，构建单个二进制文件：
+
+```bash
+# 一键构建（��荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+# 一键构建（推荐）
+./build.sh    # Linux/macOS
+build.bat     # Windows
+
+# 构建产物
+# Linux/macOS: backend/bin/server
+# Windows:     backend/bin/server.exe
+
+# 运行
+cd backend/bin
+./server      # 或 server.exe
+```
+
+构建后，访问 `http://localhost:8080` 即可使用完整功能（前端+后端）。
 
 ## 环境变量
 

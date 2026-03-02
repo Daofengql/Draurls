@@ -1,6 +1,7 @@
 # 编译产物
 /backend/server
 /backend/bin/
+/backend/cmd/server/web
 
 # 依赖
 /backend/vendor/

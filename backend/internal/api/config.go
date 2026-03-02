@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"github.com/surls/backend/internal/middleware"
 	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
@@ -17,14 +18,16 @@ type ConfigHandler struct {
 	configService *service.ConfigService
 	auditService  *service.AuditService
 	redisClient   *redis.Client
+	corsManager   *middleware.DynamicCORSManager
 }
 
 // NewConfigHandler 创建站点配置处理器
-func NewConfigHandler(configService *service.ConfigService, auditService *service.AuditService, redisClient *redis.Client) *ConfigHandler {
+func NewConfigHandler(configService *service.ConfigService, auditService *service.AuditService, redisClient *redis.Client, corsManager *middleware.DynamicCORSManager) *ConfigHandler {
 	return &ConfigHandler{
 		configService: configService,
 		auditService:  auditService,
 		redisClient:   redisClient,
+		corsManager:   corsManager,
 	}
 }
 
@@ -144,19 +147,27 @@ func (h *ConfigHandler) BatchUpdateConfig(c *gin.Context) {
 // @Success 200 {object} response.Response{data=map[string]interface{}}
 // @Router /api/admin/config/cors [get]
 func (h *ConfigHandler) GetCORSConfig(c *gin.Context) {
-	config, err := h.configService.GetAllConfig(c.Request.Context())
-	if err != nil {
-		response.InternalError(c, err.Error())
-		return
+	var origins []string
+
+	// 从 corsManager 获取当前生效的配置
+	if h.corsManager != nil {
+		origins = h.corsManager.GetOrigins()
+	} else {
+		origins = []string{"http://localhost:3000"}
 	}
 
-	originsStr := config[models.ConfigCORSOrigins]
-	origins := parseCORSOrigins(originsStr)
+	// 检查是否有通配符
+	hasWildcard := false
+	for _, o := range origins {
+		if o == "*" {
+			hasWildcard = true
+			break
+		}
+	}
 
 	response.Success(c, gin.H{
-		"origins":        origins,
-		"origins_string": originsStr,
-		"has_wildcard":   containsWildcard(origins),
+		"origins":      origins,
+		"has_wildcard": hasWildcard,
 	})
 }
 
@@ -213,6 +224,11 @@ func (h *ConfigHandler) UpdateCORSConfig(c *gin.Context) {
 	// 清除站点配置缓存
 	h.invalidateSiteConfig(c.Request.Context())
 
+	// 动态更新 CORS 中间件
+	if h.corsManager != nil {
+		h.corsManager.UpdateOrigins(req.Origins)
+	}
+
 	// 记录审计日志
 	if h.auditService != nil {
 		details := fmt.Sprintf("cors_origins:%s", originsStr)
@@ -233,37 +249,4 @@ func (h *ConfigHandler) UpdateCORSConfig(c *gin.Context) {
 		"message": "CORS config updated successfully",
 		"origins": req.Origins,
 	})
-}
-
-// parseCORSOrigins 解析 CORS 配置字符串为切片
-func parseCORSOrigins(s string) []string {
-	if s == "" {
-		return []string{"http://localhost:3000"} // 默认值
-	}
-	origins := []string{}
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == ',' {
-			if start < i {
-				origins = append(origins, s[start:i])
-			}
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		origins = append(origins, s[start:])
-	}
-	if len(origins) == 0 {
-		return []string{"http://localhost:3000"}
-	}
-	return origins
-}
-
-func containsWildcard(origins []string) bool {
-	for _, o := range origins {
-		if o == "*" {
-			return true
-		}
-	}
-	return false
 }

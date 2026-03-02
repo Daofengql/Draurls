@@ -1,6 +1,6 @@
 // 【前置逻辑说明】
-// 统一使用 VITE_API_URL 环境变量，与 api.ts 保持一致
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+// 统一使用相对路径，与 api.ts 保持一致
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 interface LoginURLResponse {
   login_url: string
@@ -129,14 +129,9 @@ export class AuthService {
         console.log('Received postMessage:', event)
         console.log('Event origin:', event.origin)
 
-        // 验证消息来源（生产环境应该更严格地验证）
-        const allowedOrigins = [
-          import.meta.env.VITE_API_URL,
-          window.location.origin,
-        ].filter(Boolean)
-
-        if (!allowedOrigins.includes(event.origin)) {
-          console.log('Origin not in allowed list:', event.origin)
+        // 验证消息来源：只接受来自当前窗口 origin 的消息
+        if (event.origin !== window.location.origin) {
+          console.log('Origin mismatch:', event.origin, '!=', window.location.origin)
           return
         }
 

@@ -39,6 +39,7 @@ type App struct {
 	db            *gorm.DB
 	redis         *redis.Client
 	sigMiddleware *middleware.APIAuthMiddleware
+	corsManager   *middleware.DynamicCORSManager
 	config        *config.Config
 	server        *http.Server
 	clickCounter  *cache.ClickCounter
@@ -85,7 +86,13 @@ func main() {
 	siteConfigRepo := repository.NewSiteConfigRepository(db)
 	configService := service.NewConfigService(siteConfigRepo)
 
-	// 从数据库获取短码配置（使用默认值作为回退）
+	// 初始化动态 CORS 管理器
+	corsManager := middleware.NewDynamicCORSManager(redisClient, siteConfigRepo)
+	if err := corsManager.LoadFromDatabase(context.Background()); err != nil {
+		log.Printf("Warning: failed to load CORS config from database, using defaults: %v", err)
+	}
+
+	// 从数据库获取短��配置（使用默认值作为回退）
 	ctx := context.Background()
 	allConfigs, err := configService.GetAllConfig(ctx)
 	if err != nil {
@@ -170,7 +177,7 @@ func main() {
 	apiKeyHandler := api.NewAPIKeyHandler(apiKeyService, auditService)
 	userHandler := api.NewUserHandler(userService, auditService)
 	groupHandler := api.NewGroupHandler(groupService, auditService)
-	configHandler := api.NewConfigHandler(configService, auditService, redisClient)
+	configHandler := api.NewConfigHandler(configService, auditService, redisClient, corsManager)
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
 	redirectHandler := api.NewRedirectHandler(linkService, domainService, linkCache, rateLimitService, redisClient, configService, templateService)
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
@@ -201,7 +208,7 @@ func main() {
 	router.SetHTMLTemplate(templ)
 
 	// 全局中间件
-	router.Use(middleware.CORS(cfg.Security.AllowOrigins))
+	router.Use(corsManager.Middleware())
 	router.Use(middleware.NewRateLimitMiddleware(rateLimitService).IPLimit())
 
 	// 健康检查
@@ -349,12 +356,16 @@ func main() {
 		redirectHandler.Redirect(c)
 	})
 
+	// 前端静态文件服务
+	setupFrontend(router)
+
 	// 创建应用
 	app := &App{
 		router:        router,
 		db:            db,
 		redis:         redisClient,
 		sigMiddleware: sigMiddleware,
+		corsManager:   corsManager,
 		config:        cfg,
 		clickCounter:  clickCounter,
 		server: &http.Server{
