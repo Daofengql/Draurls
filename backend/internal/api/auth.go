@@ -135,14 +135,14 @@ func (h *AuthHandler) KeycloakCallback(c *gin.Context) {
 
 	// 3. 设置 HttpOnly Cookie
 	// Cookie 配置：
-	// - HttpOnly: 防止 XSS 攻击读取（debug 模式下关闭，方便开发）
+	// - HttpOnly: 始终启用，防止 XSS 攻击读取 Cookie
 	// - Secure: HTTPS 时启用
 	// - SameSite: 防止 CSRF 攻击
 	cookieDomain := h.getCookieDomain(redirectTo)
 	// 根据重定向 URL 判断是否使用 HTTPS
 	secure := strings.HasPrefix(redirectTo, "https://")
-	// Debug 模式下关闭 HttpOnly，方便开发调试
-	httpOnly := h.config.Server.Mode != "debug"
+	// 始终启用 HttpOnly，防止 XSS 攻击窃取 token
+	httpOnly := true
 
 	// 打印 token 过期时间（调试用）
 	log.Printf("Setting access_token cookie: expires_in=%d seconds", tokenResp.ExpiresIn)

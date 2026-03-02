@@ -291,6 +291,8 @@ export default function AdminTemplatesPage() {
                 srcDoc={previewTemplate.Content.replace(/\{\{\.URL\}\}/g, 'https://example.com/target')}
                 className="w-full h-80 border-0 rounded bg-white"
                 title="模板预览"
+                sandbox="allow-scripts"
+                referrerPolicy="no-referrer"
               />
             </div>
             <p className="mt-4 text-xs text-gray-500">

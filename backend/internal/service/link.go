@@ -412,14 +412,14 @@ type UpdateLinkRequest struct {
 }
 
 // Update 更新短链接
-func (s *LinkService) Update(ctx context.Context, req *UpdateLinkRequest, userID uint) error {
+func (s *LinkService) Update(ctx context.Context, req *UpdateLinkRequest, userID uint, isAdmin bool) error {
 	link, err := s.linkRepo.FindByCode(ctx, req.Code)
 	if err != nil {
 		return err
 	}
 
-	// 检查所有权
-	if link.UserID != userID {
+	// 检查所有权（管理员可以编辑所有链接）
+	if !isAdmin && link.UserID != userID {
 		return apperrors.ErrForbidden
 	}
 
@@ -451,15 +451,15 @@ func (s *LinkService) Update(ctx context.Context, req *UpdateLinkRequest, userID
 }
 
 // Delete 删除短链接
-func (s *LinkService) Delete(ctx context.Context, code string, userID uint) error {
+func (s *LinkService) Delete(ctx context.Context, code string, userID uint, isAdmin bool) error {
 	// 先获取链接ID和用户ID验证
 	link, err := s.linkRepo.FindByCode(ctx, code)
 	if err != nil {
 		return err
 	}
 
-	// 检查所有权
-	if link.UserID != userID {
+	// 检查所有权（管理员可以删除所有链接）
+	if !isAdmin && link.UserID != userID {
 		return apperrors.ErrForbidden
 	}
 

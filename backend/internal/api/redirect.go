@@ -6,6 +6,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 
@@ -30,6 +31,9 @@ type RedirectHandler struct {
 	siteConfig     map[string]string
 	siteConfigMu   sync.RWMutex
 }
+
+// 短码验证正则（仅允许字母、数字、连字符和下划线，3-20位）
+var shortCodePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{3,20}$`)
 
 // NewRedirectHandler 创建跳转处理器
 func NewRedirectHandler(
@@ -101,8 +105,8 @@ func (h *RedirectHandler) LoadSiteConfig(ctx context.Context) error {
 func (h *RedirectHandler) Redirect(c *gin.Context) {
 	code := c.Param("code")
 
-	// 检查短码格式
-	if len(code) < 3 || len(code) > 20 {
+	// 检查短码格式（仅允许字母、数字、连字符和下划线）
+	if !shortCodePattern.MatchString(code) {
 		h.renderError(c, "Invalid short code", http.StatusBadRequest)
 		return
 	}

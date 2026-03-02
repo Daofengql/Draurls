@@ -135,7 +135,7 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 }
 
 // UpdateLink 更新短链接
-// @Summary 更新短链接
+// @Summary 更新��链接
 // @Tags links
 // @Accept json
 // @Produce json
@@ -158,8 +158,10 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 
 	req.Code = code
 	userID := c.GetUint("user_id")
+	role := c.GetString("role")
+	isAdmin := role == "admin"
 
-	if err := h.linkService.Update(c.Request.Context(), &req, userID); err != nil {
+	if err := h.linkService.Update(c.Request.Context(), &req, userID, isAdmin); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -201,8 +203,10 @@ func (h *LinkHandler) DeleteLink(c *gin.Context) {
 	}
 
 	userID := c.GetUint("user_id")
+	role := c.GetString("role")
+	isAdmin := role == "admin"
 
-	if err := h.linkService.Delete(c.Request.Context(), code, userID); err != nil {
+	if err := h.linkService.Delete(c.Request.Context(), code, userID, isAdmin); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
