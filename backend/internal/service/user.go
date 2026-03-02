@@ -28,9 +28,9 @@ func NewUserService(
 }
 
 // GetOrCreateUser 根据Keycloak ID获取或创建用户
-// 如果用户已存在，会更新其 Nickname、Picture 等可能变化的信息
+// 如果用户已存在，会更新其 Nickname、Picture 等可能变化的信息，以及更新最后登录时间和IP
 // 第一个用户自动成为管理员
-func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username, email, nickname, picture string) (*models.User, error) {
+func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username, email, nickname, picture, clientIP string) (*models.User, error) {
 	// 尝试查找现有用户
 	user, err := s.userRepo.FindByKeycloakID(ctx, keycloakID)
 	if err == nil {
@@ -53,9 +53,17 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 			updated = true
 		}
 
+		// 更新最后登录时间和IP
+		now := time.Now()
+		user.LastLoginAt = &now
+		if clientIP != "" {
+			user.LastLoginIP = clientIP
+		}
+		updated = true
+
 		// 如果有更新，保存到数据库
 		if updated {
-			user.UpdatedAt = time.Now()
+			user.UpdatedAt = now
 			if err := s.userRepo.Update(ctx, user); err != nil {
 				// 更新失败不影响返回用户，只是记录日志
 				// 生产环境应该记录日志
@@ -89,18 +97,20 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 	// 创建新用户
 	now := time.Now()
 	user = &models.User{
-		KeycloakID: keycloakID,
-		Username:   username,
-		Email:      email,
-		Nickname:   nickname,
-		Picture:    picture,
-		Role:       role,
-		GroupID:    groupID,
-		Quota:      -2, // 默认继承用户组配额
-		QuotaUsed:  0,
-		Status:     models.UserStatusActive,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		KeycloakID:  keycloakID,
+		Username:    username,
+		Email:       email,
+		Nickname:    nickname,
+		Picture:     picture,
+		Role:        role,
+		GroupID:     groupID,
+		Quota:       -2, // 默认继承用户组配额
+		QuotaUsed:   0,
+		Status:      models.UserStatusActive,
+		LastLoginAt: &now,
+		LastLoginIP: clientIP,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	// 如果没有用户组，设置无限配额

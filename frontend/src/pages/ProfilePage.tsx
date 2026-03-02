@@ -7,14 +7,11 @@ import type { User, QuotaStatus } from '@/types'
 
 export default function ProfilePage() {
   const setUser = useAuthStore((state) => state.setUser)
-  const logout = useAuthStore((state) => state.logout)
-  const currentUser = useAuthStore((state) => state.user)
+  const clearAuth = useAuthStore((state) => state.clearAuth)
 
-  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<User | null>(null)
   const [quotaStatus, setQuotaStatus] = useState<QuotaStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ nickname: '' })
 
   const loadProfile = async () => {
     setLoading(true)
@@ -24,6 +21,7 @@ export default function ProfilePage() {
         usersService.getQuotaStatus(),
       ])
       setUser(profileData)
+      setProfile(profileData)
       setQuotaStatus(quotaData)
     } catch (err) {
       console.error(err)
@@ -37,25 +35,8 @@ export default function ProfilePage() {
     loadProfile()
   }, [])
 
-  const handleEdit = () => {
-    setEditForm({ nickname: user?.Nickname || '' })
-    setEditing(true)
-  }
-
-  const handleSave = async () => {
-    // TODO: 调用更新用户信息API
-    setUser(user ? { ...user, Nickname: editForm.nickname } : null)
-    setEditing(false)
-    toast.success('个人信息已更新')
-  }
-
-  const handleCancel = () => {
-    setEditing(false)
-    setEditForm({ nickname: user?.Nickname || '' })
-  }
-
   const handleLogout = () => {
-    logout()
+    clearAuth()
     toast.success('已退出登录')
   }
 
@@ -101,7 +82,7 @@ export default function ProfilePage() {
     )
   }
 
-  if (!user) {
+  if (!profile) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-gray-500">无法加载用户信息</div>
@@ -110,102 +91,90 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">���人信息</h1>
+    <div className="max-w-4xl mx-auto px-2 sm:px-0">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">个人信息</h1>
       </div>
 
-      {/* 基本信息卡片 */}
-      <div className="card mb-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">基本信息</h2>
-          {!editing && (
-            <button
-              onClick={handleEdit}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
-              编辑
-            </button>
-          )}
-        </div>
+      {/* 基本信息 */}
+      <div className="card mb-4 sm:mb-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">基本信息</h2>
 
-        <div className="flex items-start gap-6">
-          {/* 头像 */}
-          <div className="flex-shrink-0">
-            {user.Picture ? (
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
+          {/* 头像 - 居中 */}
+          <div className="flex-shrink-0 mx-auto sm:mx-0">
+            {profile.Picture ? (
               <img
-                src={user.Picture}
-                alt={user.Nickname || user.Username}
-                className="w-24 h-24 rounded-full object-cover"
+                src={profile.Picture}
+                alt={profile.Nickname || profile.Username}
+                className="w-16 h-16 sm:w-24 sm:h-24 rounded-full object-cover"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-semibold">
-                {(user.Nickname || user.Username).charAt(0).toUpperCase()}
+              <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl sm:text-2xl font-semibold">
+                {(profile.Nickname || profile.Username).charAt(0).toUpperCase()}
               </div>
             )}
           </div>
 
           {/* 用户信息 */}
-          <div className="flex-1">
-            {editing ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    昵称
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.nickname}
-                    onChange={(e) => setEditForm({ nickname: e.target.value })}
-                    className="input w-full max-w-xs"
-                    placeholder="输入昵称"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={handleSave} className="btn btn-primary">
-                    保存
-                  </button>
-                  <button onClick={handleCancel} className="btn btn-secondary">
-                    取消
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    {user.Nickname || user.Username}
-                  </h3>
-                  {user.Role === 'admin' && (
-                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                      管理员
-                    </span>
-                  )}
-                  <span className={`text-sm ${getStatusColor(user.Status)}`}>
-                    {getStatusLabel(user.Status)}
+          <div className="flex-1 w-full">
+            <div className="space-y-2 sm:space-y-2 text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 items-center justify-center sm:justify-start">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                  {profile.Nickname || profile.Username}
+                </h3>
+                {profile.Role === 'admin' && (
+                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                    管理员
                   </span>
-                </div>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>用户名: {user.Username}</p>
-                  <p>邮箱: {user.Email}</p>
-                  <p>角色: {getRoleLabel(user.Role)}</p>
-                  <p>注册时间: {formatDateTime(user.CreatedAt)}</p>
-                </div>
+                )}
+                <span className={`text-sm ${getStatusColor(profile.Status)}`}>
+                  {getStatusLabel(profile.Status)}
+                </span>
               </div>
-            )}
+
+              {/* 网格布局信息 */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600 mt-3 sm:mt-0">
+                <div className="break-words">
+                  <span className="text-gray-400 text-xs">用户ID:</span> {profile.ID}
+                </div>
+                <div className="break-words">
+                  <span className="text-gray-400 text-xs">角色:</span> {getRoleLabel(profile.Role)}
+                </div>
+                <div className="col-span-2 break-all">
+                  <span className="text-gray-400 text-xs">用户名:</span> {profile.Username}
+                </div>
+                <div className="col-span-2 break-all">
+                  <span className="text-gray-400 text-xs">邮箱:</span> {profile.Email}
+                </div>
+                <div className="col-span-2">
+                  <span className="text-gray-400 text-xs">注册:</span> {formatDateTime(profile.CreatedAt)}
+                </div>
+                {profile.LastLoginAt && (
+                  <div className="col-span-2">
+                    <span className="text-gray-400 text-xs">上次:</span> {formatDateTime(profile.LastLoginAt)}
+                  </div>
+                )}
+                {profile.LastLoginIP && (
+                  <div className="col-span-2 break-all">
+                    <span className="text-gray-400 text-xs">IP:</span> {profile.LastLoginIP}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 配额信息卡片 */}
-      <div className="card mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">配额信息</h2>
+      {/* 配额信息 */}
+      <div className="card mb-4 sm:mb-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">配额信息</h2>
 
         {quotaStatus ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">配额类型</span>
-              <span className="font-medium text-gray-900">
+              <span className="text-sm sm:text-base text-gray-600">配额类型</span>
+              <span className="font-medium text-gray-900 text-sm sm:text-base text-right">
                 {quotaStatus.quota_source === 'unlimited'
                   ? '无限配额'
                   : quotaStatus.group_name
@@ -250,37 +219,19 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* 账户操作 */}
+      {/* 退出登录 */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">账户操作</h2>
-        <div className="space-y-4">
-          <button
-            onClick={() => {
-              // TODO: 实现修改密码功能
-              toast.info('修改密码功能即将推出')
-            }}
-            className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span>修改密码</span>
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="w-full text-left px-4 py-3 border border-red-200 rounded-lg hover:bg-red-50 transition-colors text-red-600"
-          >
-            <div className="flex items-center justify-between">
-              <span>退出登录</span>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4h-3m-1-4h4m-3 4h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="w-full text-left px-4 py-3 border border-red-200 rounded-lg hover:bg-red-50 transition-colors text-red-600"
+        >
+          <div className="flex items-center justify-between">
+            <span>退出登录</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4h-3m-1-4h4m-3 4h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        </button>
       </div>
     </div>
   )

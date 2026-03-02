@@ -13,6 +13,8 @@ export interface User {
   Quota: number
   QuotaUsed: number
   Status: 'active' | 'disabled' | 'deleted'
+  LastLoginAt?: string
+  LastLoginIP?: string
   CreatedAt: string
   UpdatedAt: string
 }

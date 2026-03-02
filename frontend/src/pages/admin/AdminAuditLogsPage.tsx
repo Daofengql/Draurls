@@ -142,10 +142,6 @@ export default function AdminAuditLogsPage() {
     loadLogs()
   }, [page, filterAction, filterActorId])
 
-  const handleFilterChange = () => {
-    setPage(1) // 重置到第一页
-  }
-
   const handleActionChange = (value: string) => {
     setFilterAction(value)
     setPage(1)

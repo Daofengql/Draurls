@@ -6,21 +6,23 @@ import (
 
 // User 用户模型
 type User struct {
-	ID        uint       `gorm:"primarykey"`
-	KeycloakID string    `gorm:"uniqueIndex;size:100;comment:Keycloak用户ID"`
-	Username   string    `gorm:"size:50;comment:用户名"`
-	Nickname  string    `gorm:"size:100;comment:昵称"`
-	Picture   string    `gorm:"size:500;comment:头像URL"`
-	Email      string    `gorm:"size:100;index;comment:邮箱"`
-	Role       UserRole   `gorm:"size:20;not null;default:'user';comment:角色"`
-	GroupID    *uint     `gorm:"index;comment:用户组ID"`
-	Group      *UserGroup `gorm:"foreignKey:GroupID" json:"group,omitempty"`
-	Quota      int       `gorm:"not null;default:-1;comment:配额(-1表示无限,-2表示继承用户组)"`
-	QuotaUsed  int       `gorm:"not null;default:0;comment:已用配额"`
-	Status     UserStatus `gorm:"size:20;not null;default:'active';index:idx_status_role;comment:状态"`
-	CreatedAt  time.Time  `gorm:"index:idx_status_role"`
-	UpdatedAt  time.Time
-	DeletedAt  *time.Time `gorm:"index"`
+	ID          uint       `gorm:"primarykey"`
+	KeycloakID  string     `gorm:"uniqueIndex;size:100;comment:Keycloak用户ID"`
+	Username    string     `gorm:"size:50;comment:用户名"`
+	Nickname    string     `gorm:"size:100;comment:昵称"`
+	Picture     string     `gorm:"size:500;comment:头像URL"`
+	Email       string     `gorm:"size:100;index;comment:邮箱"`
+	Role        UserRole   `gorm:"size:20;not null;default:'user';comment:角色"`
+	GroupID     *uint      `gorm:"index;comment:用户组ID"`
+	Group       *UserGroup `gorm:"foreignKey:GroupID" json:"group,omitempty"`
+	Quota       int        `gorm:"not null;default:-1;comment:配额(-1表示无限,-2表示继承用户组)"`
+	QuotaUsed   int        `gorm:"not null;default:0;comment:已用配额"`
+	Status      UserStatus `gorm:"size:20;not null;default:'active';index:idx_status_role;comment:状态"`
+	LastLoginAt *time.Time `gorm:"comment:最后登录时间"`
+	LastLoginIP string     `gorm:"size:50;comment:最后登录IP"`
+	CreatedAt   time.Time  `gorm:"index:idx_status_role"`
+	UpdatedAt   time.Time
+	DeletedAt   *time.Time `gorm:"index"`
 }
 
 // UserRole 用户角色

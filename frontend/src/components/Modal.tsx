@@ -25,20 +25,20 @@ export default function Modal({ isOpen, onClose, title, children, footer, size =
   if (!isOpen) return null
 
   const sizeClasses = {
-    small: 'max-w-sm',
-    medium: 'max-w-lg',
-    large: 'max-w-3xl',
+    small: 'max-w-sm w-full',
+    medium: 'max-w-lg w-full',
+    large: 'max-w-3xl w-full',
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
-        className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden flex flex-col animate-fade-in`}
+        className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col animate-fade-in`}
       >
         {/* 头部 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
-          <h2 className="text-xl font-semibold">{title}</h2>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b flex-shrink-0">
+          <h2 className="text-lg sm:text-xl font-semibold">{title}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded p-1 transition-colors"
@@ -51,10 +51,16 @@ export default function Modal({ isOpen, onClose, title, children, footer, size =
         </div>
 
         {/* 内容 */}
-        <div className="px-6 py-4 overflow-y-auto flex-1">{children}</div>
+        <div className="px-4 sm:px-6 py-4 overflow-y-auto flex-1">{children}</div>
 
         {/* 底部 */}
-        {footer && <div className="px-6 py-4 border-t bg-gray-50 flex-shrink-0">{footer}</div>}
+        {footer && (
+          <div className="px-4 sm:px-6 py-4 border-t bg-gray-50 flex-shrink-0">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-3 gap-2">
+              {footer}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

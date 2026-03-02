@@ -377,6 +377,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 				userInfo.GetEmail(),
 				userInfo.GetNickname(),
 				userInfo.GetPicture(),
+				c.ClientIP(),
 			)
 			if err == nil {
 				c.Set("user", user)
@@ -445,6 +446,7 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 				userInfo.GetEmail(),
 				userInfo.GetNickname(),
 				userInfo.GetPicture(),
+				c.ClientIP(),
 			)
 			if err == nil {
 				c.Set("user", user)
