@@ -21,9 +21,9 @@ import (
 	"github.com/surls/backend/internal/repository"
 	"github.com/surls/backend/internal/service"
 	"github.com/surls/backend/pkg/cache"
+	"github.com/surls/backend/pkg/database"
 	"github.com/surls/backend/pkg/shortcode"
 	"github.com/surls/backend/pkg/worker"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -398,7 +398,7 @@ func (a *App) run() {
 func initDB(cfg *config.Config) (*gorm.DB, error) {
 	dsn := cfg.Database.GetDSN()
 
-	// 根据服务器模式决定日志级别
+	// 使用自定义数据库初始化函数，自动过滤MySQL驱动错误日志
 	var logLevel logger.LogLevel
 	switch cfg.Server.Mode {
 	case "debug", "test":
@@ -407,25 +407,17 @@ func initDB(cfg *config.Config) (*gorm.DB, error) {
 		logLevel = logger.Silent
 	}
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logLevel),
+	db, err := database.InitDB(&database.Config{
+		DSN:          dsn,
+		LogLevel:     logLevel,
+		MaxIdleConns: cfg.Database.MaxIdleConns,
+		MaxOpenConns: cfg.Database.MaxOpenConns,
+		MaxLifetime:  cfg.Database.MaxLifetime,
+		MaxIdleTime:  10 * time.Minute,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
-	// 设置连接池
-	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
-	sqlDB.SetConnMaxLifetime(cfg.Database.MaxLifetime)
-	// 设置空闲连接最大存活时间，避免连接被 MySQL 服务器关闭后仍被使用
-	// MySQL 默认 wait_timeout 是 8 小时（28800秒），这里设置为 10 分钟更安全
-	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
 	// 自动创建/迁移数据库表
 	if err := autoMigrate(db); err != nil {

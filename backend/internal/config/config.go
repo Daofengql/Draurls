@@ -53,8 +53,9 @@ type DatabaseConfig struct {
 }
 
 // GetDSN 获取数据库连接字符串
+// 添加超时和重连参数以优化连接稳定性
 func (c *DatabaseConfig) GetDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=%t&loc=Local",
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=%t&loc=Local&timeout=10s&readTimeout=30s&writeTimeout=30s&interpolateParams=true",
 		c.Username,
 		c.Password,
 		c.Host,
