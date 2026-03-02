@@ -253,7 +253,7 @@ export default function ApiKeysPage() {
               autoFocus
             />
             <p className="mt-2 text-sm text-gray-500">
-              创建后将显示完��的密钥，请妥善保存。密钥只会显示一次。
+              创建后将显示完整的密钥，请妥善保存。密钥只会显示一次。
             </p>
           </div>
         </form>

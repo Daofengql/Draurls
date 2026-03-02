@@ -137,6 +137,12 @@ export default function AdminConfigPage() {
   const [saving, setSaving] = useState(false)
   const [showHelpModal, setShowHelpModal] = useState(false)
 
+  // CORS 配置状态
+  const [corsOrigins, setCorsOrigins] = useState<string[]>(['http://localhost:3000'])
+  const [newOrigin, setNewOrigin] = useState('')
+  const [hasWildcard, setHasWildcard] = useState(false)
+  const [savingCors, setSavingCors] = useState(false)
+
   // 根据当前值构建配置项
   const configItems: ConfigItem[] = useMemo(() => {
     return configItemDefinitions.map((def) => ({
@@ -218,6 +224,54 @@ export default function AdminConfigPage() {
     } catch (err: any) {
       toast.error(err.message || '保存失败')
       setSaving(false)
+    }
+  }
+
+  // CORS 配置相关函数
+  const loadCORSConfig = () => {
+    configService
+      .getCORS()
+      .then((data) => {
+        setCorsOrigins(data.origins || [])
+        setHasWildcard(data.has_wildcard || false)
+      })
+      .catch((err) => {
+        console.error(err)
+        toast.error('加载 CORS 配置失败')
+      })
+  }
+
+  useEffect(() => {
+    loadCORSConfig()
+  }, [])
+
+  const handleAddOrigin = () => {
+    if (!newOrigin.trim()) return
+
+    // 检查是否已存在
+    if (corsOrigins.some(o => o.toLowerCase() === newOrigin.toLowerCase())) {
+      toast.error('该 Origin 已存在')
+      return
+    }
+
+    setCorsOrigins([...corsOrigins, newOrigin.trim()])
+    setNewOrigin('')
+  }
+
+  const handleRemoveOrigin = (origin: string) => {
+    setCorsOrigins(corsOrigins.filter(o => o !== origin))
+  }
+
+  const handleSaveCORS = async () => {
+    setSavingCors(true)
+    try {
+      await configService.updateCORS(corsOrigins)
+      toast.success('CORS 配置已保存')
+      loadCORSConfig()
+    } catch (err: any) {
+      toast.error(err.message || '保存��败')
+    } finally {
+      setSavingCors(false)
     }
   }
 
@@ -396,6 +450,110 @@ export default function AdminConfigPage() {
           <li>• <strong>短链设置</strong>: 控制短链长度和生成方式</li>
           <li>• 配置修改后即时生效（部分配置可能需要刷新页面）</li>
         </ul>
+      </div>
+
+      {/* CORS 配置 */}
+      <div className="mt-4 sm:mt-6 card">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6 border-b pb-4">
+          <div className="text-blue-600">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold">CORS 跨域配置</h3>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+            <p className="font-medium mb-1">安全提示</p>
+            <p>使用 <code>*</code> 通配符时将禁用 Credentials（Cookie/认证），仅适用于不需要身份验证的公开 API。</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              允许的源 (Origins)
+            </label>
+            <div className="space-y-2 mb-3">
+              {corsOrigins.map((origin, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 bg-gray-100 rounded text-sm">
+                    {origin}
+                  </code>
+                  {origin !== '*' && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOrigin(origin)}
+                      className="text-red-600 hover:text-red-800 p-1"
+                      title="删除"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                  {origin === '*' && (
+                    <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">
+                      通配符模式
+                    </span>
+                  )}
+                </div>
+              ))}
+              {corsOrigins.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">暂无配置</p>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={newOrigin}
+                onChange={(e) => setNewOrigin(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddOrigin()}
+                placeholder="例如: https://example.com"
+                className="input flex-1 text-sm"
+                disabled={hasWildcard || savingCors}
+              />
+              <button
+                type="button"
+                onClick={handleAddOrigin}
+                disabled={!newOrigin.trim() || hasWildcard || savingCors}
+                className="btn btn-secondary sm:w-auto"
+              >
+                添加
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCORS}
+                disabled={savingCors || corsOrigins.length === 0}
+                className="btn btn-primary sm:w-auto"
+              >
+                {savingCors ? '保存中...' : '保存 CORS'}
+              </button>
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="cors-wildcard"
+                checked={hasWildcard}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setCorsOrigins(['*'])
+                    setNewOrigin('')
+                  } else {
+                    setCorsOrigins(['http://localhost:3000'])
+                  }
+                  setHasWildcard(e.target.checked)
+                }}
+                disabled={savingCors}
+                className="rounded"
+              />
+              <label htmlFor="cors-wildcard" className="text-sm text-gray-700">
+                允许所有源 (<code>*</code>) - 将禁用 Cookie 认证
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 配置帮助文档弹窗 */}

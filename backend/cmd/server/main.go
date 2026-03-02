@@ -279,6 +279,8 @@ func main() {
 			admin.GET("/config", configHandler.GetAdminConfig)
 			admin.PUT("/config", configHandler.UpdateConfig)
 			admin.PUT("/config/batch", configHandler.BatchUpdateConfig)
+			admin.GET("/config/cors", configHandler.GetCORSConfig)
+			admin.PUT("/config/cors", configHandler.UpdateCORSConfig)
 
 			// 域名管理
 			admin.GET("/domains", domainHandler.ListDomains)

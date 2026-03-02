@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import api from '@/services/api'
 import type { User } from '@/types'
 
 interface AuthState {
@@ -38,7 +39,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   checkAuth: async () => {
     const state = get()
-    const token = localStorage.getItem('access_token')
 
     // 如果已经初始化且有用户信息，直接返回
     if (state.isInitialized && state.user && state.isAuthenticated) {
@@ -48,43 +48,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
 
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
+      // 使用共享的 axios 实例，复用全局拦截器和 API_BASE_URL 配置
+      const data = await api.get<User>('/user/profile')
 
-      const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
-        credentials: 'include',
-        headers,
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.code === 0 && data.data) {
-          set({
-            user: data.data,
-            token: token,
-            isAuthenticated: true,
-            isLoading: false,
-            isInitialized: true,
-          })
-          return true
-        }
-      }
-      // 认证失败
-      localStorage.removeItem('access_token')
       set({
-        user: null,
-        token: null,
-        isAuthenticated: false,
+        user: data,
+        token: localStorage.getItem('access_token'),
+        isAuthenticated: true,
         isLoading: false,
         isInitialized: true,
       })
-      return false
-    } catch {
+      return true
+    } catch (error) {
+      // 认证失败，清除本地状态
+      // 注意：401 重定向已由全局拦截器处理
+      localStorage.removeItem('access_token')
       set({
         user: null,
         token: null,

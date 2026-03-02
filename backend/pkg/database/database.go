@@ -111,8 +111,8 @@ func InitDB(cfg *Config) (*gorm.DB, error) {
 
 // SetupConnectionRetry 设置连接重试回调
 func SetupConnectionRetry(db *gorm.DB) {
-	// 注册连接回调，处理连接错误
-	db.Callback().Create().Before("gorm:create").Register("connection_retry", func(db *gorm.DB) {
+	// 重试逻辑封装为函数，避免重复代码
+	retryFunc := func(db *gorm.DB) {
 		if db.Error == nil {
 			return
 		}
@@ -123,7 +123,14 @@ func SetupConnectionRetry(db *gorm.DB) {
 				sqlDB.Ping()
 			}
 		}
-	})
+	}
+
+	// 注册所有操作的回调，在 SQL 执行后检查连接错误
+	// 使用 After 而非 Before，因为连接错误发生在 SQL 执行过程中
+	db.Callback().Create().After("gorm:create").Register("connection_retry_create", retryFunc)
+	db.Callback().Query().After("gorm:query").Register("connection_retry_query", retryFunc)
+	db.Callback().Update().After("gorm:update").Register("connection_retry_update", retryFunc)
+	db.Callback().Delete().After("gorm:delete").Register("connection_retry_delete", retryFunc)
 }
 
 func isConnectionError(err error) bool {

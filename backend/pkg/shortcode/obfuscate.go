@@ -1,7 +1,6 @@
 package shortcode
 
 import (
-	"fmt"
 	"math/bits"
 )
 
@@ -71,29 +70,6 @@ func (f *FeistelNetwork) Encrypt(n uint64) uint64 {
 	return (uint64(l) << 32) | uint64(r)
 }
 
-// Decrypt 解密 ID（反混淆）
-func (f *FeistelNetwork) Decrypt(n uint64) uint64 {
-	if f == nil {
-		return DefaultFeistel.Decrypt(n)
-	}
-
-	l := uint32((n >> 32) & 0xFFFFFFFF)
-	r := uint32(n & 0xFFFFFFFF)
-
-	for i := f.rounds - 1; i >= 0; i-- {
-		key := f.keys[i]
-		// 轮函数 F
-		fResult := f.roundFunction(r, key)
-		// 反向 Feistel 结构
-		newR := l
-		newL := r ^ fResult
-		l = newL
-		r = newR
-	}
-
-	return (uint64(l) << 32) | uint64(r)
-}
-
 // roundFunction 轮函数，使用混合运算
 func (f *FeistelNetwork) roundFunction(v uint32, key uint64) uint32 {
 	// 将 key 的高 32 位与 v 混合
@@ -111,25 +87,11 @@ func ObfuscateID(id uint64) uint64 {
 	return DefaultFeistel.Encrypt(id)
 }
 
-// DeobfuscateID 反混淆 ID
-func DeobfuscateID(obfuscated uint64) uint64 {
-	return DefaultFeistel.Decrypt(obfuscated)
-}
-
 // GenerateObfuscatedCode 从 ID 生成混淆后的短码
 // 这样相邻的 ID 生成的短码看起来完全不同
 func GenerateObfuscatedCode(id uint64) string {
 	obfuscated := ObfuscateID(id)
 	return EncodeBase62(obfuscated)
-}
-
-// DecodeObfuscatedCode 解码混淆后的短码为原始 ID
-func DecodeObfuscatedCode(code string) (uint64, error) {
-	obfuscated, err := DecodeBase62(code)
-	if err != nil {
-		return 0, err
-	}
-	return DeobfuscateID(obfuscated), nil
 }
 
 // EncodeBase62 将数字编码为 Base62
@@ -148,25 +110,4 @@ func EncodeBase62(n uint64) string {
 	}
 
 	return string(result)
-}
-
-// DecodeBase62 解码 Base62 为数字
-func DecodeBase62(s string) (uint64, error) {
-	const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	charIndex := make(map[byte]uint64)
-	for i := range chars {
-		charIndex[chars[i]] = uint64(i)
-	}
-
-	var result uint64
-	for _, c := range []byte(s) {
-		idx, ok := charIndex[c]
-		if !ok {
-			return 0, fmt.Errorf("invalid character: %c", c)
-		}
-		result = result*62 + idx
-	}
-
-	return result, nil
 }

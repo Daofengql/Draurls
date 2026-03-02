@@ -49,7 +49,7 @@ export interface ShortLink {
   URL: string
   DomainID: number
   Domain?: Domain
-  TemplateID?: number
+  TemplateID?: number | null  // 允许 null 表示"使用默认模板"
   Template?: RedirectTemplate
   UserID: number
   Title?: string
@@ -124,7 +124,7 @@ export interface CreateLinkRequest {
   title?: string
   expires_at?: string
   domain_id?: number
-  template_id?: number
+  template_id?: number | null  // 允许 null 表示"使用默认模板"
 }
 
 // API错误类型

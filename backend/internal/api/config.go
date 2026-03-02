@@ -136,3 +136,134 @@ func (h *ConfigHandler) BatchUpdateConfig(c *gin.Context) {
 
 	response.Success(c, gin.H{"message": "config updated successfully"})
 }
+
+// GetCORSConfig 获取 CORS 配置
+// @Summary 获取 CORS 配置
+// @Tags admin
+// @Produce json
+// @Success 200 {object} response.Response{data=map[string]interface{}}
+// @Router /api/admin/config/cors [get]
+func (h *ConfigHandler) GetCORSConfig(c *gin.Context) {
+	config, err := h.configService.GetAllConfig(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	originsStr := config[models.ConfigCORSOrigins]
+	origins := parseCORSOrigins(originsStr)
+
+	response.Success(c, gin.H{
+		"origins":        origins,
+		"origins_string": originsStr,
+		"has_wildcard":   containsWildcard(origins),
+	})
+}
+
+// UpdateCORSConfig 更新 CORS 配置
+// @Summary 更新 CORS 配置
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param request body object{origins=[]string} true "CORS 配置"
+// @Success 200 {object} response.Response
+// @Router /api/admin/config/cors [put]
+func (h *ConfigHandler) UpdateCORSConfig(c *gin.Context) {
+	var req struct {
+		Origins []string `json:"origins" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// 验证每个 origin
+	for _, origin := range req.Origins {
+		if origin == "*" {
+			continue // 通配符是允许的
+		}
+		if len(origin) == 0 {
+			response.BadRequest(c, "origin 不能为空")
+			return
+		}
+	}
+
+	actorID := c.GetUint("user_id")
+
+	// 转换为逗号分隔的字符串
+	originsStr := ""
+	if len(req.Origins) > 0 {
+		originsStr = req.Origins[0]
+		for i := 1; i < len(req.Origins); i++ {
+			originsStr += "," + req.Origins[i]
+		}
+	}
+
+	updateReq := &service.UpdateConfigRequest{
+		Key:         models.ConfigCORSOrigins,
+		Value:       originsStr,
+		Description: "CORS 允许的源",
+	}
+
+	if err := h.configService.Update(c.Request.Context(), updateReq); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 清除站点配置缓存
+	h.invalidateSiteConfig(c.Request.Context())
+
+	// 记录审计日志
+	if h.auditService != nil {
+		details := fmt.Sprintf("cors_origins:%s", originsStr)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionConfigUpdate,
+			"config",
+			nil,
+			details,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
+	}
+
+	response.Success(c, gin.H{
+		"message": "CORS config updated successfully",
+		"origins": req.Origins,
+	})
+}
+
+// parseCORSOrigins 解析 CORS 配置字符串为切片
+func parseCORSOrigins(s string) []string {
+	if s == "" {
+		return []string{"http://localhost:3000"} // 默认值
+	}
+	origins := []string{}
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == ',' {
+			if start < i {
+				origins = append(origins, s[start:i])
+			}
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		origins = append(origins, s[start:])
+	}
+	if len(origins) == 0 {
+		return []string{"http://localhost:3000"}
+	}
+	return origins
+}
+
+func containsWildcard(origins []string) bool {
+	for _, o := range origins {
+		if o == "*" {
+			return true
+		}
+	}
+	return false
+}

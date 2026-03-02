@@ -296,7 +296,7 @@ export default function AdminTemplatesPage() {
               />
             </div>
             <p className="mt-4 text-xs text-gray-500">
-              预览中 &quot;{'{{.URL}}'}&quot; 变量被替换为示例链接
+              预览中 &ldquo;{'{{.URL}}'}&rdquo; 变量被替换为示例链接
             </p>
           </div>
         )}

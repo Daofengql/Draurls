@@ -92,6 +92,14 @@ func (h *LinkHandler) ListLinks(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
+	// API 层尽早验证参数，防止恶意请求
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+
 	req := &service.ListLinksRequest{
 		UserID:   userID,
 		Page:     page,
@@ -122,8 +130,14 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 	}
 
 	userID := c.GetUint("user_id")
-	role := c.GetString("role")
-	isAdmin := role == "admin"
+	// 使用 c.Get 而非 c.GetString，正确处理 models.UserRole 类型
+	role, exists := c.Get("role")
+	isAdmin := false
+	if exists {
+		if userRole, ok := role.(models.UserRole); ok {
+			isAdmin = userRole == models.RoleAdmin
+		}
+	}
 
 	link, err := h.linkService.GetLink(c.Request.Context(), code, userID, isAdmin)
 	if err != nil {
@@ -158,8 +172,14 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 
 	req.Code = code
 	userID := c.GetUint("user_id")
-	role := c.GetString("role")
-	isAdmin := role == "admin"
+	// 使用 c.Get 而非 c.GetString，正确处理 models.UserRole 类型
+	role, exists := c.Get("role")
+	isAdmin := false
+	if exists {
+		if userRole, ok := role.(models.UserRole); ok {
+			isAdmin = userRole == models.RoleAdmin
+		}
+	}
 
 	if err := h.linkService.Update(c.Request.Context(), &req, userID, isAdmin); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
@@ -203,8 +223,14 @@ func (h *LinkHandler) DeleteLink(c *gin.Context) {
 	}
 
 	userID := c.GetUint("user_id")
-	role := c.GetString("role")
-	isAdmin := role == "admin"
+	// 使用 c.Get 而非 c.GetString，正确处理 models.UserRole 类型
+	role, exists := c.Get("role")
+	isAdmin := false
+	if exists {
+		if userRole, ok := role.(models.UserRole); ok {
+			isAdmin = userRole == models.RoleAdmin
+		}
+	}
 
 	if err := h.linkService.Delete(c.Request.Context(), code, userID, isAdmin); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())

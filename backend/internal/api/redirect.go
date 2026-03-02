@@ -21,15 +21,16 @@ import (
 
 // RedirectHandler 跳转处理器
 type RedirectHandler struct {
-	linkService    *service.LinkService
-	domainService  *service.DomainService
-	cache          *cache.LinkCache
-	rateLimiter    *cache.RateLimitService
-	redisClient    *redis.Client
-	configService  *service.ConfigService
+	linkService     *service.LinkService
+	domainService   *service.DomainService
+	cache           *cache.LinkCache
+	rateLimiter     *cache.RateLimitService
+	redisClient     *redis.Client
+	configService   *service.ConfigService
 	templateService *service.TemplateService
-	siteConfig     map[string]string
-	siteConfigMu   sync.RWMutex
+	siteConfig      map[string]string
+	siteConfigMu    sync.RWMutex
+	lastConfigCheck time.Time // 记录上一次更新配置的时间，避免频繁抢占写锁
 }
 
 // 短码验证正则（仅允许字母、数字、连字符和下划线，3-20位）
@@ -58,17 +59,29 @@ func NewRedirectHandler(
 }
 
 // LoadSiteConfig 加载站点配置
+// 使用内存级 TTL 缓存，避免每次请求都抢占写锁
 func (h *RedirectHandler) LoadSiteConfig(ctx context.Context) error {
-	// 先从 Redis 加载
+	// 第一步：使用代价极小的读锁，检查内存中的配置是否还在有效期内（1 分钟）
+	// 如果在有效期内，直接返回，避免对 Redis 的查询和昂贵的写锁抢占
+	h.siteConfigMu.RLock()
+	if len(h.siteConfig) > 0 && time.Since(h.lastConfigCheck) < time.Minute {
+		h.siteConfigMu.RUnlock()
+		return nil
+	}
+	h.siteConfigMu.RUnlock()
+
+	// 缓存过期或为空，尝试从 Redis 加载
 	val, err := h.redisClient.Get(ctx, "site:config").Result()
 	if err == nil && val != "" {
 		var newConfig map[string]string
 		if err := json.Unmarshal([]byte(val), &newConfig); err != nil {
 			return err
 		}
-		// 使用写锁保护整个赋值操作
+
+		// 获取写锁更新内存配置，同时更新最后检查时间
 		h.siteConfigMu.Lock()
 		h.siteConfig = newConfig
+		h.lastConfigCheck = time.Now()
 		h.siteConfigMu.Unlock()
 		return nil
 	}
@@ -78,20 +91,25 @@ func (h *RedirectHandler) LoadSiteConfig(ctx context.Context) error {
 	if err != nil {
 		// 如果数据库也失败，使用默认值
 		dbConfig = map[string]string{
-			models.ConfigSiteName:             "Draurls",
-			models.ConfigLogoURL:             "",
-			models.ConfigRedirectPage:        "false",
-			models.ConfigEnableSignup:        "true",
+			models.ConfigSiteName:        "Draurls",
+			models.ConfigLogoURL:          "",
+			models.ConfigRedirectPage:     "false",
+			models.ConfigEnableSignup:     "true",
 		}
 	}
 
-	// 保存到内存和 Redis
+	// 保存到内存并更新时间戳
 	h.siteConfigMu.Lock()
 	h.siteConfig = dbConfig
+	h.lastConfigCheck = time.Now()
 	h.siteConfigMu.Unlock()
 
-	configJSON, _ := json.Marshal(dbConfig)
-	h.redisClient.Set(ctx, "site:config", configJSON, 24*time.Hour)
+	// 异步更新 Redis，避免阻塞当前的跳转请求
+	go func() {
+		configJSON, _ := json.Marshal(dbConfig)
+		// 使用后台 context 防止因原请求结束导致操作被取消
+		h.redisClient.Set(context.Background(), "site:config", configJSON, 24*time.Hour)
+	}()
 
 	return nil
 }
@@ -480,6 +498,7 @@ func (h *RedirectHandler) SetSiteConfig(c *gin.Context) {
 	for key, value := range config {
 		h.siteConfig[key] = value
 	}
+	h.lastConfigCheck = time.Now() // 更新时间戳，确保变更立即生效
 	// 创建副本用于序列化，避免长时间持锁
 	configCopy := make(map[string]string, len(h.siteConfig))
 	for k, v := range h.siteConfig {

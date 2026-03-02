@@ -91,12 +91,18 @@ func NewGenerator(db *gorm.DB, cfg *GeneratorConfig) *Generator {
 
 // Generate 生成唯一短码
 func (g *Generator) Generate(ctx context.Context) (string, error) {
+	// 加读锁保护共享变量的读取
+	g.mu.RLock()
+	currentMode := g.mode
+	hasSeqGen := g.seqGenerator != nil
+	g.mu.RUnlock()
+
 	// 序列号模式：使用 Redis INCR，高并发性能更好
-	if g.mode == ModeSequence && g.seqGenerator != nil {
+	if currentMode == ModeSequence && hasSeqGen {
 		return g.generateSequence(ctx)
 	}
 
-	// 序列号模式：使用 Redis INCR，高并发性能更好
+	// 随机模式：生成随机字符串并检查冲突
 	const maxRetries = 10
 
 	for i := 0; i < maxRetries; i++ {
@@ -289,27 +295,6 @@ func GenerateFromID(id uint64) string {
 	return string(result)
 }
 
-// DecodeID 将短码解码为 ID
-func DecodeID(code string) (uint64, error) {
-	if code == "" {
-		return 0, ErrInvalidCode
-	}
-
-	code = strings.ToLower(strings.TrimSpace(code))
-	var id uint64
-	base := uint64(len(chars))
-
-	for _, char := range code {
-		index := strings.IndexByte(chars, byte(char))
-		if index == -1 {
-			return 0, ErrInvalidCode
-		}
-		id = id*base + uint64(index)
-	}
-
-	return id, nil
-}
-
 // Validate 验证短码是否有效
 func Validate(code string) error {
 	if code == "" {
@@ -329,26 +314,4 @@ func Validate(code string) error {
 	}
 
 	return nil
-}
-
-// Sanitize 清理短码（去除特殊字符，转小写）
-func Sanitize(code string) string {
-	code = strings.TrimSpace(code)
-	code = strings.ToLower(code)
-
-	// 移除非字母数字字符
-	var result []rune
-	for _, char := range code {
-		if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') {
-			result = append(result, char)
-		}
-	}
-
-	return string(result)
-}
-
-// IsCustomCode 检查是否为自定义短码
-func IsCustomCode(code string) bool {
-	// 自定义短码通常更长或包含特殊模式
-	return len(code) > defaultLength
 }

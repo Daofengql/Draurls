@@ -104,6 +104,13 @@ export const configService = {
 
   batchUpdate: (config: Record<string, string>) =>
     api.put<void>('/admin/config/batch', config),
+
+  // CORS 配置
+  getCORS: () =>
+    api.get<{ origins: string[]; origins_string: string; has_wildcard: boolean }>('/admin/config/cors'),
+
+  updateCORS: (origins: string[]) =>
+    api.put<{ message: string; origins: string[] }>('/admin/config/cors', { origins }),
 }
 
 // 模板管理

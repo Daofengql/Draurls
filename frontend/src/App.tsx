@@ -16,7 +16,6 @@ import AdminDomainsPage from './pages/admin/AdminDomainsPage'
 import AdminConfigPage from './pages/admin/AdminConfigPage'
 import AdminTemplatesPage from './pages/admin/AdminTemplatesPage'
 import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage'
-import RedirectPage from './pages/RedirectPage'
 
 // 受保护路由组件：认证中不进行重定向
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -64,7 +63,6 @@ function App() {
       <Routes>
         {/* 公开路由 */}
         <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />} />
-        <Route path="/r/:code" element={<RedirectPage />} />
 
         {/* 受保护路由 - 不带 path 的路由作为布局 */}
         <Route element={

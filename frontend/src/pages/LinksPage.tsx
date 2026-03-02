@@ -96,7 +96,7 @@ export default function LinksPage() {
         code: code || undefined,
         title: title || undefined,
         domain_id: selectedDomain,
-        template_id: selectedTemplate || undefined,
+        template_id: selectedTemplate ?? null,
       })
       toast.success('短链接创建成功')
       setUrl('')
@@ -132,7 +132,7 @@ export default function LinksPage() {
         Title: editForm.title,
         URL: editForm.url,
         Status: editForm.status as any,
-        TemplateID: editForm.template_id ?? undefined,
+        TemplateID: editForm.template_id ?? null,
       })
       toast.success('链接更新成功')
       setEditLink(null)
