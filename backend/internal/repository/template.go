@@ -93,6 +93,7 @@ func (r *RedirectTemplateRepository) Delete(ctx context.Context, id uint) error 
 // ClearDefault 清除所有默认标记
 func (r *RedirectTemplateRepository) ClearDefault(ctx context.Context) error {
 	return r.db.WithContext(ctx).Model(&models.RedirectTemplate{}).
+		Where("is_default = ?", true).
 		Update("is_default", false).Error
 }
 
