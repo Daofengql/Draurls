@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录回调</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            min-width: 300px;
+        }
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .success .icon {
+            color: #10b981;
+        }
+        .error .icon {
+            color: #ef4444;
+        }
+        .message {
+            font-size: 18px;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        .sub-message {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="spinner" id="spinner"></div>
+        <p class="message">正在处理登录...</p>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // 从后端传递的数据获取状态
+            var success = {{ if .Success }}true{{ else }}false{{ end }};
+            var message = {{ if .Message }}"{{ .Message }}"{{ else }}""{{ end }};
+            var redirectTarget = {{ if .RedirectTo }}"{{ .RedirectTo }}"{{ else }}"/"{{ end }};
+
+            // 更新页面显示
+            var container = document.getElementById('container');
+            var spinner = document.getElementById('spinner');
+
+            if (success) {
+                container.className = 'container success';
+                container.innerHTML =
+                    '<div class="icon">✓</div>' +
+                    '<p class="message">登录成功！</p>' +
+                    '<p class="sub-message">正在关闭窗口...</p>';
+            } else {
+                container.className = 'container error';
+                container.innerHTML =
+                    '<div class="icon">✕</div>' +
+                    '<p class="message">登录失败</p>' +
+                    '<p class="sub-message">' + escapeHtml(message) + '</p>';
+            }
+
+            // 通知父窗口
+            if (window.opener) {
+                var redirectTo = {{ if .RedirectTo }}"{{ .RedirectTo }}"{{ else }}""{{ end }};
+
+                // 从 redirectTo 提取 origin
+                var frontendOrigin = null;
+                if (redirectTo) {
+                    try {
+                        var url = new URL(redirectTo);
+                        frontendOrigin = url.origin;
+                    } catch (e) {
+                        console.error('Invalid redirect URL:', redirectTo);
+                    }
+                }
+
+                // 基础允许的源（开发环境）
+                var allowedOrigins = [
+                    'http://localhost:8080',
+                    'http://localhost:3000',
+                    'http://localhost:5173',
+                    'http://127.0.0.1:3000',
+                    'http://127.0.0.1:5173'
+                ];
+
+                // 如果能从 redirectTo 提取 origin，添加到允许列表
+                if (frontendOrigin && allowedOrigins.indexOf(frontendOrigin) === -1) {
+                    allowedOrigins.push(frontendOrigin);
+                }
+
+                var messageData = {
+                    type: success ? 'LOGIN_SUCCESS' : 'LOGIN_FAILED',
+                    message: message,
+                    redirectTarget: redirectTo,
+                    timestamp: Date.now()
+                };
+
+                console.log('Sending postMessage to origins:', allowedOrigins);
+                console.log('Message data:', messageData);
+
+                allowedOrigins.forEach(function(origin) {
+                    try {
+                        window.opener.postMessage(messageData, origin);
+                        console.log('PostMessage sent to:', origin);
+                    } catch (e) {
+                        console.error('Failed to send to', origin, e);
+                    }
+                });
+            } else {
+                console.error('No window.opener found');
+            }
+
+            // 延迟关闭窗口
+            setTimeout(function() {
+                window.close();
+
+                setTimeout(function() {
+                    if (!window.closed) {
+                        var extraMsg = document.createElement('p');
+                        extraMsg.className = 'sub-message';
+                        extraMsg.style.marginTop = '20px';
+                        extraMsg.style.color = '#f59e0b';
+                        extraMsg.textContent = '请手动关闭此窗口';
+                        container.appendChild(extraMsg);
+                    }
+                }, 500);
+            }, success ? 500 : 2000);
+
+            function escapeHtml(text) {
+                var div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        })();
+    </script>
+</body>
+</html>

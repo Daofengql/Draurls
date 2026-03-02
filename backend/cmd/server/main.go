@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -27,6 +29,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+//go:embed templates/*.html
+var templatesFS embed.FS
 
 // App 应用程序结构
 type App struct {
@@ -188,8 +193,12 @@ func main() {
 	// 创建路由
 	router := gin.Default()
 
-	// 加载 HTML 模板（用于 callback.html）
-	router.LoadHTMLGlob("internal/api/templates/*")
+	// 加载 HTML 模板（用于 callback.html）- 使用 embed 打包进二进制
+	templ, err := template.ParseFS(templatesFS, "templates/*.html")
+	if err != nil {
+		log.Fatalf("Failed to parse templates: %v", err)
+	}
+	router.SetHTMLTemplate(templ)
 
 	// 全局中间件
 	router.Use(middleware.CORS(cfg.Security.AllowOrigins))

@@ -131,11 +131,9 @@ export class AuthService {
 
         // 验证消息来源（生产环境应该更严格地验证）
         const allowedOrigins = [
-          'http://localhost:8080',
-          'http://localhost:3000',
-          'http://localhost:5173',
+          import.meta.env.VITE_API_URL,
           window.location.origin,
-        ]
+        ].filter(Boolean)
 
         if (!allowedOrigins.includes(event.origin)) {
           console.log('Origin not in allowed list:', event.origin)
