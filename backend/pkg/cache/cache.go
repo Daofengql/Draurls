@@ -31,7 +31,7 @@ type CacheConfig struct {
 	ColdTTL time.Duration
 	// 是否启用缓存
 	Enabled bool
-	// ���存策略
+	// 缓存策略
 	Strategy CacheStrategy
 }
 

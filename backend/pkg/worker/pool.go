@@ -17,7 +17,7 @@ type Pool struct {
 	quit     chan struct{}
 	stopOnce sync.Once
 
-	// 统计信���
+	// 统计信息
 	activeWorkers atomic.Int32
 	totalTasks    atomic.Int64
 	completedTasks atomic.Int64

@@ -121,8 +121,8 @@ export default function AdminAuditLogsPage() {
     auditLogsService
       .list(params)
       .then((res) => {
-        setLogs(res.Logs || [])
-        setTotal(res.Total || 0)
+        setLogs(res.logs || [])
+        setTotal(res.total || 0)
       })
       .catch((err) => {
         console.error(err)

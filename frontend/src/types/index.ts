@@ -202,6 +202,7 @@ export interface TrendData {
 export interface AuditLog {
   ID: number
   ActorID: number
+  Actor: any // 用户信息，可能为 null
   Action: string
   Resource: string
   ResourceID?: number
@@ -213,9 +214,9 @@ export interface AuditLog {
 
 // 审计日志列表响应
 export interface AuditLogsResponse {
-  Logs: AuditLog[]
-  Total: number
-  Page: number
-  PageSize: number
-  TotalPage: number
+  logs: AuditLog[]
+  total: number
+  page: number
+  page_size: number
+  total_page: number
 }

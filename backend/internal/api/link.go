@@ -40,7 +40,7 @@ func (h *LinkHandler) CreateLink(c *gin.Context) {
 		return
 	}
 
-	// 获取用户ID（从认���中间件设置）
+	// 获取用户ID（从认证中间件设置）
 	userID := c.GetUint("user_id")
 	if userID == 0 {
 		response.BadRequest(c, "user not authenticated")

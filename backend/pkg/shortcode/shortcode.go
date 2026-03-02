@@ -96,7 +96,7 @@ func (g *Generator) Generate(ctx context.Context) (string, error) {
 		return g.generateSequence(ctx)
 	}
 
-	// 随机模式：兼容原有方式
+	// 序列号模式：使用 Redis INCR，高并发性能更好
 	const maxRetries = 10
 
 	for i := 0; i < maxRetries; i++ {
@@ -123,8 +123,8 @@ func (g *Generator) Generate(ctx context.Context) (string, error) {
 	return "", apperrors.ErrCodeTaken
 }
 
-// generateSequence 使用序列号模式生��短码
 // generateSequence 使用序列号模式生成短码
+// 通过 Redis INCR 获取唯一 ID，然后使用混淆算法生成短码
 func (g *Generator) generateSequence(ctx context.Context) (string, error) {
 	id, err := g.seqGenerator.NextID(ctx)
 	if err != nil {
