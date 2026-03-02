@@ -141,13 +141,14 @@ export interface AccessLog {
 
 // 跳转模板类型
 export interface RedirectTemplate {
-  id: number
-  name: string
-  description?: string
-  content: string
-  is_default: boolean
-  created_at: string
-  updated_at: string
+  ID: number
+  Name: string
+  Description?: string
+  Content: string
+  IsDefault: boolean
+  Enabled: boolean
+  CreatedAt: string
+  UpdatedAt: string
 }
 
 // 用户配额状态

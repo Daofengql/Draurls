@@ -51,10 +51,10 @@ export default function AdminTemplatesPage() {
   const handleEdit = (template: RedirectTemplate) => {
     setEditingTemplate(template)
     setFormData({
-      name: template.name,
-      description: template.description || '',
-      content: template.content,
-      is_default: template.is_default,
+      name: template.Name,
+      description: template.Description || '',
+      content: template.Content,
+      is_default: template.IsDefault,
     })
     setShowModal(true)
   }
@@ -62,7 +62,7 @@ export default function AdminTemplatesPage() {
   const handleSave = async () => {
     try {
       if (editingTemplate) {
-        await templatesService.update(editingTemplate.id, formData)
+        await templatesService.update(editingTemplate.ID, formData)
         toast.success('模板更新成功')
       } else {
         await templatesService.create(formData)
@@ -89,7 +89,7 @@ export default function AdminTemplatesPage() {
     if (!deleteConfirm) return
 
     try {
-      await templatesService.delete(deleteConfirm.id)
+      await templatesService.delete(deleteConfirm.ID)
       toast.success('模板已删除')
       setDeleteConfirm(null)
       loadTemplates()
@@ -129,28 +129,28 @@ export default function AdminTemplatesPage() {
           <div className="space-y-4">
             {templates.map((template) => (
               <div
-                key={template.id}
+                key={template.ID}
                 className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-medium text-gray-900">{template.name}</h3>
-                      {template.is_default && (
+                      <h3 className="font-medium text-gray-900">{template.Name}</h3>
+                      {template.IsDefault && (
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
                           默认
                         </span>
                       )}
                     </div>
-                    {template.description && (
-                      <p className="text-sm text-gray-600 mb-3">{template.description}</p>
+                    {template.Description && (
+                      <p className="text-sm text-gray-600 mb-3">{template.Description}</p>
                     )}
                     <div className="bg-gray-50 rounded-md p-3 text-xs sm:text-sm font-mono text-gray-700 max-h-32 overflow-auto">
-                      {template.content.substring(0, 200)}
-                      {template.content.length > 200 && '...'}
+                      {template.Content?.substring(0, 200) || ''}
+                      {template.Content && template.Content.length > 200 && '...'}
                     </div>
                     <p className="text-xs text-gray-400 mt-2">
-                      创建于 {formatDateTime(template.created_at)}
+                      创建于 {formatDateTime(template.CreatedAt)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 sm:ml-4 flex-shrink-0">
@@ -160,9 +160,9 @@ export default function AdminTemplatesPage() {
                     >
                       预览
                     </button>
-                    {!template.is_default && (
+                    {!template.IsDefault && (
                       <button
-                        onClick={() => handleSetDefault(template.id)}
+                        onClick={() => handleSetDefault(template.ID)}
                         className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                       >
                         设为默认
@@ -288,11 +288,11 @@ export default function AdminTemplatesPage() {
         {previewTemplate && (
           <div>
             <p className="mb-4 text-sm text-gray-600">
-              预览模板: <strong>{previewTemplate.name}</strong>
+              预览模板: <strong>{previewTemplate.Name}</strong>
             </p>
             <div className="border border-gray-200 rounded-md bg-gray-50 p-4">
               <iframe
-                srcDoc={previewTemplate.content.replace(/\{\{\.URL\}\}/g, 'https://example.com/target')}
+                srcDoc={previewTemplate.Content.replace(/\{\{\.URL\}\}/g, 'https://example.com/target')}
                 className="w-full h-80 border-0 rounded bg-white"
                 title="模板预览"
               />
@@ -308,7 +308,7 @@ export default function AdminTemplatesPage() {
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="删除模板"
-        message={`确定要删除模板 "${deleteConfirm?.name}" 吗？删除后使用该模板的跳转将使用默认模板。`}
+        message={`确定要删除模板 "${deleteConfirm?.Name}" 吗？删除后使用该模板的跳转将使用默认模板。`}
         type="danger"
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
