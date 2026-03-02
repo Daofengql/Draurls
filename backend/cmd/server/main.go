@@ -165,9 +165,9 @@ func main() {
 	apiKeyHandler := api.NewAPIKeyHandler(apiKeyService, auditService)
 	userHandler := api.NewUserHandler(userService, auditService)
 	groupHandler := api.NewGroupHandler(groupService, auditService)
-	configHandler := api.NewConfigHandler(configService, auditService)
+	configHandler := api.NewConfigHandler(configService, auditService, redisClient)
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
-	redirectHandler := api.NewRedirectHandler(linkService, domainService, linkCache, rateLimitService, redisClient, configService)
+	redirectHandler := api.NewRedirectHandler(linkService, domainService, linkCache, rateLimitService, redisClient, configService, templateService)
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
 	domainHandler := api.NewDomainHandler(domainService, auditService)
 	templateHandler := api.NewTemplateHandler(templateService, auditService)
@@ -176,6 +176,11 @@ func main() {
 
 	// 设置循环链接检测（需要在 redirectHandler 初始化后）
 	linkService.SetCircularCheck(redirectHandler.CheckCircular)
+
+	// 加载站点配置到缓存
+	if err := redirectHandler.LoadSiteConfig(context.Background()); err != nil {
+		log.Printf("Warning: failed to load initial site config: %v", err)
+	}
 
 	// 设置Gin模式
 	gin.SetMode(cfg.Server.Mode)
@@ -301,6 +306,9 @@ func main() {
 
 	// 公开域名列表
 	router.GET("/api/domains", domainHandler.ListActiveDomains)
+
+	// 公开模板列表（用于用户创建链接时选择）
+	router.GET("/api/templates", templateHandler.ListEnabledTemplates)
 
 	// API签名认证路由（供外部调用）
 	apiSignature := router.Group("/api/v1")

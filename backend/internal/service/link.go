@@ -65,12 +65,13 @@ func NewLinkService(
 
 // CreateLinkRequest 创建短链接请求
 type CreateLinkRequest struct {
-	URL       string    `json:"url" binding:"required"`
-	Code      string    `json:"code"`
-	Title     string    `json:"title"`
-	ExpiresAt time.Time `json:"expires_at"`
-	UserID    uint      `json:"-"`
-	DomainID  uint      `json:"domain_id"` // 域名ID，用于多域名隔离
+	URL        string    `json:"url" binding:"required"`
+	Code       string    `json:"code"`
+	Title      string    `json:"title"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	UserID     uint      `json:"-"`
+	DomainID   uint      `json:"domain_id"`   // 域名ID，用于多域名隔离
+	TemplateID *uint     `json:"template_id"` // 跳转模板ID
 }
 
 // CreateLinkResponse 创建短链接响应
@@ -232,13 +233,14 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 
 	// 创建短链接记录
 	link := &models.ShortLink{
-		Code:      code,
-		DomainID:  domainID,
-		URL:       normalizedURL,
-		UserID:    req.UserID,
-		Title:     req.Title,
-		ExpiresAt: expiresAt,
-		Status:    models.LinkStatusActive,
+		Code:       code,
+		DomainID:   domainID,
+		TemplateID: req.TemplateID,
+		URL:        normalizedURL,
+		UserID:     req.UserID,
+		Title:      req.Title,
+		ExpiresAt:  expiresAt,
+		Status:     models.LinkStatusActive,
 	}
 
 	// 使用带配额检查的事务方法创建链接

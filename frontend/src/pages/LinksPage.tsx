@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { linksService } from '@/services/links'
 import { domainsService } from '@/services/domains'
-import type { ShortLink, Domain } from '@/types'
+import { configService, type SiteConfig } from '@/services/config'
+import type { ShortLink, Domain, RedirectTemplate } from '@/types'
 import Pagination from '@/components/Pagination'
 import CopyButton from '@/components/CopyButton'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -12,6 +13,8 @@ import { formatDateTime, truncate } from '@/utils/format'
 export default function LinksPage() {
   const [links, setLinks] = useState<ShortLink[]>([])
   const [domains, setDomains] = useState<Domain[]>([])
+  const [templates, setTemplates] = useState<RedirectTemplate[]>([])
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
@@ -23,11 +26,12 @@ export default function LinksPage() {
   const [code, setCode] = useState('')
   const [title, setTitle] = useState('')
   const [selectedDomain, setSelectedDomain] = useState<number>(1)
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // 编辑弹窗
   const [editLink, setEditLink] = useState<ShortLink | null>(null)
-  const [editForm, setEditForm] = useState({ title: '', url: '', status: 'active' })
+  const [editForm, setEditForm] = useState({ title: '', url: '', status: 'active', template_id: null as number | null })
 
   // 统计弹窗
   const [statsLink, setStatsLink] = useState<ShortLink | null>(null)
@@ -36,13 +40,23 @@ export default function LinksPage() {
   // 删除确认
   const [deleteConfirm, setDeleteConfirm] = useState<ShortLink | null>(null)
 
-  // 加载域名列表
+  // 加载域名列表和站点配置
   useEffect(() => {
     domainsService.listActive().then((data) => {
       setDomains(data || [])
       if (data && data.length > 0) {
         setSelectedDomain(data.find((d) => d.IsDefault)?.ID || data[0].ID)
       }
+    }).catch(console.error)
+
+    // 加载站点配置
+    configService.get().then((config) => {
+      setSiteConfig(config as SiteConfig)
+    }).catch(console.error)
+
+    // 加载模板列表
+    configService.getTemplates().then((data) => {
+      setTemplates(data || [])
     }).catch(console.error)
   }, [])
 
@@ -78,11 +92,13 @@ export default function LinksPage() {
         code: code || undefined,
         title: title || undefined,
         domain_id: selectedDomain,
+        template_id: selectedTemplate || undefined,
       })
       toast.success('短链接创建成功')
       setUrl('')
       setCode('')
       setTitle('')
+      setSelectedTemplate(null)
       setShowCreateModal(false)
       loadLinks()
     } catch (err: any) {
@@ -95,7 +111,12 @@ export default function LinksPage() {
   // 打开编辑弹窗
   const openEditModal = async (link: ShortLink) => {
     setEditLink(link)
-    setEditForm({ title: link.Title || '', url: link.URL, status: link.Status })
+    setEditForm({
+      title: link.Title || '',
+      url: link.URL,
+      status: link.Status,
+      template_id: link.TemplateID || null
+    })
   }
 
   // 保存编辑
@@ -107,6 +128,7 @@ export default function LinksPage() {
         Title: editForm.title,
         URL: editForm.url,
         Status: editForm.status as any,
+        TemplateID: editForm.template_id ?? undefined,
       })
       toast.success('链接更新成功')
       setEditLink(null)
@@ -435,6 +457,29 @@ export default function LinksPage() {
               className="input w-full text-sm"
             />
           </div>
+          {/* 跳转模板选择 - 仅在启用跳转页且允许用户选择时显示 */}
+          {siteConfig?.redirect_page_enabled === 'true' && siteConfig?.allow_user_template === 'true' && templates.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                跳转模板
+              </label>
+              <select
+                value={selectedTemplate || ''}
+                onChange={(e) => setSelectedTemplate(e.target.value ? Number(e.target.value) : null)}
+                className="input w-full text-sm"
+              >
+                <option value="">使用默认模板</option>
+                {templates.map((template) => (
+                  <option key={template.ID} value={template.ID}>
+                    {template.Name} {template.IsDefault ? '(默认)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                选择用户访问此链接时显示的跳转页面模板
+              </p>
+            </div>
+          )}
         </form>
       </Modal>
 
@@ -494,6 +539,26 @@ export default function LinksPage() {
               <option key="disabled" value="disabled">禁用</option>
             </select>
           </div>
+          {/* 跳转模板选择 - 仅在启用跳转页且允许用户选择时显示 */}
+          {siteConfig?.redirect_page_enabled === 'true' && siteConfig?.allow_user_template === 'true' && templates.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                跳转模板
+              </label>
+              <select
+                value={editForm.template_id || ''}
+                onChange={(e) => setEditForm({ ...editForm, template_id: e.target.value ? Number(e.target.value) : null })}
+                className="input w-full text-sm"
+              >
+                <option value="">使用默认模板</option>
+                {templates.map((template) => (
+                  <option key={template.ID} value={template.ID}>
+                    {template.Name} {template.IsDefault ? '(默认)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </Modal>
 

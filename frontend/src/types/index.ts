@@ -49,6 +49,8 @@ export interface ShortLink {
   URL: string
   DomainID: number
   Domain?: Domain
+  TemplateID?: number
+  Template?: RedirectTemplate
   UserID: number
   Title?: string
   ExpiresAt?: string
@@ -122,6 +124,7 @@ export interface CreateLinkRequest {
   title?: string
   expires_at?: string
   domain_id?: number
+  template_id?: number
 }
 
 // API错误类型

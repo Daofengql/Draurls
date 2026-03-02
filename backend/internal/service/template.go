@@ -132,6 +132,11 @@ func (s *TemplateService) List(ctx context.Context) ([]models.RedirectTemplate, 
 	return s.repo.List(ctx)
 }
 
+// ListEnabled 列出所有启用的模板
+func (s *TemplateService) ListEnabled(ctx context.Context) ([]models.RedirectTemplate, error) {
+	return s.repo.ListEnabled(ctx)
+}
+
 // GetDefault 获取默认启用的模板
 func (s *TemplateService) GetDefault(ctx context.Context) (*models.RedirectTemplate, error) {
 	// 优先获取标记为默认的模板

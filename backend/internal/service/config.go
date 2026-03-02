@@ -49,6 +49,7 @@ var predefinedConfigs = map[string]string{
 	models.ConfigSiteName:       "站点名称",
 	models.ConfigLogoURL:        "Logo URL",
 	models.ConfigRedirectPage:   "是否启用跳转中间页 (true/false)",
+	models.ConfigAllowUserTemplate: "是否允许用户选择跳转模板 (true/false)",
 	models.ConfigMaxLinkLength:  "最大短链长度",
 	models.ConfigEnableSignup:   "是否允许用户注��� (true/false)",
 	models.ConfigShortcodeMode:  "短码生成模式 (random/sequence)",
@@ -101,6 +102,8 @@ func (s *ConfigService) GetPublicConfig(ctx context.Context) (map[string]string,
 	publicKeys := []string{
 		models.ConfigSiteName,
 		models.ConfigLogoURL,
+		models.ConfigRedirectPage,
+		models.ConfigAllowUserTemplate,
 		models.ConfigEnableSignup,
 	}
 

@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
@@ -14,14 +16,21 @@ import (
 type ConfigHandler struct {
 	configService *service.ConfigService
 	auditService  *service.AuditService
+	redisClient   *redis.Client
 }
 
 // NewConfigHandler 创建站点配置处理器
-func NewConfigHandler(configService *service.ConfigService, auditService *service.AuditService) *ConfigHandler {
+func NewConfigHandler(configService *service.ConfigService, auditService *service.AuditService, redisClient *redis.Client) *ConfigHandler {
 	return &ConfigHandler{
 		configService: configService,
 		auditService:  auditService,
+		redisClient:   redisClient,
 	}
+}
+
+// invalidateSiteConfig 清除站点配置缓存
+func (h *ConfigHandler) invalidateSiteConfig(ctx context.Context) {
+	_ = h.redisClient.Del(ctx, "site:config")
 }
 
 // GetAdminConfig 获取所有站点配置（管理员）
@@ -61,6 +70,9 @@ func (h *ConfigHandler) UpdateConfig(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// 清除站点配置缓存
+	h.invalidateSiteConfig(c.Request.Context())
 
 	// 记录审计日志
 	if h.auditService != nil {
@@ -102,6 +114,9 @@ func (h *ConfigHandler) BatchUpdateConfig(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// 清除站点配置缓存
+	h.invalidateSiteConfig(c.Request.Context())
 
 	// 记录审计日志
 	if h.auditService != nil {

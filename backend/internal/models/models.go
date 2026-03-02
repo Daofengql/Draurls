@@ -60,6 +60,8 @@ type ShortLink struct {
 	Code        string          `gorm:"size:20;not null;comment:短码"`
 	DomainID    uint            `gorm:"index:idx_domain_code;not null;default:1;comment:域名ID"`
 	Domain      *Domain         `gorm:"foreignKey:DomainID"`
+	TemplateID  *uint           `gorm:"comment:跳转模板ID"`
+	Template    *RedirectTemplate `gorm:"foreignKey:TemplateID"`
 	URL         string          `gorm:"type:text;not null;comment:目标URL"`
 	UserID      uint            `gorm:"index:idx_user_status_created;not null;comment:创建用户ID"`
 	User        *User           `gorm:"foreignKey:UserID"`
@@ -134,13 +136,14 @@ type SiteConfig struct {
 
 // 预定义的站点配置键
 const (
-	ConfigSiteName      = "site_name"
-	ConfigLogoURL       = "logo_url"
-	ConfigRedirectPage  = "redirect_page_enabled"
-	ConfigDefaultQuota  = "default_quota"
-	ConfigMaxLinkLength = "max_link_length"
-	ConfigEnableSignup  = "enable_signup"
-	ConfigShortcodeMode = "shortcode_mode"
+	ConfigSiteName       = "site_name"
+	ConfigLogoURL        = "logo_url"
+	ConfigRedirectPage   = "redirect_page_enabled"
+	ConfigAllowUserTemplate = "allow_user_template"
+	ConfigDefaultQuota   = "default_quota"
+	ConfigMaxLinkLength  = "max_link_length"
+	ConfigEnableSignup   = "enable_signup"
+	ConfigShortcodeMode  = "shortcode_mode"
 	ConfigAllowCustomShortcode = "allow_custom_shortcode"
 )
 

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"sync"
@@ -25,6 +26,7 @@ type RedirectHandler struct {
 	rateLimiter    *cache.RateLimitService
 	redisClient    *redis.Client
 	configService  *service.ConfigService
+	templateService *service.TemplateService
 	siteConfig     map[string]string
 	siteConfigMu   sync.RWMutex
 }
@@ -37,15 +39,17 @@ func NewRedirectHandler(
 	rateLimiter *cache.RateLimitService,
 	redisClient *redis.Client,
 	configService *service.ConfigService,
+	templateService *service.TemplateService,
 ) *RedirectHandler {
 	return &RedirectHandler{
-		linkService:   linkService,
-		domainService: domainService,
-		cache:         linkCache,
-		rateLimiter:   rateLimiter,
-		redisClient:   redisClient,
-		configService: configService,
-		siteConfig:    make(map[string]string),
+		linkService:     linkService,
+		domainService:   domainService,
+		cache:           linkCache,
+		rateLimiter:     rateLimiter,
+		redisClient:     redisClient,
+		configService:   configService,
+		templateService: templateService,
+		siteConfig:      make(map[string]string),
 	}
 }
 
@@ -132,13 +136,16 @@ func (h *RedirectHandler) Redirect(c *gin.Context) {
 		return
 	}
 
+	// 确保站点配置已加载（从 Redis 或数据库重新加载）
+	_ = h.LoadSiteConfig(c.Request.Context())
+
 	// 检查是否启用跳转页
 	h.siteConfigMu.RLock()
 	redirectPageEnabled := h.siteConfig["redirect_page_enabled"] == "true"
 	h.siteConfigMu.RUnlock()
 
 	if redirectPageEnabled {
-		h.renderRedirectPage(c, link.URL, code)
+		h.renderRedirectPage(c, link)
 	} else {
 		// 直接跳转（302）
 		c.Redirect(http.StatusFound, link.URL)
@@ -146,7 +153,8 @@ func (h *RedirectHandler) Redirect(c *gin.Context) {
 }
 
 // renderRedirectPage 渲染跳转页
-func (h *RedirectHandler) renderRedirectPage(c *gin.Context, targetURL, code string) {
+func (h *RedirectHandler) renderRedirectPage(c *gin.Context, link *models.ShortLink) {
+	// 获取站点配置
 	h.siteConfigMu.RLock()
 	siteName := h.siteConfig["site_name"]
 	logoURL := h.siteConfig["logo_url"]
@@ -156,16 +164,69 @@ func (h *RedirectHandler) renderRedirectPage(c *gin.Context, targetURL, code str
 		siteName = "Draurls"
 	}
 
+	// 获取模板内容
+	var templateContent string
+	var err error
+
+	// 如果链接指定了模板，使用链接的模板
+	if link.TemplateID != nil {
+		templateContent, err = h.getTemplateContent(c.Request.Context(), *link.TemplateID)
+	}
+
+	// 如果没有指定模板或获取失败，使用默认模板
+	if err != nil || templateContent == "" {
+		templateContent, err = h.getDefaultTemplateContent(c.Request.Context())
+		if err != nil {
+			// 如果获取默认模板失败，使用备用硬编码模板
+			templateContent = h.getFallbackTemplate()
+		}
+	}
+
+	// 准备模板数据
 	data := gin.H{
 		"SiteName":  siteName,
 		"LogoURL":   logoURL,
-		"TargetURL": targetURL,
-		"Code":      code,
+		"TargetURL": link.URL,
+		"URL":       link.URL, // 兼容旧模板变量名
+		"Code":      link.Code,
 		"Timestamp": time.Now().Format("2006-01-02 15:04:05"),
 	}
 
-	// 使用HTML模板
-	tmpl := `<!DOCTYPE html>
+	// 解析并渲染模板
+	t, err := template.New("redirect").Parse(templateContent)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Template parse error")
+		return
+	}
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	t.Execute(c.Writer, data)
+}
+
+// getTemplateContent 获取指定ID的模板内容
+func (h *RedirectHandler) getTemplateContent(ctx context.Context, templateID uint) (string, error) {
+	template, err := h.templateService.GetByID(ctx, templateID)
+	if err != nil {
+		return "", err
+	}
+	if !template.Enabled {
+		return "", errors.New("template is disabled")
+	}
+	return template.Content, nil
+}
+
+// getDefaultTemplateContent 获取默认模板内容
+func (h *RedirectHandler) getDefaultTemplateContent(ctx context.Context) (string, error) {
+	template, err := h.templateService.GetDefault(ctx)
+	if err != nil {
+		return "", err
+	}
+	return template.Content, nil
+}
+
+// getFallbackTemplate 获取备用硬编码模板（当数据库查询失败时使用）
+func (h *RedirectHandler) getFallbackTemplate() string {
+	return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -287,15 +348,6 @@ func (h *RedirectHandler) renderRedirectPage(c *gin.Context, targetURL, code str
     </div>
 </body>
 </html>`
-
-	t, err := template.New("redirect").Parse(tmpl)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "Internal error")
-		return
-	}
-
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	t.Execute(c.Writer, data)
 }
 
 // renderError 渲染错误页面
@@ -391,10 +443,11 @@ func (h *RedirectHandler) GetSiteConfig(c *gin.Context) {
 	if err != nil {
 		// 如果数据库失败，使用默认值
 		dbConfig = map[string]string{
-			models.ConfigSiteName:       "Draurls",
-			models.ConfigLogoURL:        "",
-			models.ConfigRedirectPage:   "false",
-			models.ConfigEnableSignup:   "true",
+			models.ConfigSiteName:         "Draurls",
+			models.ConfigLogoURL:          "",
+			models.ConfigRedirectPage:     "false",
+			models.ConfigAllowUserTemplate: "false",
+			models.ConfigEnableSignup:     "true",
 		}
 	}
 
@@ -403,6 +456,7 @@ func (h *RedirectHandler) GetSiteConfig(c *gin.Context) {
 		"site_name":             dbConfig[models.ConfigSiteName],
 		"logo_url":              dbConfig[models.ConfigLogoURL],
 		"redirect_page_enabled": dbConfig[models.ConfigRedirectPage],
+		"allow_user_template":   dbConfig[models.ConfigAllowUserTemplate],
 		"enable_signup":         dbConfig[models.ConfigEnableSignup],
 	}
 

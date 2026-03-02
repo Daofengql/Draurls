@@ -218,6 +218,22 @@ func (h *TemplateHandler) SetDefaultTemplate(c *gin.Context) {
 	response.Success(c, gin.H{"message": "default template set successfully"})
 }
 
+// ListEnabledTemplates 列出所有启用的模板（公开接口）
+// @Summary 列出所有启用的模板
+// @Tags templates
+// @Produce json
+// @Success 200 {object} response.Response{data=[]models.RedirectTemplate}
+// @Router /api/templates [get]
+func (h *TemplateHandler) ListEnabledTemplates(c *gin.Context) {
+	templates, err := h.templateService.ListEnabled(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, templates)
+}
+
 // getParamID 从路径参数获取ID
 func getParamID(c *gin.Context) (uint, error) {
 	var id struct {
