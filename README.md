@@ -1,4 +1,4 @@
-# Draurls - 麟云短链
+# Surls - 麟云短链
 
 一个功能完整的短链接服务系统，使用 Golang + React 构建，支持用户认证、多租户用户分组、API 签名验证、跳转模板、审计日志等功能。
 
@@ -13,7 +13,7 @@
 - **跳转模板** - 用户可自定义跳转页面模板
 
 ### 用户系统
-- **OIDC 认证** - 支持 Keycloak 等标准 OIDC 提供商
+- **OIDC 认证** - 支持 Keycloak 等标�� OIDC 提供商
 - **角色管理** - 普通用户/管理员
 - **用户分组** - 灵活的分组配额管理
 - **独立配额** - 配额精确到用户
@@ -65,8 +65,8 @@
 ## 项目结构
 
 ```
-Draurls/
-���── backend/               # 后端服务
+Surls/
+├��─ backend/               # 后端服务
 │   ├── cmd/              # 主程序入口
 │   │   └── server/
 │   ├── internal/         # 内部代码
@@ -115,8 +115,8 @@ Draurls/
 
 ```bash
 # 克隆项目
-git clone https://github.com/Daofengql/Draurls.git
-cd Draurls
+git clone https://github.com/Daofengql/Surls.git
+cd Surls
 
 # 启动所有服务
 docker-compose up -d
@@ -166,185 +166,16 @@ npm run build
 项目支持将前端静态文件嵌入后端，构建单个二进制文件：
 
 ```bash
-# 一键构建（��荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 运行
-cd backend/bin
-./server      # 或 server.exe
 # 一键构建（推荐）
 ./build.sh    # Linux/macOS
 build.bat     # Windows
 
 # 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
+# 所有平台文件输出到 dist/ 目录
 
 # 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
-# 一键构建（推荐）
-./build.sh    # Linux/macOS
-build.bat     # Windows
-
-# 构建产物
-# Linux/macOS: backend/bin/server
-# Windows:     backend/bin/server.exe
-
-# 运行
-cd backend/bin
-./server      # 或 server.exe
+cd dist
+./server      # 或 server.exe（Windows）
 ```
 
 构建后，访问 `http://localhost:8080` 即可使用完整功能（前端+后端）。
@@ -358,13 +189,14 @@ cd backend/bin
 | `DB_PORT` | 数据库端口 | 3306 |
 | `DB_USER` | 数据库用户 | root |
 | `DB_PASSWORD` | 数据库密码 | - |
-| `DB_NAME` | 数据库名称 | draurls |
+| `DB_NAME` | 数据库名称 | surls |
 | `REDIS_HOST` | Redis 地址 | 127.0.0.1 |
 | `REDIS_PORT` | Redis 端口 | 6379 |
 | `REDIS_PASSWORD` | Redis 密码 | - |
-| `OIDC_ISSUER` | OIDC 发行地址 | - |
-| `OIDC_CLIENT_ID` | OIDC 客户端 ID | - |
-| `OIDC_CLIENT_SECRET` | OIDC 客户端密钥 | - |
+| `KEYCLOAK_BASE_URL` | Keycloak 地址 | - |
+| `KEYCLOAK_REALM` | Keycloak Realm | - |
+| `KEYCLOAK_CLIENT_ID` | Keycloak 客户端 ID | - |
+| `KEYCLOAK_SECRET` | Keycloak 客户端密钥 | - |
 | `JWT_SECRET` | JWT 密钥 | - |
 
 ## 站点配置

@@ -20,7 +20,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem('access_token'),
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
-  isInitialized: false, // ���始化时设为 false
+  isInitialized: false, // 初始化时设为 false
 
   setAuth: (user, token) => {
     if (token) {

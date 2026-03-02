@@ -92,7 +92,7 @@ func main() {
 		log.Printf("Warning: failed to load CORS config from database, using defaults: %v", err)
 	}
 
-	// 从数据库获取短��配置（使用默认值作为回退）
+	// 从数据库获取短链配置（使用默认值作为回退）
 	ctx := context.Background()
 	allConfigs, err := configService.GetAllConfig(ctx)
 	if err != nil {

@@ -35,7 +35,7 @@ export const linksService = {
   update: (code: string, data: Partial<ShortLink>) =>
     api.put<ShortLink>(`/links/${code}`, data),
 
-  // 删除���接
+  // 删除链接
   delete: (code: string) =>
     api.delete<void>(`/links/${code}`),
 

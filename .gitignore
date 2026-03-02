@@ -2,6 +2,7 @@
 /backend/server
 /backend/bin/
 /backend/cmd/server/web
+/dist/
 
 # 依赖
 /backend/vendor/

@@ -139,10 +139,8 @@ func (h *RedirectHandler) Redirect(c *gin.Context) {
 
 	// 获取目标URL并记录访问日志
 	// 获取请求的 Host（用于分域名跳转）
+	// 优先使用 X-Forwarded-Host（由反向代理设置），否则使用请求的原始 Host
 	host := c.GetHeader("X-Forwarded-Host")
-	if host == "" {
-		host = c.GetHeader("X-Real-IP")
-	}
 	if host == "" {
 		host = c.Request.Host
 	}
