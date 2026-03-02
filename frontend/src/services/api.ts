@@ -62,7 +62,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token过期，跳转登录
       localStorage.removeItem('access_token')
-      window.location.href = '/login'
+      // 避免在登录页时重复重定向导致死循环
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
     }
     // 返回标准化的错误格式
     const errorData = error.response?.data

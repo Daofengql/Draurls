@@ -445,41 +445,47 @@ func (h *AuthHandler) refreshTokenFromKeycloak(refreshToken string) (*TokenRespo
 
 // LogoutRequest 登出请求
 type LogoutRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
+	RefreshToken string `json:"refresh_token"` // 可选，优先从 Cookie 读取
 	RedirectTo   string `json:"redirect_to,omitempty"` // 用于获取正确的 Cookie domain
 }
 
 // Logout 登出
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var req LogoutRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
-		return
+	c.ShouldBindJSON(&req) // refresh_token 不再必需，允许空 body
+
+	// 优先从 Cookie 读取 refresh_token
+	refreshToken := req.RefreshToken
+	if refreshToken == "" {
+		if rt, err := c.Cookie("refresh_token"); err == nil && rt != "" {
+			refreshToken = rt
+		}
 	}
 
-	// 调用 Keycloak 登出
-	baseURL := strings.TrimSuffix(h.config.Keycloak.BaseURL, "/")
-	realm := h.config.Keycloak.Realm
-	logoutURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/logout", baseURL, realm)
+	// 调用 Keycloak 登出（如果有 refresh_token）
+	if refreshToken != "" {
+		baseURL := strings.TrimSuffix(h.config.Keycloak.BaseURL, "/")
+		realm := h.config.Keycloak.Realm
+		logoutURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/logout", baseURL, realm)
 
-	data := url.Values{}
-	data.Set("client_id", h.config.Keycloak.ClientID)
-	data.Set("client_secret", h.config.Keycloak.Secret)
-	data.Set("refresh_token", req.RefreshToken)
+		data := url.Values{}
+		data.Set("client_id", h.config.Keycloak.ClientID)
+		data.Set("client_secret", h.config.Keycloak.Secret)
+		data.Set("refresh_token", refreshToken)
 
-	resp, err := http.PostForm(logoutURL, data)
-	if err != nil {
-		response.InternalError(c, err.Error())
-		return
+		resp, err := http.PostForm(logoutURL, data)
+		if err != nil {
+			// Keycloak 登出失败，但仍然清除本地 Cookie
+			log.Printf("Keycloak logout failed: %v", err)
+		} else {
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+				log.Printf("Keycloak logout returned status: %d", resp.StatusCode)
+			}
+		}
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		response.InternalError(c, "logout failed")
-		return
-	}
-
-	// 清除 Cookie - 使用正确的参数
+	// 清除 Cookie - 无论 Keycloak 登出是否成功都清除
 	// 从 RedirectTo 或 Referer 获取域名信息
 	cookieDomain := ""
 	secure := strings.HasPrefix(h.config.Server.GetBaseURL(), "https://")

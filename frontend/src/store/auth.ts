@@ -11,6 +11,7 @@ interface AuthState {
   setAuth: (user: User, token?: string) => void
   setUser: (user: User) => void
   clearAuth: () => void
+  logout: () => Promise<void> // 新增：完整的退出登录
   checkAuth: () => Promise<boolean>
 }
 
@@ -19,7 +20,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem('access_token'),
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
-  isInitialized: false, // 初始化时设为 false
+  isInitialized: false, // ���始化时设为 false
 
   setAuth: (user, token) => {
     if (token) {
@@ -35,6 +36,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearAuth: () => {
     localStorage.removeItem('access_token')
     set({ user: null, token: null, isAuthenticated: false })
+  },
+
+  // 完整的退出登录：调用后端清除 HttpOnly Cookie
+  logout: async () => {
+    try {
+      // 调用后端登出接口（后端会清除 HttpOnly Cookie 并调用 Keycloak logout）
+      // 注意：后端会从 Cookie 中读取 refresh_token，无需前端传递
+      await api.post('/auth/logout', {})
+    } catch (error) {
+      // 即使后端调用失败，也继续清理本地状态
+      console.warn('Backend logout failed:', error)
+    } finally {
+      // 清理本地状态
+      localStorage.removeItem('access_token')
+      set({ user: null, token: null, isAuthenticated: false, isInitialized: false })
+      // 跳转到登录页
+      window.location.href = '/login'
+    }
   },
 
   checkAuth: async () => {

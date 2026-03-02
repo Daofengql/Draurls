@@ -11,7 +11,7 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation()
-  const { user, clearAuth } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const isAdmin = user?.Role === 'admin'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -86,7 +86,7 @@ export default function Layout() {
                 <span className="text-sm text-gray-700">{displayName || '加载中...'}</span>
               </Link>
               <button
-                onClick={clearAuth}
+                onClick={logout}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
                 退出
@@ -161,7 +161,7 @@ export default function Layout() {
                 </Link>
                 <button
                   onClick={() => {
-                    clearAuth()
+                    logout()
                     setMobileMenuOpen(false)
                   }}
                   className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:text-gray-700"

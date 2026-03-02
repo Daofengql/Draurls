@@ -7,7 +7,7 @@ import type { User, QuotaStatus } from '@/types'
 
 export default function ProfilePage() {
   const setUser = useAuthStore((state) => state.setUser)
-  const clearAuth = useAuthStore((state) => state.clearAuth)
+  const logout = useAuthStore((state) => state.logout)
 
   const [profile, setProfile] = useState<User | null>(null)
   const [quotaStatus, setQuotaStatus] = useState<QuotaStatus | null>(null)
@@ -35,9 +35,8 @@ export default function ProfilePage() {
     loadProfile()
   }, [])
 
-  const handleLogout = () => {
-    clearAuth()
-    toast.success('已退出登录')
+  const handleLogout = async () => {
+    await logout()
   }
 
   const getRoleLabel = (role: string) => {
