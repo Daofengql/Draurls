@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -11,25 +13,30 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/surls/backend/internal/auth"
 	"github.com/surls/backend/internal/config"
 	"github.com/surls/backend/internal/response"
+	"github.com/surls/backend/internal/service"
 )
 
 // AuthHandler 认证相关处理器
 type AuthHandler struct {
-	config    *config.Config
-	secretKey []byte
+	config     *config.Config
+	secretKey  []byte
+	userService *service.UserService
 }
 
 // NewAuthHandler 创建认证处理器
-func NewAuthHandler(cfg *config.Config) *AuthHandler {
+func NewAuthHandler(cfg *config.Config, userService *service.UserService) *AuthHandler {
 	secretKey := []byte(cfg.Security.JWTSecret)
 	return &AuthHandler{
-		config:    cfg,
-		secretKey: secretKey,
+		config:     cfg,
+		secretKey:  secretKey,
+		userService: userService,
 	}
 }
 
@@ -60,6 +67,43 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	IDToken      string `json:"id_token"`
 }
+
+// ==================== 待确认用户存储 ====================
+
+// PendingUser 待确认用户信息
+type PendingUser struct {
+	UserInfo      *auth.UserInfo
+	TokenResponse *TokenResponse
+	RedirectTo    string
+	ExpiresAt     time.Time
+}
+
+// PendingUserStore 待确认用户存储（使用 sync.Map 保证并发安全）
+type PendingUserStore struct {
+	data sync.Map // key: sessionID, value: *PendingUser
+}
+
+// Store 存储待确认用户
+func (s *PendingUserStore) Store(sessionID string, pending *PendingUser) {
+	s.data.Store(sessionID, pending)
+}
+
+// Load 获取待确认用户
+func (s *PendingUserStore) Load(sessionID string) (*PendingUser, bool) {
+	value, ok := s.data.Load(sessionID)
+	if !ok {
+		return nil, false
+	}
+	return value.(*PendingUser), true
+}
+
+// Delete 删除待确认用户
+func (s *PendingUserStore) Delete(sessionID string) {
+	s.data.Delete(sessionID)
+}
+
+// 全局待确认用户存储
+var globalPendingStore = &PendingUserStore{}
 
 // ==================== API 端点 ====================
 
@@ -110,8 +154,9 @@ func (h *AuthHandler) GetLoginURL(c *gin.Context) {
 // 流程：
 // 1. 验证 state 参数（防止 CSRF 攻击）
 // 2. 用授权码换取 Token
-// 3. 设置 HttpOnly Cookie（存储 token）
-// 4. 返回 HTML 页面，该页面会通知父窗口并关闭弹窗
+// 3. 检查用户是否已存在
+// 4. 如果是第一个用户（管理员）或已存在用户，设置 Cookie 并返回成功页面
+// 5. 如果是新用户，显示授权确认页面
 func (h *AuthHandler) KeycloakCallback(c *gin.Context) {
 	var req KeycloakCallbackRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -126,70 +171,45 @@ func (h *AuthHandler) KeycloakCallback(c *gin.Context) {
 		return
 	}
 
-	// 2. 用授权码换取 Token（使用正确的 callback URL）
+	// 2. 用授权码换取 Token
 	tokenResp, err := h.requestTokenFromKeycloak(req.Code, redirectTo)
 	if err != nil {
 		h.renderCallbackPage(c, false, fmt.Sprintf("Failed to get token: %v", err), redirectTo)
 		return
 	}
 
-	// 3. 设置 HttpOnly Cookie
-	// Cookie 配置：
-	// - HttpOnly: 始终启用，防止 XSS 攻击读取 Cookie
-	// - Secure: HTTPS 时启用
-	// - SameSite: 防止 CSRF 攻击
-	cookieDomain := h.getCookieDomain(redirectTo)
-	// 根据重定向 URL 判断是否使用 HTTPS
-	secure := strings.HasPrefix(redirectTo, "https://")
-	// 始终启用 HttpOnly，防止 XSS 攻击窃取 token
-	httpOnly := true
-
-	// 打印 token 过期时间（调试用）
-	log.Printf("Setting access_token cookie: expires_in=%d seconds", tokenResp.ExpiresIn)
-
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(
-		"access_token",          // Cookie 名称
-		tokenResp.AccessToken,   // Token 值
-		int(tokenResp.ExpiresIn),// 过期时间（秒）
-		"/",                     // 路径
-		cookieDomain,            // Domain
-		secure,                  // Secure
-		httpOnly,                // HttpOnly (debug 模式下关闭)
-	)
-
-	// 可选：同时设置 refresh_token cookie
-	if tokenResp.RefreshToken != "" {
-		// refresh_token 有效期通常更长（30天）
-		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie(
-			"refresh_token",
-			tokenResp.RefreshToken,
-			30*24*3600, // 30天
-			"/",
-			cookieDomain,
-			secure,
-			httpOnly,
-		)
+	// 3. 检查用户是否已存在
+	userInfo, userExists, isFirstUser, err := h.checkUserExists(tokenResp.IDToken)
+	if err != nil {
+		log.Printf("Error checking user: %v", err)
+		// 出错时继续流程，让中间件处理
 	}
 
-	// 同时保存 id_token，用于获取用户信息（包含 nickname, picture 等）
-	// id_token 的过期时间通常与 access_token 相同
-	if tokenResp.IDToken != "" {
-		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie(
-			"id_token",
-			tokenResp.IDToken,
-			int(tokenResp.ExpiresIn),
-			"/",
-			cookieDomain,
-			secure,
-			httpOnly,
-		)
+	// 4a. 如果用户已存在，直接设置 Cookie 并返回成功
+	if userExists {
+		h.setAuthCookies(c, tokenResp, redirectTo)
+		h.renderCallbackPage(c, true, "Login successful", redirectTo)
+		return
 	}
 
-	// 4. 返回 HTML 页面，通知父窗口登录成功
-	h.renderCallbackPage(c, true, "Login successful", redirectTo)
+	// 4b. 如果是第一个用户（管理员），直接注册，不显示确认页面
+	if isFirstUser {
+		h.setAuthCookies(c, tokenResp, redirectTo)
+		h.renderCallbackPage(c, true, "Admin account created", redirectTo)
+		return
+	}
+
+	// 5. 新用户：生成 session ID 并存储待确认信息
+	sessionID := generateSessionID()
+	globalPendingStore.Store(sessionID, &PendingUser{
+		UserInfo:      userInfo,
+		TokenResponse: tokenResp,
+		RedirectTo:    redirectTo,
+		ExpiresAt:     time.Now().Add(5 * time.Minute),
+	})
+
+	// 6. 渲染授权确认页面
+	h.renderConsentPage(c, sessionID, userInfo, redirectTo)
 }
 
 // ==================== 辅助方法 ====================
@@ -404,6 +424,103 @@ func (h *AuthHandler) getCookieDomain(redirectTo string) string {
 	return host
 }
 
+// generateSessionID 生成随机会话 ID
+func generateSessionID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// extractUserInfo 从 id_token 中提取用户信息
+func (h *AuthHandler) extractUserInfo(idToken string) (*auth.UserInfo, error) {
+	// 使用 auth 包的 ExtractUserInfoFromToken 函数
+	return auth.ExtractUserInfoFromToken(idToken)
+}
+
+// checkUserExists 检查用户是否已存在，返回 (用户信息, 是否已存在, 是否为第一个用户, 错误)
+func (h *AuthHandler) checkUserExists(idToken string) (*auth.UserInfo, bool, bool, error) {
+	userInfo, err := h.extractUserInfo(idToken)
+	if err != nil {
+		return nil, false, false, fmt.Errorf("failed to extract user info: %w", err)
+	}
+
+	// 检查用户是否已存在
+	_, err = h.userService.GetByKeycloakID(context.Background(), userInfo.KeycloakID)
+	if err == nil {
+		// 用户已存在
+		return userInfo, true, false, nil
+	}
+
+	// 用户不存在，检查是否为系统第一个用户
+	count, err := h.userService.CountUsers(context.Background())
+	if err != nil {
+		return nil, false, false, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	// 如果是第一个用户（count == 0），不显示确认页面
+	isFirstUser := (count == 0)
+
+	return userInfo, false, isFirstUser, nil
+}
+
+// setAuthCookies 设置认证 Cookie
+func (h *AuthHandler) setAuthCookies(c *gin.Context, tokenResp *TokenResponse, redirectTo string) {
+	cookieDomain := h.getCookieDomain(redirectTo)
+	secure := strings.HasPrefix(redirectTo, "https://")
+	httpOnly := true
+
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(
+		"access_token",
+		tokenResp.AccessToken,
+		int(tokenResp.ExpiresIn),
+		"/",
+		cookieDomain,
+		secure,
+		httpOnly,
+	)
+
+	if tokenResp.RefreshToken != "" {
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(
+			"refresh_token",
+			tokenResp.RefreshToken,
+			30*24*3600,
+			"/",
+			cookieDomain,
+			secure,
+			httpOnly,
+		)
+	}
+
+	if tokenResp.IDToken != "" {
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(
+			"id_token",
+			tokenResp.IDToken,
+			int(tokenResp.ExpiresIn),
+			"/",
+			cookieDomain,
+			secure,
+			httpOnly,
+		)
+	}
+}
+
+// renderConsentPage 渲染授权确认页面
+func (h *AuthHandler) renderConsentPage(c *gin.Context, sessionID string, userInfo *auth.UserInfo, redirectTo string) {
+	// TODO: 从配置中读取站点名称
+	siteName := "短链接系统"
+
+	c.HTML(http.StatusOK, "consent.html", gin.H{
+		"SessionID":  sessionID,
+		"SiteName":   siteName,
+		"Username":   userInfo.Username,
+		"Email":      userInfo.Email,
+		"RedirectTo": redirectTo,
+	})
+}
+
 // ==================== Token 刷新和登出（可选） ====================
 
 // RefreshTokenRequest 刷新 Token 请求
@@ -521,4 +638,155 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.SetCookie("refresh_token", "", -1, "/", cookieDomain, secure, true)
 
 	response.Success(c, gin.H{"message": "logged out successfully"})
+}
+
+// ==================== 注册确认处理器 ====================
+
+// ConfirmRegistrationHandler 注册确认处理器
+type ConfirmRegistrationHandler struct {
+	config     *config.Config
+	secretKey  []byte
+	userService *service.UserService
+}
+
+// NewConfirmRegistrationHandler 创建注册确认处理器
+func NewConfirmRegistrationHandler(cfg *config.Config, userService *service.UserService) *ConfirmRegistrationHandler {
+	secretKey := []byte(cfg.Security.JWTSecret)
+	return &ConfirmRegistrationHandler{
+		config:     cfg,
+		secretKey:  secretKey,
+		userService: userService,
+	}
+}
+
+// ConfirmRegistrationRequest 确认注册请求
+type ConfirmRegistrationRequest struct {
+	SessionID string `json:"session_id" binding:"required"`
+}
+
+// ConfirmRegistration 确认注册
+func (h *ConfirmRegistrationHandler) ConfirmRegistration(c *gin.Context) {
+	var req ConfirmRegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// 从存储中获取待确认用户信息
+	value, ok := globalPendingStore.data.Load(req.SessionID)
+	if !ok {
+		response.BadRequest(c, "Invalid or expired session")
+		return
+	}
+
+	pendingUser := value.(*PendingUser)
+
+	// 检查是否过期
+	if time.Now().After(pendingUser.ExpiresAt) {
+		globalPendingStore.data.Delete(req.SessionID)
+		response.BadRequest(c, "Session expired")
+		return
+	}
+
+	// 设置 Cookie（用户将由认证中间件自动创建）
+	h.setAuthCookies(c, pendingUser.TokenResponse, pendingUser.RedirectTo)
+
+	// 清理存储
+	globalPendingStore.data.Delete(req.SessionID)
+
+	response.Success(c, gin.H{
+		"message": "Registration successful",
+		"redirect_to": pendingUser.RedirectTo,
+	})
+}
+
+// CancelRegistration 取消注册
+func (h *ConfirmRegistrationHandler) CancelRegistration(c *gin.Context) {
+	var req ConfirmRegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	value, ok := globalPendingStore.data.Load(req.SessionID)
+	if !ok {
+		response.BadRequest(c, "Invalid session")
+		return
+	}
+
+	pendingUser := value.(*PendingUser)
+
+	// 记录取消日志
+	log.Printf("Registration cancelled: keycloak_id=%s, email=%s",
+		pendingUser.UserInfo.KeycloakID, pendingUser.UserInfo.Email)
+
+	// 清理存储
+	globalPendingStore.data.Delete(req.SessionID)
+
+	response.Success(c, gin.H{
+		"message": "Registration cancelled",
+	})
+}
+
+// setAuthCookies 设置认证 Cookie（复制自 AuthHandler）
+func (h *ConfirmRegistrationHandler) setAuthCookies(c *gin.Context, tokenResp *TokenResponse, redirectTo string) {
+	cookieDomain := h.getCookieDomainFromURL(redirectTo)
+	secure := strings.HasPrefix(redirectTo, "https://")
+	httpOnly := true
+
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(
+		"access_token",
+		tokenResp.AccessToken,
+		int(tokenResp.ExpiresIn),
+		"/",
+		cookieDomain,
+		secure,
+		httpOnly,
+	)
+
+	if tokenResp.RefreshToken != "" {
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(
+			"refresh_token",
+			tokenResp.RefreshToken,
+			30*24*3600,
+			"/",
+			cookieDomain,
+			secure,
+			httpOnly,
+		)
+	}
+
+	if tokenResp.IDToken != "" {
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(
+			"id_token",
+			tokenResp.IDToken,
+			int(tokenResp.ExpiresIn),
+			"/",
+			cookieDomain,
+			secure,
+			httpOnly,
+		)
+	}
+}
+
+// getCookieDomainFromURL 从 URL 获取 Cookie 域名
+func (h *ConfirmRegistrationHandler) getCookieDomainFromURL(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return ""
+	}
+
+	host := parsedURL.Host
+	if strings.Contains(host, ":") {
+		host, _, _ = strings.Cut(host, ":")
+	}
+
+	if host == "localhost" || host == "127.0.0.1" {
+		return ""
+	}
+
+	return host
 }

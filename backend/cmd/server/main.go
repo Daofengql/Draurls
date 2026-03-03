@@ -183,7 +183,8 @@ func main() {
 	healthHandler := api.NewHealthHandler(db, redisClient, baseURL)
 	domainHandler := api.NewDomainHandler(domainService, auditService)
 	templateHandler := api.NewTemplateHandler(templateService, auditService)
-	authHandler := api.NewAuthHandler(cfg)
+	authHandler := api.NewAuthHandler(cfg, userService)
+	confirmHandler := api.NewConfirmRegistrationHandler(cfg, userService)
 	auditHandler := api.NewAuditHandler(auditService)
 
 	// 设置循环链接检测（需要在 redirectHandler 初始化后）
@@ -248,10 +249,13 @@ func main() {
 	{
 		public.GET("/config", redirectHandler.GetSiteConfig)
 		// 认证相关接口（公开，用于登录流程）
-		public.POST("/auth/login-url", authHandler.GetLoginURL)    // 获取登录 URL
-		public.GET("/auth/callback", authHandler.KeycloakCallback) // Keycloak 回调（返回 HTML）
-		public.POST("/auth/refresh", authHandler.RefreshToken)     // 刷新 Token
-		public.POST("/auth/logout", authHandler.Logout)            // 登出
+		public.POST("/auth/login-url", authHandler.GetLoginURL)        // 获取登录 URL
+		public.GET("/auth/callback", authHandler.KeycloakCallback)    // Keycloak 回调（返回 HTML）
+		public.POST("/auth/refresh", authHandler.RefreshToken)       // 刷新 Token
+		public.POST("/auth/logout", authHandler.Logout)               // 登出
+		// 注册确认接口
+		public.POST("/auth/confirm-registration", confirmHandler.ConfirmRegistration)
+		public.POST("/auth/cancel-registration", confirmHandler.CancelRegistration)
 	}
 
 	// 需要认证的API（使用模拟认证）

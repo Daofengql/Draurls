@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
@@ -124,5 +126,41 @@ func (k *KeycloakAuth) ExtractUserInfo(tokenString string) (*UserInfo, error) {
 		KeycloakID: (*claims)["sub"].(string),
 		Username:   (*claims)["preferred_username"].(string),
 		Email:      (*claims)["email"].(string),
+	}, nil
+}
+
+// ExtractUserInfoFromToken 从 Token 字符串中提取用户信息（独立函数）
+func ExtractUserInfoFromToken(tokenString string) (*UserInfo, error) {
+	// 简单解析 JWT，不验证签名
+	// 注意：在生产环境中应该验证签名
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("invalid token format")
+	}
+
+	// 解码 payload
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode token payload: %w", err)
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return nil, fmt.Errorf("failed to parse claims: %w", err)
+	}
+
+	// 提取用户信息
+	keycloakID, _ := claims["sub"].(string)
+	username, _ := claims["preferred_username"].(string)
+	email, _ := claims["email"].(string)
+
+	if keycloakID == "" {
+		return nil, errors.New("missing sub claim")
+	}
+
+	return &UserInfo{
+		KeycloakID: keycloakID,
+		Username:   username,
+		Email:      email,
 	}, nil
 }

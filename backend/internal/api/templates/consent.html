@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>授权确认</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .title {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+        .info-list {
+            text-align: left;
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .info-list p {
+            margin: 8px 0;
+            color: #4b5563;
+            font-size: 14px;
+        }
+        .info-list p strong {
+            color: #1f2937;
+        }
+        .btn-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 32px;
+        }
+        .btn {
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .error-msg {
+            color: #ef4444;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔐</div>
+        <h2 class="title">授权确认</h2>
+        <p class="subtitle">{{ .SiteName }} 请求访问以下信息：</p>
+
+        <div class="info-list">
+            <p><strong>用户名：</strong>{{ .Username }}</p>
+            <p><strong>邮箱：</strong>{{ .Email }}</p>
+            <p style="margin-top: 16px; font-size: 13px; color: #6b7280;">
+                登录后，您可以创建短链接、管理您的配额等。
+            </p>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="cancel()">取消</button>
+            <button class="btn btn-primary" onclick="confirm()">允许</button>
+        </div>
+        <div id="errorMsg" class="error-msg" style="display: none;"></div>
+    </div>
+
+    <script>
+        var sessionID = {{ .SessionID }};
+        var isProcessing = false;
+
+        async function confirm() {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            const btn = document.querySelector('.btn-primary');
+            btn.disabled = true;
+            document.querySelector('.btn-secondary').disabled = true;
+            document.getElementById('errorMsg').style.display = 'none';
+
+            try {
+                const res = await fetch('/api/auth/confirm-registration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionID })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    // 通知父窗口登录成功
+                    notifyParent('LOGIN_SUCCESS');
+                } else {
+                    showError(data.message || '注册失败');
+                    btn.disabled = false;
+                    document.querySelector('.btn-secondary').disabled = false;
+                }
+            } catch (err) {
+                showError('网络错误，请重试');
+                btn.disabled = false;
+                document.querySelector('.btn-secondary').disabled = false;
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        async function cancel() {
+            try {
+                await fetch('/api/auth/cancel-registration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionID })
+                });
+            } catch (err) {
+                // 忽略错误
+            }
+            window.close();
+        }
+
+        function notifyParent(type) {
+            if (window.opener) {
+                // 获取从 redirectTo 提取 origin
+                const redirectTo = {{ .RedirectTo }};
+                var targetOrigin = '*';
+                if (redirectTo) {
+                    try {
+                        const url = new URL(redirectTo);
+                        targetOrigin = url.origin;
+                    } catch (e) {
+                        // 使用通配符
+                    }
+                }
+                window.opener.postMessage({ type: type }, targetOrigin);
+            }
+            setTimeout(function() {
+                window.close();
+                // 检查窗口是否关闭
+                setTimeout(function() {
+                    if (!window.closed) {
+                        document.querySelector('.container').innerHTML =
+                            '<p style="color: #f59e0b;">您可以关闭此窗口了</p>';
+                    }
+                }, 500);
+            }, 500);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

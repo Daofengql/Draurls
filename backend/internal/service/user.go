@@ -141,6 +141,11 @@ func (s *UserService) GetByKeycloakID(ctx context.Context, keycloakID string) (*
 	return s.userRepo.FindByKeycloakID(ctx, keycloakID)
 }
 
+// CountUsers 统计用户总数
+func (s *UserService) CountUsers(ctx context.Context) (int64, error) {
+	return s.userRepo.Count(ctx)
+}
+
 // List 获取用户列表（管理员）
 type ListUsersRequest struct {
 	Page     int `json:"page"`
