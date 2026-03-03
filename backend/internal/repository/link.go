@@ -387,3 +387,74 @@ func (r *ShortLinkRepository) GetRecentByUserID(ctx context.Context, userID uint
 		Find(&links).Error
 	return links, err
 }
+
+// ListAll 管理员查询所有短链接（支持按域名、状态、用户过滤）
+func (r *ShortLinkRepository) ListAll(ctx context.Context, page, pageSize int, domainID *uint, status *string, userID *uint) ([]models.ShortLink, int64, error) {
+	var links []models.ShortLink
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&models.ShortLink{})
+
+	// 按域名过滤
+	if domainID != nil {
+		query = query.Where("domain_id = ?", *domainID)
+	}
+
+	// 按状态过滤
+	if status != nil {
+		query = query.Where("status = ?", *status)
+	}
+
+	// 按用户过滤
+	if userID != nil {
+		query = query.Where("user_id = ?", *userID)
+	}
+
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&links).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return links, total, nil
+}
+
+// DeleteAsAdmin 管理员删除短链接（不检查所有权，配额返还给创建者）
+func (r *ShortLinkRepository) DeleteAsAdmin(ctx context.Context, linkID uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. 获取链接（不检查用户）
+		var link models.ShortLink
+		if err := tx.Where("id = ?", linkID).First(&link).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return apperrors.ErrLinkNotFound
+			}
+			return err
+		}
+
+		// 2. 软删除链接
+		if err := tx.Delete(&link).Error; err != nil {
+			return err
+		}
+
+		// 3. 返还配额给链接创建者（而非操作者）
+		if err := tx.Model(&models.User{}).
+			Where("id = ? AND quota_used > 0", link.UserID).
+			UpdateColumn("quota_used", gorm.Expr("quota_used - 1")).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// UpdateAsAdmin 管理员更新短链接（不检查所有权）
+func (r *ShortLinkRepository) UpdateAsAdmin(ctx context.Context, linkID uint, updates map[string]interface{}) error {
+	return r.db.WithContext(ctx).Model(&models.ShortLink{}).
+		Where("id = ?", linkID).
+		Updates(updates).Error
+}

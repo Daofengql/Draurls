@@ -30,7 +30,7 @@ export default function AdminUsersPage() {
 
   // 删除确认
   const [actionConfirm, setActionConfirm] = useState<{
-    type: 'disable' | 'enable'
+    type: 'disable' | 'enable' | 'delete'
     user: User
   } | null>(null)
 
@@ -99,9 +99,12 @@ export default function AdminUsersPage() {
       if (actionConfirm.type === 'disable') {
         await usersService.disable(actionConfirm.user.ID)
         toast.success('用户已禁用')
-      } else {
+      } else if (actionConfirm.type === 'enable') {
         await usersService.enable(actionConfirm.user.ID)
         toast.success('用户已启用')
+      } else if (actionConfirm.type === 'delete') {
+        await usersService.delete(actionConfirm.user.ID)
+        toast.success('用户已删除')
       }
       setActionConfirm(null)
       loadUsers()
@@ -232,7 +235,7 @@ export default function AdminUsersPage() {
                           onClick={() => setActionConfirm({ type: 'disable', user })}
                           className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
                         >
-                          禁用
+                          ���用
                         </button>
                       ) : null
                     ) : (
@@ -241,6 +244,14 @@ export default function AdminUsersPage() {
                         className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
                       >
                         启用
+                      </button>
+                    )}
+                    {user.Role !== 'admin' && (
+                      <button
+                        onClick={() => setActionConfirm({ type: 'delete', user })}
+                        className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        删除
                       </button>
                     )}
                   </div>
@@ -345,6 +356,14 @@ export default function AdminUsersPage() {
                               className="text-green-600 hover:text-green-800 text-sm"
                             >
                               启用
+                            </button>
+                          )}
+                          {user.Role !== 'admin' && (
+                            <button
+                              onClick={() => setActionConfirm({ type: 'delete', user })}
+                              className="text-red-600 hover:text-red-800 text-sm"
+                            >
+                              删除
                             </button>
                           )}
                         </div>
@@ -465,12 +484,18 @@ export default function AdminUsersPage() {
       <ConfirmDialog
         isOpen={!!actionConfirm}
         title={
-          actionConfirm?.type === 'disable'
+          actionConfirm?.type === 'delete'
+            ? '删除用户'
+            : actionConfirm?.type === 'disable'
             ? '禁用用户'
             : '启用用户'
         }
-        message={`确定要${actionConfirm?.type === 'disable' ? '禁用' : '启用'}用户 "${actionConfirm?.user.Username}" 吗？`}
-        type={actionConfirm?.type === 'disable' ? 'warning' : 'info'}
+        message={
+          actionConfirm?.type === 'delete'
+            ? `确定要删除用户 "${actionConfirm?.user.Username}" ���？此操作将同时删除该用户的所有短链接、API密钥等数据，且不可恢复！`
+            : `确定要${actionConfirm?.type === 'disable' ? '禁用' : '启用'}用户 "${actionConfirm?.user.Username}" 吗？`
+        }
+        type={actionConfirm?.type === 'delete' ? 'danger' : actionConfirm?.type === 'disable' ? 'warning' : 'info'}
         onConfirm={handleAction}
         onCancel={() => setActionConfirm(null)}
       />

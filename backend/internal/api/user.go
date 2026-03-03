@@ -269,3 +269,44 @@ func (h *UserHandler) EnableUser(c *gin.Context) {
 
 	response.Success(c, gin.H{"message": "user enabled successfully"})
 }
+
+// DeleteUser 删除用户（管理员）
+// @Summary 删除用户
+// @Tags admin
+// @Produce json
+// @Param id path int true "用户ID"
+// @Success 200 {object} response.Response
+// @Router /api/admin/users/{id} [delete]
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	idStr := c.Param("id")
+	targetUserID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid user id")
+		return
+	}
+
+	actorID := c.GetUint("user_id")
+
+	if err := h.userService.Delete(c.Request.Context(), uint(targetUserID), actorID); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		resourceID := uint(targetUserID)
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionUserDelete,
+			"user",
+			&resourceID,
+			"id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
+	}
+
+	response.Success(c, gin.H{"message": "user deleted successfully"})
+}

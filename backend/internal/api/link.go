@@ -361,3 +361,157 @@ func (h *LinkHandler) CreateLinkAPI(c *gin.Context) {
 
 	response.Success(c, result)
 }
+
+// ListAllLinks 管理员获取所有短链接列表
+// @Summary 管理员获取所有短链接
+// @Tags admin
+// @Produce json
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(20)
+// @Param domain_id query int false "域名ID过滤"
+// @Param status query string false "状态过滤 (active/disabled/expired)"
+// @Param user_id query int false "用户ID过滤"
+// @Success 200 {object} response.Response{data=service.ListLinksResponse}
+// @Router /api/admin/links [get]
+func (h *LinkHandler) ListAllLinks(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	// 解析可选的 domain_id 过滤参数
+	var domainID *uint
+	if domainStr := c.Query("domain_id"); domainStr != "" {
+		if id, err := strconv.ParseUint(domainStr, 10, 32); err == nil {
+			did := uint(id)
+			domainID = &did
+		}
+	}
+
+	// 解析可选的 status 过滤参数
+	var status *string
+	if statusStr := c.Query("status"); statusStr != "" {
+		status = &statusStr
+	}
+
+	// 解析可选的 user_id 过滤参数
+	var userID *uint
+	if userStr := c.Query("user_id"); userStr != "" {
+		if id, err := strconv.ParseUint(userStr, 10, 32); err == nil {
+			uid := uint(id)
+			userID = &uid
+		}
+	}
+
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	req := &service.ListAllLinksRequest{
+		Page:     page,
+		PageSize: pageSize,
+		DomainID: domainID,
+		Status:   status,
+		UserID:   userID,
+	}
+
+	result, err := h.linkService.ListAll(c.Request.Context(), req)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}
+
+// DeleteLinkAsAdmin 管理员删除短链接
+// @Summary 管理员删除短链接
+// @Tags admin
+// @Produce json
+// @Param id path int true "链接ID"
+// @Success 200 {object} response.Response
+// @Router /api/admin/links/{id} [delete]
+func (h *LinkHandler) DeleteLinkAsAdmin(c *gin.Context) {
+	idStr := c.Param("id")
+	linkID64, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid link id")
+		return
+	}
+	linkID := uint(linkID64)
+
+	actorID := c.GetUint("user_id")
+
+	if err := h.linkService.DeleteAsAdmin(c.Request.Context(), linkID); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionLinkDelete,
+			"link",
+			&linkID,
+			"link_id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
+	}
+
+	response.Success(c, gin.H{"message": "link deleted successfully"})
+}
+
+// UpdateLinkAsAdmin 管理员更新短链接
+// @Summary 管理员更新短链接
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param id path int true "链接ID"
+// @Param request body service.UpdateAsAdminRequest true "更新请求"
+// @Success 200 {object} response.Response
+// @Router /api/admin/links/{id} [put]
+func (h *LinkHandler) UpdateLinkAsAdmin(c *gin.Context) {
+	idStr := c.Param("id")
+	linkID64, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid link id")
+		return
+	}
+	linkID := uint(linkID64)
+
+	var req service.UpdateAsAdminRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	req.LinkID = linkID
+	actorID := c.GetUint("user_id")
+
+	if err := h.linkService.UpdateAsAdmin(c.Request.Context(), &req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 记录审计日志
+	if h.auditService != nil {
+		h.auditService.RecordFromGin(
+			c.Request.Context(),
+			actorID,
+			models.ActionLinkUpdate,
+			"link",
+			&linkID,
+			"link_id:"+idStr,
+			func() (string, string) {
+				return c.ClientIP(), c.GetHeader("User-Agent")
+			},
+		)
+	}
+
+	response.Success(c, gin.H{"message": "link updated successfully"})
+}

@@ -8,6 +8,7 @@ import type {
   TrendDataResponse,
   PaginatedResponse,
   AuditLogsResponse,
+  ShortLink,
 } from '@/types'
 
 // 后端用户列表分页响应格式
@@ -47,6 +48,9 @@ export const usersService = {
 
   enable: (userId: number) =>
     api.post<void>(`/admin/users/${userId}/enable`),
+
+  delete: (userId: number) =>
+    api.delete<void>(`/admin/users/${userId}`),
 }
 
 // 用户组管理
@@ -147,4 +151,42 @@ export const dashboardService = {
 export const auditLogsService = {
   list: async (params: { page?: number; page_size?: number; actor_id?: number; action?: string }) =>
     api.get<AuditLogsResponse>('/admin/audit-logs', { params }),
+}
+
+// 管理员短链接管理
+interface BackendAdminLinksResponse {
+  links: ShortLink[]
+  total: number
+  page: number
+  page_size: number
+  total_page: number
+}
+
+export const adminLinksService = {
+  list: async (params: {
+    page?: number
+    page_size?: number
+    domain_id?: number
+    status?: string
+    user_id?: number
+  }): Promise<PaginatedResponse<ShortLink>> => {
+    const res = await api.get<BackendAdminLinksResponse>('/admin/links', { params })
+    return {
+      data: res.links,
+      total: res.total,
+      page: res.page,
+      page_size: res.page_size,
+    }
+  },
+
+  delete: (linkId: number) =>
+    api.delete<void>(`/admin/links/${linkId}`),
+
+  update: (linkId: number, data: {
+    url?: string
+    title?: string
+    status?: string
+    template_id?: number | null
+  }) =>
+    api.put<void>(`/admin/links/${linkId}`, data),
 }

@@ -288,6 +288,12 @@ func main() {
 			admin.PUT("/users/group", userHandler.SetGroup)
 			admin.POST("/users/:id/disable", userHandler.DisableUser)
 			admin.POST("/users/:id/enable", userHandler.EnableUser)
+			admin.DELETE("/users/:id", userHandler.DeleteUser)
+
+			// 短链接管理（管理员可查看所有）
+			admin.GET("/links", linkHandler.ListAllLinks)
+			admin.DELETE("/links/:id", linkHandler.DeleteLinkAsAdmin)
+			admin.PUT("/links/:id", linkHandler.UpdateLinkAsAdmin)
 
 			// 用户组管理
 			admin.GET("/groups", groupHandler.ListGroups)

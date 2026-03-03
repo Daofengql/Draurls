@@ -4,6 +4,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 const adminTabs = [
   { path: '/admin', label: '概览', id: 'overview' },
   { path: '/admin/users', label: '用户管理', id: 'users' },
+  { path: '/admin/links', label: '短链接管理', id: 'links' },
   { path: '/admin/groups', label: '用户组', id: 'groups' },
   { path: '/admin/domains', label: '域名管理', id: 'domains' },
   { path: '/admin/config', label: '站点配置', id: 'config' },

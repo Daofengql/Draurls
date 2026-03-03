@@ -347,3 +347,35 @@ func (s *UserService) GetQuotaStatus(ctx context.Context, userID uint) (*QuotaSt
 
 	return status, nil
 }
+
+// DeleteRequest 删除用户请求
+type DeleteRequest struct {
+	UserID uint `json:"user_id" binding:"required"`
+}
+
+// Delete 删除用户（软删除，会级联删除相关数据）
+// 删除时需要处理：
+// 1. 用户的短链接（通过数据库 CASCADE 自动删除）
+// 2. 用户的 API 密钥（通过数据库 CASCADE 自动删除）
+// 3. 用户的访问日志（通过短链接级联删除）
+// 4. 审计日志保留（用于审计追踪）
+func (s *UserService) Delete(ctx context.Context, userID uint, actorID uint) error {
+	// 查找目标用户
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// 管理员不能删除自己
+	if user.ID == actorID && user.Role == models.RoleAdmin {
+		return fmt.Errorf("cannot delete yourself")
+	}
+
+	// 管理员用户只能被禁用，不能删除
+	if user.Role == models.RoleAdmin {
+		return fmt.Errorf("admin users cannot be deleted, disable them instead")
+	}
+
+	// 执行软删除（GORM 会设置 deleted_at，数据库 CASCADE 会自动删除相关数据）
+	return s.userRepo.Delete(ctx, userID)
+}

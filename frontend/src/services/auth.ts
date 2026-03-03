@@ -104,7 +104,7 @@ export class AuthService {
     return new Promise((resolve, reject) => {
       // 打开登录窗口
       const width = 600
-      const height = 700
+      const height = 850
       const left = window.screen.width / 2 - width / 2
       const top = window.screen.height / 2 - height / 2
 

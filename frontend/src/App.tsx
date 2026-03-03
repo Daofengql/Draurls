@@ -11,6 +11,7 @@ import ProfilePage from './pages/ProfilePage'
 import AdminPage from './pages/admin/AdminLayout'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdminLinksPage from './pages/admin/AdminLinksPage'
 import AdminGroupsPage from './pages/admin/AdminGroupsPage'
 import AdminDomainsPage from './pages/admin/AdminDomainsPage'
 import AdminConfigPage from './pages/admin/AdminConfigPage'
@@ -80,6 +81,7 @@ function App() {
           <Route path="admin" element={<AdminPage />}>
             <Route index element={<AdminOverviewPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+            <Route path="links" element={<AdminLinksPage />} />
             <Route path="groups" element={<AdminGroupsPage />} />
             <Route path="domains" element={<AdminDomainsPage />} />
             <Route path="config" element={<AdminConfigPage />} />

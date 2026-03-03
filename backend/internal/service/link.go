@@ -638,3 +638,73 @@ func convertLinkPtrs(links []models.ShortLink) []*models.ShortLink {
 	}
 	return result
 }
+
+// ListAllLinksRequest 管理员查询短链接请求
+type ListAllLinksRequest struct {
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+	DomainID *uint  `json:"domain_id"` // 按域名过滤
+	Status   *string `json:"status"`   // 按状态过滤
+	UserID   *uint  `json:"user_id"`   // 按用户过滤
+}
+
+// ListAll 管理员获取所有短链接列表（支持按域名、状态、用户过滤）
+func (s *LinkService) ListAll(ctx context.Context, req *ListAllLinksRequest) (*ListLinksResponse, error) {
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 || req.PageSize > 100 {
+		req.PageSize = 20
+	}
+
+	links, total, err := s.linkRepo.ListAll(ctx, req.Page, req.PageSize, req.DomainID, req.Status, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPage := int(total) / req.PageSize
+	if int(total)%req.PageSize > 0 {
+		totalPage++
+	}
+
+	return &ListLinksResponse{
+		Links:     convertLinkPtrs(links),
+		Total:     total,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+		TotalPage: totalPage,
+	}, nil
+}
+
+// DeleteAsAdmin 管理员删除短链接（不检查所有权，配额返还给创建者）
+func (s *LinkService) DeleteAsAdmin(ctx context.Context, linkID uint) error {
+	return s.linkRepo.DeleteAsAdmin(ctx, linkID)
+}
+
+// UpdateAsAdminRequest 管理员更新短链接请求
+type UpdateAsAdminRequest struct {
+	LinkID     uint
+	URL        string
+	Title      string
+	Status     models.LinkStatus
+	TemplateID *uint
+}
+
+// UpdateAsAdmin 管理员更新短链接（不检查所有权）
+func (s *LinkService) UpdateAsAdmin(ctx context.Context, req *UpdateAsAdminRequest) error {
+	updates := make(map[string]interface{})
+
+	if req.URL != "" {
+		updates["url"] = req.URL
+	}
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	// TemplateID 可以为 nil，所以需要特殊处理
+	updates["template_id"] = req.TemplateID
+
+	return s.linkRepo.UpdateAsAdmin(ctx, req.LinkID, updates)
+}
