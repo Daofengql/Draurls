@@ -205,7 +205,7 @@ func (h *UserHandler) DisableUser(c *gin.Context) {
 
 	actorID := c.GetUint("user_id")
 
-	if err := h.userService.Disable(c.Request.Context(), uint(targetUserID)); err != nil {
+	if err := h.userService.Disable(c.Request.Context(), uint(targetUserID), actorID); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}

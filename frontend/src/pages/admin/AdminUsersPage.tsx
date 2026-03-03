@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { usersService, groupsService } from '@/services/admin'
+import { useAuthStore } from '@/store/auth'
 import type { User, UserGroup } from '@/types'
 import Pagination from '@/components/Pagination'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -8,6 +9,7 @@ import { toast } from '@/components/Toast'
 import { formatDateTime } from '@/utils/format'
 
 export default function AdminUsersPage() {
+  const { user: currentUser } = useAuthStore()
   const [users, setUsers] = useState<User[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -191,9 +193,23 @@ export default function AdminUsersPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">创建时间</p>
-                      <p className="text-sm text-gray-700">{formatDateTime(user.CreatedAt)}</p>
+                      <p className="text-xs text-gray-500 mb-1">用户组</p>
+                      {user.Role === 'admin' ? (
+                        <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-800 rounded">
+                          管理员组
+                        </span>
+                      ) : user.GroupID ? (
+                        <span className="text-sm text-gray-700">
+                          组ID: {user.GroupID}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">无</span>
+                      )}
                     </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">创建时间</p>
+                    <p className="text-sm text-gray-700">{formatDateTime(user.CreatedAt)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
                     <button
@@ -202,19 +218,23 @@ export default function AdminUsersPage() {
                     >
                       配额
                     </button>
-                    <button
-                      onClick={() => openGroupModal(user)}
-                      className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
-                    >
-                      分组
-                    </button>
-                    {user.Status === 'active' ? (
+                    {user.Role !== 'admin' && (
                       <button
-                        onClick={() => setActionConfirm({ type: 'disable', user })}
-                        className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
+                        onClick={() => openGroupModal(user)}
+                        className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
                       >
-                        禁用
+                        分组
                       </button>
+                    )}
+                    {user.Status === 'active' ? (
+                      !(user.Role === 'admin' && user.ID === currentUser?.ID) ? (
+                        <button
+                          onClick={() => setActionConfirm({ type: 'disable', user })}
+                          className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
+                        >
+                          禁用
+                        </button>
+                      ) : null
                     ) : (
                       <button
                         onClick={() => setActionConfirm({ type: 'enable', user })}
@@ -237,6 +257,7 @@ export default function AdminUsersPage() {
                     <th className="text-left py-3 px-4">用户名</th>
                     <th className="text-left py-3 px-4">邮箱</th>
                     <th className="text-left py-3 px-4">角色</th>
+                    <th className="text-left py-3 px-4">用户组</th>
                     <th className="text-left py-3 px-4">配额</th>
                     <th className="text-left py-3 px-4">状态</th>
                     <th className="text-left py-3 px-4">创建时间</th>
@@ -272,6 +293,17 @@ export default function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm">
+                        {user.Role === 'admin' ? (
+                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs">
+                            虚拟组
+                          </span>
+                        ) : user.GroupID ? (
+                          <span className="text-gray-600">组ID: {user.GroupID}</span>
+                        ) : (
+                          <span className="text-gray-400">无</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
                         {user.Quota === -1 ? '无限' : `${user.QuotaUsed}/${user.Quota}`}
                       </td>
                       <td className="py-3 px-4">{getStatusBadge(user.Status)}</td>
@@ -286,21 +318,25 @@ export default function AdminUsersPage() {
                           >
                             配额
                           </button>
-                          <button
-                            onClick={() => openGroupModal(user)}
-                            className="text-green-600 hover:text-green-800 text-sm"
-                          >
-                            分组
-                          </button>
-                          {user.Status === 'active' ? (
+                          {user.Role !== 'admin' && (
                             <button
-                              onClick={() =>
-                                setActionConfirm({ type: 'disable', user })
-                              }
-                              className="text-red-600 hover:text-red-800 text-sm"
+                              onClick={() => openGroupModal(user)}
+                              className="text-green-600 hover:text-green-800 text-sm"
                             >
-                              禁用
+                              分组
                             </button>
+                          )}
+                          {user.Status === 'active' ? (
+                            !(user.Role === 'admin' && user.ID === currentUser?.ID) ? (
+                              <button
+                                onClick={() =>
+                                  setActionConfirm({ type: 'disable', user })
+                                }
+                                className="text-red-600 hover:text-red-800 text-sm"
+                              >
+                                禁用
+                              </button>
+                            ) : null
                           ) : (
                             <button
                               onClick={() =>

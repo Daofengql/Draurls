@@ -490,6 +490,10 @@ func autoMigrate(db *gorm.DB) error {
 	// 使用 CREATE INDEX IF NOT EXISTS 风格的条件执行，避免重复执行报错
 	db.Exec("ALTER TABLE domains MODIFY COLUMN ssl BOOLEAN NOT NULL DEFAULT FALSE")
 
+	// 清理管理员用户的用户组（管理员属于特殊的"虚拟组"，不应有具体用户组）
+	// 只执行一次，不影响已经是 NULL 的记录
+	db.Exec("UPDATE users SET group_id = NULL WHERE role = 'admin' AND group_id IS NOT NULL")
+
 	return nil
 }
 

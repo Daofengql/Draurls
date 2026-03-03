@@ -85,6 +85,7 @@ func (s *UserService) GetOrCreateUser(ctx context.Context, keycloakID, username,
 	}
 
 	// 查找默认用户组（非管理员用户自动加入）
+	// 管理员是特殊的"虚拟组"，不加入任何用户组
 	var groupID *uint
 	if role == models.RoleUser {
 		defaultGroup, err := s.groupRepo.FindDefault(ctx)
@@ -218,6 +219,11 @@ func (s *UserService) SetGroup(ctx context.Context, req *SetGroupRequest) error 
 		return err
 	}
 
+	// 管理员不能设置用户组（管理员是特殊的"虚拟组"）
+	if user.Role == models.RoleAdmin {
+		return fmt.Errorf("admin users cannot be assigned to a group")
+	}
+
 	user.GroupID = req.GroupID
 
 	// 设置配额模式
@@ -240,10 +246,15 @@ func (s *UserService) SetGroup(ctx context.Context, req *SetGroupRequest) error 
 }
 
 // Disable 禁用用户
-func (s *UserService) Disable(ctx context.Context, userID uint) error {
+func (s *UserService) Disable(ctx context.Context, userID uint, actorID uint) error {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
 		return err
+	}
+
+	// 管理员不能禁用自己
+	if user.ID == actorID && user.Role == models.RoleAdmin {
+		return fmt.Errorf("cannot disable yourself")
 	}
 
 	user.Status = models.UserStatusDisabled
