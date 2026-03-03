@@ -70,6 +70,11 @@ func (r *DomainRepository) Update(ctx context.Context, domain *models.Domain) er
 	return r.db.WithContext(ctx).Save(domain).Error
 }
 
+// UpdateFields 更新域名的指定字段
+func (r *DomainRepository) UpdateFields(ctx context.Context, id uint, updates map[string]interface{}) error {
+	return r.db.WithContext(ctx).Model(&models.Domain{}).Where("id = ?", id).Updates(updates).Error
+}
+
 // Delete 删除域名（软删除）
 func (r *DomainRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&models.Domain{}, id).Error

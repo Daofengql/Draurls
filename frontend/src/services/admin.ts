@@ -81,10 +81,10 @@ export const domainsService = {
   list: () =>
     api.get<Domain[]>('/admin/domains'),
 
-  create: (data: { name: string; description?: string; ssl: boolean }) =>
+  create: (data: { name: string; description?: string; ssl: boolean; is_active?: boolean }) =>
     api.post<Domain>('/admin/domains', data),
 
-  update: (id: number, data: { description?: string; ssl?: boolean; is_active?: boolean }) =>
+  update: (id: number, data: { name?: string; description?: string; ssl?: boolean; is_active?: boolean }) =>
     api.put<Domain>(`/admin/domains/${id}`, data),
 
   delete: (id: number) =>

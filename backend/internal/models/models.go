@@ -173,7 +173,7 @@ type Domain struct {
 	Name        string    `gorm:"uniqueIndex;size:100;not null;comment:域名"`
 	IsActive    bool      `gorm:"not null;default:true;comment:是否启用"`
 	IsDefault   bool      `gorm:"not null;default:false;comment:是否默认域名"`
-	SSL         bool      `gorm:"not null;default:true;comment:是否启用HTTPS"`
+	SSL         bool      `gorm:"not null;default:false;comment:是否启用HTTPS"`
 	Description string    `gorm:"size:200;comment:描述"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

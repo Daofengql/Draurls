@@ -122,6 +122,10 @@ func (h *DomainHandler) UpdateDomain(c *gin.Context) {
 	}
 	req.ID = uint(id)
 
+	// Debug log the received request data
+	c.Set("debug_request", fmt.Sprintf("ID=%d, SSL=%v, IsActive=%v, Description=%v",
+		req.ID, req.SSL, req.IsActive, req.Description))
+
 	actorID := c.GetUint("user_id")
 
 	if err := h.domainService.Update(c.Request.Context(), &req); err != nil {

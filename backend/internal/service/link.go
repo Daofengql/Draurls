@@ -429,11 +429,12 @@ func (s *LinkService) List(ctx context.Context, req *ListLinksRequest) (*ListLin
 
 // UpdateLink 更新短链接
 type UpdateLinkRequest struct {
-	Code      string             `json:"-" binding:"required"`
-	URL       string             `json:"url"`
-	Title     string             `json:"title"`
-	ExpiresAt *time.Time         `json:"expires_at"`
-	Status    models.LinkStatus  `json:"status"`
+	Code       string     `json:"-" binding:"-"`
+	URL        string     `json:"url"`
+	Title      string     `json:"title"`
+	ExpiresAt  *time.Time `json:"expires_at"`
+	Status     models.LinkStatus `json:"status"`
+	TemplateID *uint      `json:"template_id"` // 跳转模板ID
 }
 
 // Update 更新短链接
@@ -471,6 +472,9 @@ func (s *LinkService) Update(ctx context.Context, req *UpdateLinkRequest, userID
 	if req.Status != "" {
 		link.Status = req.Status
 	}
+
+	// 更新模板ID（允许修改）
+	link.TemplateID = req.TemplateID
 
 	return s.linkRepo.Update(ctx, link)
 }

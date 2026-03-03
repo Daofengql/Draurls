@@ -77,6 +77,7 @@ type CreateDomainRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 	SSL         bool   `json:"ssl"`
+	IsActive    bool   `json:"is_active"`
 }
 
 // Create 创建域名
@@ -89,7 +90,7 @@ func (s *DomainService) Create(ctx context.Context, req *CreateDomainRequest) (*
 
 	domain := &models.Domain{
 		Name:        req.Name,
-		IsActive:    true,
+		IsActive:    req.IsActive,
 		IsDefault:   false,
 		SSL:         req.SSL,
 		Description: req.Description,
@@ -144,6 +145,7 @@ func (s *DomainService) SetDefault(ctx context.Context, id uint) error {
 // Update 更新域名
 type UpdateDomainRequest struct {
 	ID          uint
+	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	SSL         *bool   `json:"ssl"`
 	IsActive    *bool   `json:"is_active"`
@@ -151,22 +153,34 @@ type UpdateDomainRequest struct {
 
 // Update 更新域名
 func (s *DomainService) Update(ctx context.Context, req *UpdateDomainRequest) error {
-	domain, err := s.domainRepo.FindByID(ctx, req.ID)
-	if err != nil {
-		return err
-	}
+	// 构建要更新的字段映射
+	updates := make(map[string]interface{})
 
+	if req.Name != nil {
+		// 检查新名称是否已被其他域名使用
+		existing, err := s.domainRepo.FindByName(ctx, *req.Name)
+		if err == nil && existing.ID != req.ID {
+			return apperrors.ErrDuplicateResource
+		}
+		updates["name"] = *req.Name
+	}
 	if req.Description != nil {
-		domain.Description = *req.Description
+		updates["description"] = *req.Description
 	}
 	if req.SSL != nil {
-		domain.SSL = *req.SSL
+		updates["ssl"] = *req.SSL
 	}
 	if req.IsActive != nil {
-		domain.IsActive = *req.IsActive
+		updates["is_active"] = *req.IsActive
 	}
 
-	if err := s.domainRepo.Update(ctx, domain); err != nil {
+	// 如果没有需要更新的字段，直接返回
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// 使用 Updates 显式更新指定字段
+	if err := s.domainRepo.UpdateFields(ctx, req.ID, updates); err != nil {
 		return err
 	}
 

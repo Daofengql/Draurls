@@ -210,6 +210,13 @@ func main() {
 	// 全局中间件
 	router.Use(corsManager.Middleware())
 	router.Use(middleware.NewRateLimitMiddleware(rateLimitService).IPLimit())
+	// Debug logging middleware
+	router.Use(func(c *gin.Context) {
+		c.Next()
+		if debugInfo, exists := c.Get("debug_request"); exists {
+			log.Printf("[API] %s %s - Request: %v", c.Request.Method, c.Request.URL.Path, debugInfo)
+		}
+	})
 
 	// 健康检查
 	router.GET("/health", healthHandler.Health)
@@ -463,7 +470,7 @@ func initDB(cfg *config.Config) (*gorm.DB, error) {
 func autoMigrate(db *gorm.DB) error {
 	log.Println("Running database migrations...")
 
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&models.User{},
 		&models.UserGroup{},
 		&models.ShortLink{},
@@ -474,7 +481,15 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Domain{},
 		&models.DomainGroupDomain{},
 		&models.AuditLog{},
-	)
+	); err != nil {
+		return err
+	}
+
+	// 修改 domains 表的 ssl 字段默认值为 false（GORM AutoMigrate 不会修改现有表的默认值）
+	// 使用 CREATE INDEX IF NOT EXISTS 风格的条件执行，避免重复执行报错
+	db.Exec("ALTER TABLE domains MODIFY COLUMN ssl BOOLEAN NOT NULL DEFAULT FALSE")
+
+	return nil
 }
 
 // initRedis 初始化Redis

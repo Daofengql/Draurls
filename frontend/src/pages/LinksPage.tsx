@@ -129,10 +129,10 @@ export default function LinksPage() {
 
     try {
       await linksService.update(editLink.Code, {
-        Title: editForm.title,
-        URL: editForm.url,
-        Status: editForm.status as any,
-        TemplateID: editForm.template_id ?? null,
+        title: editForm.title,
+        url: editForm.url,
+        status: editForm.status as any,
+        template_id: editForm.template_id ?? null,
       })
       toast.success('链接更新成功')
       setEditLink(null)
