@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
                           onClick={() => setActionConfirm({ type: 'disable', user })}
                           className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
                         >
-                          ���用
+                          禁用
                         </button>
                       ) : null
                     ) : (
@@ -492,7 +492,7 @@ export default function AdminUsersPage() {
         }
         message={
           actionConfirm?.type === 'delete'
-            ? `确定要删除用户 "${actionConfirm?.user.Username}" ���？此操作将同时删除该用户的所有短链接、API密钥等数据，且不可恢复！`
+            ? `确定要删除用户 "${actionConfirm?.user.Username}" 吗？此操作将同时删除该用户的所有短链接、API密钥等数据，且不可恢复！`
             : `确定要${actionConfirm?.type === 'disable' ? '禁用' : '启用'}用户 "${actionConfirm?.user.Username}" 吗？`
         }
         type={actionConfirm?.type === 'delete' ? 'danger' : actionConfirm?.type === 'disable' ? 'warning' : 'info'}
