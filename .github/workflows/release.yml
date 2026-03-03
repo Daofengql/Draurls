@@ -17,18 +17,23 @@ jobs:
           - goos: linux
             goarch: amd64
             filename: draurls-linux-amd64
+            packname: draurls-linux-amd64.tar.gz
           - goos: linux
             goarch: arm64
             filename: draurls-linux-arm64
+            packname: draurls-linux-arm64.tar.gz
           - goos: windows
             goarch: amd64
             filename: draurls-windows-amd64.exe
+            packname: draurls-windows-amd64.zip
           - goos: darwin
             goarch: amd64
             filename: draurls-darwin-amd64
+            packname: draurls-darwin-amd64.tar.gz
           - goos: darwin
             goarch: arm64
             filename: draurls-darwin-arm64
+            packname: draurls-darwin-arm64.tar.gz
 
     steps:
       - name: Checkout code
@@ -74,11 +79,23 @@ jobs:
             -o ${{ matrix.filename }} \
             ./cmd/server/...
 
+      - name: Create package
+        working-directory: ./backend
+        run: |
+          mkdir -p package
+          cp ${{ matrix.filename }} package/
+          cp .env.example package/
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            cd package && zip -r ../${{ matrix.packname }} *
+          else
+            tar czf ${{ matrix.packname }} -C package .
+          fi
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.filename }}
-          path: backend/${{ matrix.filename }}
+          name: ${{ matrix.packname }}
+          path: backend/${{ matrix.packname }}
 
   release:
     needs: build
@@ -117,21 +134,27 @@ jobs:
             ### 下载
             | 平台 | 架构 | 文件 |
             |------|------|------|
-            | Linux | AMD64 | `draurls-linux-amd64` |
-            | Linux | ARM64 | `draurls-linux-arm64` |
-            | Windows | AMD64 | `draurls-windows-amd64.exe` |
-            | macOS | Intel | `draurls-darwin-amd64` |
-            | macOS | Apple Silicon | `draurls-darwin-arm64` |
+            | Linux | AMD64 | `draurls-linux-amd64.tar.gz` |
+            | Linux | ARM64 | `draurls-linux-arm64.tar.gz` |
+            | Windows | AMD64 | `draurls-windows-amd64.zip` |
+            | macOS | Intel | `draurls-darwin-amd64.tar.gz` |
+            | macOS | Apple Silicon | `draurls-darwin-arm64.tar.gz` |
 
             ### 验证
             下载后请使用 SHA256 校验和验证文件完整性。
 
             ### 快速开始
             ```bash
-            # 赋予执行权限（Linux/macOS）
-            chmod +x draurls-*
+            # 解压
+            tar xzf draurls-linux-amd64.tar.gz
+            cd draurls-linux-amd64
+
+            # 复制配置文件
+            cp .env.example .env
+            # 编辑 .env 配置数据库等信息
 
             # 运行
+            chmod +x draurls-*
             ./draurls-linux-amd64
             ```
         env:
