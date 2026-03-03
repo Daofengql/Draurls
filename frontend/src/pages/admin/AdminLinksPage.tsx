@@ -6,7 +6,7 @@ import CopyButton from '@/components/CopyButton'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal from '@/components/Modal'
 import { toast } from '@/components/Toast'
-import { formatDateTime, truncate } from '@/utils/format'
+import { truncate } from '@/utils/format'
 
 export default function AdminLinksPage() {
   const [links, setLinks] = useState<ShortLink[]>([])

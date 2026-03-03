@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { usersService } from '@/services/users'
-import type { QuotaStatus, DashboardStats } from '@/types'
+import { domainsService } from '@/services/admin'
+import type { QuotaStatus, DashboardStats, Domain } from '@/types'
 import { formatDateTime } from '@/utils/format'
 import CopyButton from '@/components/CopyButton'
 
@@ -9,7 +10,15 @@ export default function DashboardPage() {
   const { user } = useAuthStore()
   const [quotaStatus, setQuotaStatus] = useState<QuotaStatus | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [domains, setDomains] = useState<Domain[]>([])
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // 加载域名列表
+    domainsService.list().then((data) => {
+      setDomains(data || [])
+    }).catch(console.error)
+  }, [])
 
   useEffect(() => {
     Promise.all([
@@ -27,6 +36,22 @@ export default function DashboardPage() {
   }, [])
 
   const displayName = user?.Nickname || user?.Username
+
+  // 获取链接的完整URL
+  const getFullUrl = (link: any) => {
+    // 如果后端返回了 Domain 对象，直接使用
+    if (link.Domain) {
+      const protocol = link.Domain.SSL ? 'https' : 'http'
+      return `${protocol}://${link.Domain.Name}/r/${link.Code}`
+    }
+    // 否则从域名列表中查找
+    const domain = domains.find((d) => d.ID === link.DomainID) || domains[0]
+    if (domain) {
+      const protocol = domain.SSL ? 'https' : 'http'
+      return `${protocol}://${domain.Name}/r/${link.Code}`
+    }
+    return `/r/${link.Code}`
+  }
 
   if (loading) {
     return <DashboardSkeleton />
@@ -146,34 +171,42 @@ export default function DashboardPage() {
             最近创建
           </h3>
           <div className="space-y-2">
-            {stats.recent_links.map((link) => (
-              <div
-                key={link.ID || link.Code}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-600">
-                    /r/{link.Code}
-                  </p>
-                  <p className="text-sm text-gray-500 truncate" title={link.URL}>{link.URL}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {formatDateTime(link.CreatedAt)}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between gap-3 sm:gap-4 ml-0 sm:ml-4">
-                  <div className="text-center">
-                    <span className="text-xs text-gray-500">点击</span>
-                    <p className="font-semibold text-gray-700">{link.ClickCount}</p>
+            {stats.recent_links.map((link) => {
+              const fullUrl = getFullUrl(link)
+              return (
+                <div
+                  key={link.ID || link.Code}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <a
+                      href={fullUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      {fullUrl}
+                    </a>
+                    <p className="text-sm text-gray-500 truncate" title={link.URL}>{link.URL}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {formatDateTime(link.CreatedAt)}
+                    </p>
                   </div>
-                  <CopyButton
-                    text={`/r/${link.Code}`}
-                    className="text-sm px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                  >
-                    复制
-                  </CopyButton>
+                  <div className="flex items-center justify-between gap-3 sm:gap-4 ml-0 sm:ml-4">
+                    <div className="text-center">
+                      <span className="text-xs text-gray-500">点击</span>
+                      <p className="font-semibold text-gray-700">{link.ClickCount}</p>
+                    </div>
+                    <CopyButton
+                      text={fullUrl}
+                      className="text-sm px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    >
+                      复制
+                    </CopyButton>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
