@@ -308,6 +308,34 @@ Authorization: Bearer <token>
 }
 ```
 
+#### 4.4 获取用户可用域名列表
+
+```http
+GET /api/user/domains
+Authorization: Bearer <token>
+```
+
+**响应**:
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "id": 1,
+      "name": "surls.example.com",
+      "is_active": true,
+      "is_default": true,
+      "ssl": true
+    }
+  ]
+}
+```
+
+**说明**:
+- 普通用户：返回其用户组被授权的域名列表
+- 管理员：返回所有��用的域名
+- 如果用户没有用户组或用户组未被授权任何域名，返回空列表
+
 ---
 
 ### 五、短链接管理 (需认证)
