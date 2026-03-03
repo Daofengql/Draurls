@@ -321,3 +321,8 @@ func (s *DomainService) IsValidDomain(ctx context.Context, domainName string) bo
 func (e *domainCacheEntry) isExpired(now time.Time) bool {
 	return now.After(e.expiresAt)
 }
+
+// GetDomainsByGroup 获取用户组可使用的域名列表
+func (s *DomainService) GetDomainsByGroup(ctx context.Context, groupID uint) ([]models.Domain, error) {
+	return s.domainRepo.GetDomainsByGroup(ctx, groupID)
+}

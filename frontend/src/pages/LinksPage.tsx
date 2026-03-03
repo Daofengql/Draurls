@@ -46,7 +46,7 @@ export default function LinksPage() {
 
   // 加载域名列表和站点配置
   useEffect(() => {
-    domainsService.listActive().then((data) => {
+    domainsService.listUser().then((data) => {
       setDomains(data || [])
       if (data && data.length > 0) {
         setSelectedDomain(data.find((d) => d.IsDefault)?.ID || data[0].ID)

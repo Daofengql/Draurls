@@ -262,6 +262,7 @@ func main() {
 		authRequired.GET("/user/profile", userHandler.GetProfile)
 		authRequired.GET("/user/quota", userHandler.GetQuotaStatus)
 		authRequired.GET("/user/dashboard", dashboardHandler.GetUserDashboard)
+		authRequired.GET("/user/domains", domainHandler.ListUserDomains)
 
 		// 短链接
 		authRequired.POST("/links", linkHandler.CreateLink)

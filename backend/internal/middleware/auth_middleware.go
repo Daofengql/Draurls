@@ -384,13 +384,21 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 				c.Set("user_id", user.ID)
 				// 使用数据库中的角色，而不是 JWT 中的角色
 				c.Set("role", user.Role)
+				// 设置用户组ID（可能为nil/0）
+				if user.GroupID != nil {
+					c.Set("group_id", *user.GroupID)
+				} else {
+					c.Set("group_id", uint(0))
+				}
 			} else {
 				// 如果数据库加载失败，使用 JWT 中的角色作为 fallback
 				c.Set("role", userInfo.GetRole())
+				c.Set("group_id", uint(0))
 			}
 		} else {
 			// 如果没有 userService，使用 JWT 中的角色
 			c.Set("role", userInfo.GetRole())
+			c.Set("group_id", uint(0))
 		}
 
 		c.Next()
@@ -451,7 +459,20 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 			if err == nil {
 				c.Set("user", user)
 				c.Set("user_id", user.ID)
+				c.Set("role", user.Role)
+				// 设置用户组ID（可能为nil/0）
+				if user.GroupID != nil {
+					c.Set("group_id", *user.GroupID)
+				} else {
+					c.Set("group_id", uint(0))
+				}
+			} else {
+				c.Set("role", userInfo.GetRole())
+				c.Set("group_id", uint(0))
 			}
+		} else {
+			c.Set("role", userInfo.GetRole())
+			c.Set("group_id", uint(0))
 		}
 
 		c.Next()

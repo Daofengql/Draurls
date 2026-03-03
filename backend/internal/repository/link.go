@@ -220,6 +220,10 @@ func (r *ShortLinkRepository) UpdateStatus(ctx context.Context, ids []uint, stat
 
 // CreateWithQuotaCheck 创建短链接并扣减配额（使用乐观更新）
 // 使用乐观锁代替悲观锁，避免高并发下的行锁竞争
+// 支持：
+// - quota = -1: 无限配额
+// - quota = -2: 继承用户组配额（需要检查用户组配额）
+// - quota >= 0: 固定配额
 func (r *ShortLinkRepository) CreateWithQuotaCheck(ctx context.Context, link *models.ShortLink, user *models.User) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. 先创建短链接
@@ -227,12 +231,44 @@ func (r *ShortLinkRepository) CreateWithQuotaCheck(ctx context.Context, link *mo
 			return err
 		}
 
-		// 2. 使用乐观更新扣减配额（原子操作）
-		// quota = -1 表示无限配额
-		// 只有当 quota = -1 或 quota_used < quota 时才会更新
-		result := tx.Model(&models.User{}).
-			Where("id = ? AND (quota = -1 OR quota_used < quota)", user.ID).
-			UpdateColumn("quota_used", gorm.Expr("quota_used + 1"))
+		// 2. 根据配额类型使用不同的更新策略
+		var result *gorm.DB
+		if user.Quota == -1 {
+			// 无限配额，直接更新
+			result = tx.Model(&models.User{}).
+				Where("id = ?", user.ID).
+				UpdateColumn("quota_used", gorm.Expr("quota_used + 1"))
+		} else if user.Quota == -2 && user.GroupID != nil {
+			// 继承用户组配额，需要检查用户组配额
+			// 获取用户组信息
+			var group models.UserGroup
+			if err := tx.First(&group, *user.GroupID).Error; err != nil {
+				return err
+			}
+
+			// 检查用户组配额
+			if group.DefaultQuota == -1 {
+				// 用户组无限配额
+				result = tx.Model(&models.User{}).
+					Where("id = ?", user.ID).
+					UpdateColumn("quota_used", gorm.Expr("quota_used + 1"))
+			} else {
+				// 用户组有限配额，检查用户在用户组内的配额使用情况
+				// 注意：用户表中的 quota_used 是用户个人使用的配额，不是用户组内的
+				// 所以需要检查 group.DefaultQuota > user.quota_used
+				result = tx.Model(&models.User{}).
+					Where("id = ? AND ? < ?", user.ID, gorm.Expr("quota_used"), group.DefaultQuota).
+					UpdateColumn("quota_used", gorm.Expr("quota_used + 1"))
+			}
+		} else if user.Quota >= 0 {
+			// 固定配额
+			result = tx.Model(&models.User{}).
+				Where("id = ? AND (quota = -1 OR quota_used < quota)", user.ID).
+				UpdateColumn("quota_used", gorm.Expr("quota_used + 1"))
+		} else {
+			// quota = -2 但没有用户组，视为无配额
+			result = &gorm.DB{RowsAffected: 0}
+		}
 
 		if result.Error != nil {
 			return result.Error

@@ -215,3 +215,49 @@ func (h *DomainHandler) SetDefaultDomain(c *gin.Context) {
 
 	response.Success(c, gin.H{"message": "default domain set successfully"})
 }
+
+// ListUserDomains 获取当前���户可用的域名列表
+// @Summary 获取当前用户可用的域名列表
+// @Tags user
+// @Produce json
+// @Success 200 {object} response.Response{data=[]models.Domain}
+// @Router /api/user/domains [get]
+func (h *DomainHandler) ListUserDomains(c *gin.Context) {
+	// 获取用户角色（需要类型断言，因为 context 中存储的是 models.UserRole 类型）
+	roleValue, exists := c.Get("role")
+	if !exists {
+		response.InternalError(c, "user role not found in context")
+		return
+	}
+
+	role, ok := roleValue.(models.UserRole)
+	if !ok {
+		response.InternalError(c, "invalid user role type in context")
+		return
+	}
+
+	groupID := c.GetUint("group_id")
+
+	var domains []models.Domain
+	var err error
+
+	// 管理员可以看到所有启用的域名
+	if role == models.RoleAdmin {
+		domains, err = h.domainService.ListActive(c.Request.Context())
+	} else {
+		// 普通用户只能看到其用户组被授权使用的域名
+		if groupID == 0 {
+			// 用户没有用户组，返回空列表
+			domains = []models.Domain{}
+		} else {
+			domains, err = h.domainService.GetDomainsByGroup(c.Request.Context(), groupID)
+		}
+	}
+
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, domains)
+}

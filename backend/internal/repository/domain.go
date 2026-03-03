@@ -148,3 +148,15 @@ func (r *DomainRepository) RemoveGroupFromDomain(ctx context.Context, domainID, 
 		Where("domain_id = ? AND group_id = ?", domainID, groupID).
 		Delete(&models.DomainGroupDomain{}).Error
 }
+
+// GetDomainsByGroup 获取用户组可使用的域名列表
+func (r *DomainRepository) GetDomainsByGroup(ctx context.Context, groupID uint) ([]models.Domain, error) {
+	var domains []models.Domain
+	err := r.db.WithContext(ctx).
+		Joins("JOIN domain_group_domains ON domain_group_domains.domain_id = domains.id").
+		Where("domain_group_domains.group_id = ?", groupID).
+		Where("domains.is_active = ?", true).
+		Order("domains.is_default DESC, domains.created_at ASC").
+		Find(&domains).Error
+	return domains, err
+}
