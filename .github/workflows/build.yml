@@ -91,7 +91,7 @@ jobs:
             -ldflags="-s -w -X main.Version=$VERSION" \
             -tags=embed \
             -o ${{ matrix.filename }} \
-            ./cmd/server
+            ./cmd/server/...
 
       - name: Upload artifact
         if: inputs.upload_artifacts != false || github.event_name == 'push'
