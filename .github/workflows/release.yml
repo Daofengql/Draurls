@@ -1,0 +1,136 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            filename: draurls-linux-amd64
+          - goos: linux
+            goarch: arm64
+            filename: draurls-linux-arm64
+          - goos: windows
+            goarch: amd64
+            filename: draurls-windows-amd64.exe
+          - goos: darwin
+            goarch: amd64
+            filename: draurls-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            filename: draurls-darwin-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Go dependencies
+        working-directory: ./backend
+        run: go mod download
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare embedded files
+        working-directory: ./backend
+        run: |
+          mkdir -p cmd/server/web/dist
+          cp -r ../frontend/dist/* cmd/server/web/dist/
+
+      - name: Build Backend (${{ matrix.goos }}/${{ matrix.goarch }})
+        working-directory: ./backend
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          go build \
+            -ldflags="-s -w -X main.Version=$VERSION" \
+            -tags=embed \
+            -o ${{ matrix.filename }} \
+            ./cmd/server
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.filename }}
+          path: backend/${{ matrix.filename }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Generate checksums
+        working-directory: ./artifacts
+        run: |
+          for file in draurls-*; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" > "$file.sha256"
+            fi
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## Draurls ${{ github.ref_name }}
+
+            ### 下载
+            | 平台 | 架构 | 文件 |
+            |------|------|------|
+            | Linux | AMD64 | `draurls-linux-amd64` |
+            | Linux | ARM64 | `draurls-linux-arm64` |
+            | Windows | AMD64 | `draurls-windows-amd64.exe` |
+            | macOS | Intel | `draurls-darwin-amd64` |
+            | macOS | Apple Silicon | `draurls-darwin-arm64` |
+
+            ### 验证
+            下载后请使用 SHA256 校验和验证文件完整性。
+
+            ### 快速开始
+            ```bash
+            # 赋予执行权限（Linux/macOS）
+            chmod +x draurls-*
+
+            # 运行
+            ./draurls-linux-amd64
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

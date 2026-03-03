@@ -22,8 +22,8 @@
 ### Docker Compose（推荐）
 
 ```bash
-git clone https://github.com/Daofengql/Surls.git
-cd Surls
+git clone https://github.com/Daofengql/Draurls.git
+cd Draurls
 docker-compose up -d
 ```
 

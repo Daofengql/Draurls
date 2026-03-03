@@ -1,0 +1,21 @@
+version: 3
+  directories:
+    - path: backend
+      schedule:
+        interval: weekly
+        day: monday
+      reviewers:
+        - Daofengql
+      labels:
+        - dependencies
+        - go
+
+    - path: frontend
+      schedule:
+        interval: weekly
+        day: monday
+      reviewers:
+        - Daofengql
+      labels:
+        - dependencies
+        - javascript

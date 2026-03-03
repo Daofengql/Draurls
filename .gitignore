@@ -1,37 +1,75 @@
+# ====================
 # 编译产物
+# ====================
 /backend/server
 /backend/bin/
 /backend/cmd/server/web
 /dist/
+*.exe
+*.dll
+*.obj
+*.lib
+*.a
 
+# ====================
 # 依赖
+# ====================
 /backend/vendor/
 /frontend/node_modules/
 /frontend/dist/
 /frontend/.vite/
 
+# ====================
 # IDE
+# ====================
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+*.iml
 
+# ====================
 # 系统文件
+# ====================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
+# ====================
 # 日志
+# ====================
 *.log
+/logs/
 
+# ====================
 # 环境配置
+# ====================
 .env
 .env.local
 .env.*.local
 frontend/.env.production
 
+# ====================
 # 测试覆盖率
+# ====================
 coverage/
 *.cover
+*.out
 
+# ====================
+# 工具临时文件
+# ====================
 .claude/
+.tmp/
+tmp/
+
+# ====================
+# Docker
+# ====================
+.docker/
