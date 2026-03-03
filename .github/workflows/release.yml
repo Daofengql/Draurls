@@ -3,15 +3,18 @@ name: Release
 on:
   push:
     tags:
+      # 仅在推送形如 v1.0.0 的 tag 时触发此工作流
       - 'v*.*.*'
 
 permissions:
+  # 允许工作流具有写入权限，这是创建 Release 和上传文件所必需的
   contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      # 矩阵构建：定义需要编译的所有目标平台和架构的组合
       matrix:
         include:
           - goos: linux
@@ -43,6 +46,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+          # 关闭默认缓存，避免跨平台编译时的一些潜在问题
           cache: false
 
       - name: Setup Node.js
@@ -57,22 +61,29 @@ jobs:
       - name: Build Frontend
         working-directory: ./frontend
         run: |
+          # 干净地安装前端依赖并执行构建
           npm ci
           npm run build
 
       - name: Prepare embedded files
         working-directory: ./backend
         run: |
+          # 将前端打包后的静态资源复制到后端指定目录，以便 Go 编译器进行内嵌 (embed)
           mkdir -p cmd/server/web/dist
           cp -r ../frontend/dist/* cmd/server/web/dist/
 
       - name: Build Backend (${{ matrix.goos }}/${{ matrix.goarch }})
         working-directory: ./backend
         env:
+          # 根据矩阵参数设置 Go 交叉编译环境变量
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+          CGO_ENABLED: 0 # 禁用 CGO 以实现静态链接，保证二进制文件跨环境运行
         run: |
+          # 编译 Go 后端
+          # -ldflags="-s -w" 用于去除调试信息，减小体积
+          # -X main.Version 注入当前的 tag 名称作为版本号
+          # -tags=embed 启用内嵌资源的构建标签
           go build \
             -ldflags="-s -w -X main.Version=${{ github.ref_name }}" \
             -tags=embed \
@@ -82,9 +93,12 @@ jobs:
       - name: Create package
         working-directory: ./backend
         run: |
+          # 创建一个临时打包目录，放入可执行文件和示例配置文件
           mkdir -p package
           cp ${{ matrix.filename }} package/
           cp .env.example package/
+          
+          # 根据平台差异，将文件打包为 zip 或 tar.gz
           if [ "${{ matrix.goos }}" = "windows" ]; then
             cd package && zip -r ../${{ matrix.packname }} *
           else
@@ -94,11 +108,12 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
+          # 将打包好的压缩文件作为 artifact 上传，以便在后续的 release job 中使用
           name: ${{ matrix.packname }}
           path: backend/${{ matrix.packname }}
 
   release:
-    needs: build
+    needs: build # 确保所有矩阵构建任务完成后才执行发布
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -108,10 +123,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
+          # 【核心修复点】: 开启 merge-multiple 
+          # 这会让 v4 版本的动作不再为每个产物创建同名文件夹，而是直接将所有压缩包放置在 ./artifacts 根目录下
+          merge-multiple: true 
 
       - name: Generate checksums
         working-directory: ./artifacts
         run: |
+          # 遍历所有下载回来的压缩包，生成对应的 SHA256 校验文件
+          # 修复下载结构后，这里的 [ -f "$file" ] 就能正确判定为文件并执行了
           for file in draurls-*; do
             if [ -f "$file" ]; then
               sha256sum "$file" > "$file.sha256"
@@ -123,6 +143,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Draurls ${{ github.ref_name }}
+          # 选取 artifacts 目录下的所有文件（包括压缩包和刚才生成的校验和文件）
           files: ./artifacts/*
           draft: false
           prerelease: false
