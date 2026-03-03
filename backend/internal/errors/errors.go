@@ -40,7 +40,8 @@ var (
 	ErrAPIKeyExpired    = errors.New("API key has expired")
 
 	// 域名相关错误
-	ErrDomainNotFound   = errors.New("domain not found")
-	ErrDomainExists     = errors.New("domain already exists")
-	ErrDomainInUse      = errors.New("domain is in use")
+	ErrDomainNotFound      = errors.New("domain not found")
+	ErrDomainExists        = errors.New("domain already exists")
+	ErrDomainInUse         = errors.New("domain is in use")
+	ErrInvalidDomainFormat = errors.New("invalid domain format")
 )

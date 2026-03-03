@@ -9,6 +9,7 @@ import (
 	apperrors "github.com/surls/backend/internal/errors"
 	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/repository"
+	"github.com/surls/backend/pkg/utils"
 )
 
 const (
@@ -82,6 +83,11 @@ type CreateDomainRequest struct {
 
 // Create 创建域名
 func (s *DomainService) Create(ctx context.Context, req *CreateDomainRequest) (*models.Domain, error) {
+	// 验证域名格式
+	if !utils.IsValidDomainOrHost(req.Name) {
+		return nil, apperrors.ErrInvalidDomainFormat
+	}
+
 	// 检查域名是否已存在
 	_, err := s.domainRepo.FindByName(ctx, req.Name)
 	if err == nil {
@@ -157,6 +163,10 @@ func (s *DomainService) Update(ctx context.Context, req *UpdateDomainRequest) er
 	updates := make(map[string]interface{})
 
 	if req.Name != nil {
+		// 验证域名格式
+		if !utils.IsValidDomainOrHost(*req.Name) {
+			return apperrors.ErrInvalidDomainFormat
+		}
 		// 检查新名称是否已被其他域名使用
 		existing, err := s.domainRepo.FindByName(ctx, *req.Name)
 		if err == nil && existing.ID != req.ID {

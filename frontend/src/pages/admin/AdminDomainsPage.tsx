@@ -5,6 +5,7 @@ import Modal from '@/components/Modal'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from '@/components/Toast'
 import { formatDateTime } from '@/utils/format'
+import { getDomainValidationError } from '@/utils/validator'
 
 export default function AdminDomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([])
@@ -19,6 +20,7 @@ export default function AdminDomainsPage() {
     ssl: true,
     is_active: true,
   })
+  const [nameError, setNameError] = useState<string | null>(null)
 
   // 删除确认
   const [deleteConfirm, setDeleteConfirm] = useState<Domain | null>(null)
@@ -42,6 +44,7 @@ export default function AdminDomainsPage() {
   const handleCreate = () => {
     setEditingDomain(null)
     setFormData({ name: '', description: '', ssl: true, is_active: true })
+    setNameError(null)
     setShowModal(true)
   }
 
@@ -53,10 +56,30 @@ export default function AdminDomainsPage() {
       ssl: domain.SSL,
       is_active: domain.IsActive,
     })
+    setNameError(null)
     setShowModal(true)
   }
 
+  const handleNameChange = (value: string) => {
+    setFormData({ ...formData, name: value })
+    // 实时验证
+    if (value.trim()) {
+      const error = getDomainValidationError(value)
+      setNameError(error)
+    } else {
+      setNameError(null)
+    }
+  }
+
   const handleSave = async () => {
+    // 前端验证
+    const error = getDomainValidationError(formData.name)
+    if (error) {
+      setNameError(error)
+      toast.error(error)
+      return
+    }
+
     try {
       if (editingDomain) {
         await domainsService.update(editingDomain.ID, formData)
@@ -295,7 +318,7 @@ export default function AdminDomainsPage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={!formData.name.trim()}
+              disabled={!formData.name.trim() || !!nameError}
               className="btn btn-primary disabled:bg-gray-300"
             >
               {editingDomain ? '保存' : '添加'}
@@ -311,11 +334,17 @@ export default function AdminDomainsPage() {
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input w-full text-sm"
-              placeholder="例如：example.com"
+              onChange={(e) => handleNameChange(e.target.value)}
+              className={`input w-full text-sm ${nameError ? 'border-red-500 focus:border-red-500' : ''}`}
+              placeholder="例如：example.com 或 example.com:8080"
             />
-            <p className="mt-1 text-sm text-gray-500">不包含 http:// 或 https://</p>
+            {nameError ? (
+              <p className="mt-1 text-sm text-red-500">{nameError}</p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-500">
+                支持域名、域名:端口、IP、IP:端口、localhost
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
