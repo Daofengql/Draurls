@@ -19,6 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/surls/backend/internal/auth"
 	"github.com/surls/backend/internal/config"
+	"github.com/surls/backend/internal/models"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
 )
@@ -179,14 +180,26 @@ func (h *AuthHandler) KeycloakCallback(c *gin.Context) {
 	}
 
 	// 3. 检查用户是否已存在
-	userInfo, userExists, isFirstUser, err := h.checkUserExists(tokenResp.IDToken)
+	userInfo, existingUser, isFirstUser, err := h.checkUserExists(tokenResp.IDToken)
 	if err != nil {
 		log.Printf("Error checking user: %v", err)
 		// 出错时继续流程，让中间件处理
 	}
 
-	// 4a. 如果用户已存在，直接设置 Cookie 并返回成功
-	if userExists {
+	// 4a. 如果用户已存在
+	if existingUser != nil {
+		// 检查用户状态
+		if existingUser.Status == models.UserStatusDisabled {
+			// 用户已禁用，显示禁用���面
+			h.renderDisabledPage(c, existingUser.Username)
+			return
+		}
+		if existingUser.Status == models.UserStatusDeleted {
+			// 用户已删除，显示错误页面
+			h.renderCallbackPage(c, false, "User account has been deleted", "")
+			return
+		}
+		// 正常用户，设置 Cookie 并返回成功
 		h.setAuthCookies(c, tokenResp, redirectTo)
 		h.renderCallbackPage(c, true, "Login successful", redirectTo)
 		return
@@ -437,30 +450,30 @@ func (h *AuthHandler) extractUserInfo(idToken string) (*auth.UserInfo, error) {
 	return auth.ExtractUserInfoFromToken(idToken)
 }
 
-// checkUserExists 检查用户是否已存在，返回 (用户信息, 是否已存在, 是否为第一个用户, 错误)
-func (h *AuthHandler) checkUserExists(idToken string) (*auth.UserInfo, bool, bool, error) {
+// checkUserExists 检查用户是否已存在，返回 (用户信息, 用户对象(如果存在), 是否为第一个用户, 错误)
+func (h *AuthHandler) checkUserExists(idToken string) (*auth.UserInfo, *models.User, bool, error) {
 	userInfo, err := h.extractUserInfo(idToken)
 	if err != nil {
-		return nil, false, false, fmt.Errorf("failed to extract user info: %w", err)
+		return nil, nil, false, fmt.Errorf("failed to extract user info: %w", err)
 	}
 
 	// 检查用户是否已存在
-	_, err = h.userService.GetByKeycloakID(context.Background(), userInfo.KeycloakID)
+	user, err := h.userService.GetByKeycloakID(context.Background(), userInfo.KeycloakID)
 	if err == nil {
 		// 用户已存在
-		return userInfo, true, false, nil
+		return userInfo, user, false, nil
 	}
 
 	// 用户不存在，检查是否为系统第一个用户
 	count, err := h.userService.CountUsers(context.Background())
 	if err != nil {
-		return nil, false, false, fmt.Errorf("failed to count users: %w", err)
+		return nil, nil, false, fmt.Errorf("failed to count users: %w", err)
 	}
 
 	// 如果是第一个用户（count == 0），不显示确认页面
 	isFirstUser := (count == 0)
 
-	return userInfo, false, isFirstUser, nil
+	return userInfo, nil, isFirstUser, nil
 }
 
 // setAuthCookies 设置认证 Cookie
@@ -518,6 +531,13 @@ func (h *AuthHandler) renderConsentPage(c *gin.Context, sessionID string, userIn
 		"Username":   userInfo.Username,
 		"Email":      userInfo.Email,
 		"RedirectTo": redirectTo,
+	})
+}
+
+// renderDisabledPage 渲染账号禁用页面
+func (h *AuthHandler) renderDisabledPage(c *gin.Context, username string) {
+	c.HTML(http.StatusForbidden, "disabled.html", gin.H{
+		"Username": username,
 	})
 }
 
