@@ -300,7 +300,8 @@ func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOpt
 	var err error
 
 	// 根据请求的 Host 查找域名
-	var domainID uint = 1 // 默认域名 ID
+	var domainID uint
+	var domainFound bool
 
 	if opts != nil && opts.Host != "" {
 		// 从 Host 中提取域名（去除端口）
@@ -313,8 +314,14 @@ func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOpt
 		domain, findErr := s.domainRepo.FindByName(ctx, host)
 		if findErr == nil && domain != nil && domain.IsActive {
 			domainID = domain.ID
+			domainFound = true
 		}
-		// 如果找不到域名或域名未启用，使用默认域名 ID=1
+		// 如果找不到域名或域名未启用，不回退，直接返回 404
+	}
+
+	// 如果没有找到匹配的域名，返回 404（不回退到默认域名）
+	if !domainFound {
+		return nil, apperrors.ErrNotFound
 	}
 
 	// 使用 code 和 domain_id 查询链接
