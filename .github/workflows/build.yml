@@ -19,6 +19,7 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - 'docker/**'
+      - '.github/workflows/**'
 
 permissions:
   contents: read
