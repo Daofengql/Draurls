@@ -1,18 +1,6 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: '版本号（如 v1.0.0，留空则不创建 tag）'
-        required: false
-        default: ''
-      create_tag:
-        description: '自动创建 tag'
-        required: false
-        type: boolean
-        default: false
-
   push:
     tags:
       - 'v*.*.*'
@@ -21,33 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  get_version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      is_tag: ${{ steps.version.outputs.is_tag }}
-    steps:
-      - name: Determine version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ -n "${{ inputs.version }}" ]; then
-              echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-              echo "is_tag=true" >> $GITHUB_OUTPUT
-            else
-              VERSION="dev-$(date +%Y%m%d-%H%M%S)"
-              echo "version=$VERSION" >> $GITHUB_OUTPUT
-              echo "is_tag=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            VERSION=${GITHUB_REF#refs/tags/}
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "is_tag=true" >> $GITHUB_OUTPUT
-          fi
-          echo "Building version: $VERSION"
-
   build:
-    needs: get_version
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -107,7 +69,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           go build \
-            -ldflags="-s -w -X main.Version=${{ needs.get_version.outputs.version }}" \
+            -ldflags="-s -w -X main.Version=${{ github.ref_name }}" \
             -tags=embed \
             -o ${{ matrix.filename }} \
             ./cmd/server/...
@@ -119,8 +81,7 @@ jobs:
           path: backend/${{ matrix.filename }}
 
   release:
-    needs: [get_version, build]
-    if: needs.get_version.outputs.is_tag == 'true'
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -140,24 +101,18 @@ jobs:
             fi
           done
 
-      - name: Create tag (manual trigger)
-        if: github.event_name == 'workflow_dispatch' && inputs.create_tag == true
-        run: |
-          git tag -f ${{ inputs.version }}
-          git push -f origin ${{ inputs.version }}
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.get_version.outputs.version }}
-          name: Draurls ${{ needs.get_version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          name: Draurls ${{ github.ref_name }}
           files: ./artifacts/*
           draft: false
           prerelease: false
           generate_release_notes: true
           update_existing_files: true
           body: |
-            ## Draurls ${{ needs.get_version.outputs.version }}
+            ## Draurls ${{ github.ref_name }}
 
             ### 下载
             | 平台 | 架构 | 文件 |
