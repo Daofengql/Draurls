@@ -7,14 +7,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/surls/backend/internal/models"
+	"github.com/surls/backend/internal/repository"
 	"github.com/surls/backend/internal/response"
 	"github.com/surls/backend/internal/service"
+	"github.com/surls/backend/pkg/cache"
 )
 
 // DomainHandler 域名处理器
 type DomainHandler struct {
 	domainService *service.DomainService
+	domainRepo   *repository.DomainRepository // 用于获取域名信息
 	auditService  *service.AuditService
+	redisCache    *cache.RedisCache // 用于域名缓存失效
 }
 
 // NewDomainHandler 创建域名处理器
@@ -22,7 +26,18 @@ func NewDomainHandler(domainService *service.DomainService, auditService *servic
 	return &DomainHandler{
 		domainService: domainService,
 		auditService:  auditService,
+		redisCache:    nil, // 通过 SetRedisCache 设置
 	}
+}
+
+// SetDomainRepo 设置域名仓库（用于缓存失效）
+func (h *DomainHandler) SetDomainRepo(repo *repository.DomainRepository) {
+	h.domainRepo = repo
+}
+
+// SetRedisCache 设置 Redis 缓存引用（用于缓存失效）
+func (h *DomainHandler) SetRedisCache(rc *cache.RedisCache) {
+	h.redisCache = rc
 }
 
 // CreateDomain 创建域名
@@ -128,9 +143,22 @@ func (h *DomainHandler) UpdateDomain(c *gin.Context) {
 
 	actorID := c.GetUint("user_id")
 
+	// 获取域名信息（用于缓存失效）
+	var domainName string
+	if h.domainRepo != nil {
+		if domain, err := h.domainRepo.FindByID(c.Request.Context(), uint(id)); err == nil && domain != nil {
+			domainName = domain.Name
+		}
+	}
+
 	if err := h.domainService.Update(c.Request.Context(), &req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 使域名缓存失效
+	if h.redisCache != nil && domainName != "" {
+		_ = h.redisCache.InvalidateDomain(c.Request.Context(), domainName)
 	}
 
 	// 记录审计日志
@@ -169,9 +197,22 @@ func (h *DomainHandler) DeleteDomain(c *gin.Context) {
 
 	actorID := c.GetUint("user_id")
 
+	// 获取域名信息（用于缓存失效）
+	var domainName string
+	if h.domainRepo != nil {
+		if domain, err := h.domainRepo.FindByID(c.Request.Context(), uint(id)); err == nil && domain != nil {
+			domainName = domain.Name
+		}
+	}
+
 	if err := h.domainService.Delete(c.Request.Context(), uint(id)); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 使域名缓存失效
+	if h.redisCache != nil && domainName != "" {
+		_ = h.redisCache.InvalidateDomain(c.Request.Context(), domainName)
 	}
 
 	// 记录审计日志

@@ -166,7 +166,7 @@ func main() {
 	groupService := service.NewGroupService(groupRepo, userRepo)
 	auditService := service.NewAuditService(auditLogRepo)
 	accessLogService := service.NewAccessLogService(accessLogRepo, accessLogBuffer)
-	linkService := service.NewLinkService(linkRepo, userRepo, domainRepo, accessLogService, configService, codeGenerator, baseURL, clickCounter, workerPool)
+	linkService := service.NewLinkService(linkRepo, userRepo, domainRepo, accessLogService, configService, codeGenerator, baseURL, clickCounter, workerPool, linkCache, redisCache)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo)
 	domainService := service.NewDomainService(domainRepo)
 	dashboardService := service.NewDashboardService(userRepo, linkRepo, accessLogRepo)
@@ -186,6 +186,11 @@ func main() {
 	authHandler := api.NewAuthHandler(cfg, userService)
 	confirmHandler := api.NewConfirmRegistrationHandler(cfg, userService)
 	auditHandler := api.NewAuditHandler(auditService)
+
+	// 设置缓存失效引用
+	domainHandler.SetDomainRepo(domainRepo)
+	domainHandler.SetRedisCache(redisCache)
+	templateHandler.SetRedirectHandler(redirectHandler)
 
 	// 设置循环链接检测（需要在 redirectHandler 初始化后）
 	linkService.SetCircularCheck(redirectHandler.CheckCircular)

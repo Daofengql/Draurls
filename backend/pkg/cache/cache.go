@@ -253,3 +253,56 @@ func (c *RedisCache) DemoteTemperature(current DataTemperature) DataTemperature 
 		return TemperatureCold
 	}
 }
+
+// ========== 域名缓存 ==========
+
+const (
+	// DomainCachePrefix 域名缓存键前缀
+	DomainCachePrefix = "domain:"
+	// DomainCacheTTL 域名缓存过期时间（1小时）
+	DomainCacheTTL = 1 * time.Hour
+)
+
+// GetDomain 获取域名缓存
+func (c *RedisCache) GetDomain(ctx context.Context, name string, dest interface{}) error {
+	if !c.config.Enabled {
+		return redis.Nil
+	}
+	val, err := c.client.Get(ctx, DomainCachePrefix+name).Result()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(val), dest)
+}
+
+// SetDomain 设置域名缓存
+func (c *RedisCache) SetDomain(ctx context.Context, name string, value interface{}) error {
+	if !c.config.Enabled {
+		return nil
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return c.client.Set(ctx, DomainCachePrefix+name, data, DomainCacheTTL).Err()
+}
+
+// InvalidateDomain 使域名缓存失效
+func (c *RedisCache) InvalidateDomain(ctx context.Context, name string) error {
+	if !c.config.Enabled {
+		return nil
+	}
+	return c.client.Del(ctx, DomainCachePrefix+name).Err()
+}
+
+// InvalidateAllDomains 使所有域名缓存失效
+func (c *RedisCache) InvalidateAllDomains(ctx context.Context) error {
+	if !c.config.Enabled {
+		return nil
+	}
+	iter := c.client.Scan(ctx, 0, DomainCachePrefix+"*", 0).Iterator()
+	for iter.Next(ctx) {
+		_ = c.client.Del(ctx, iter.Val()).Err()
+	}
+	return iter.Err()
+}

@@ -19,18 +19,26 @@ import (
 	"github.com/surls/backend/pkg/urlutil"
 )
 
+// cachedTemplate 缓存的模板
+type cachedTemplate struct {
+	content  string
+	expireAt time.Time
+}
+
 // RedirectHandler 跳转处理器
 type RedirectHandler struct {
-	linkService     *service.LinkService
-	domainService   *service.DomainService
-	cache           *cache.LinkCache
-	rateLimiter     *cache.RateLimitService
-	redisClient     *redis.Client
-	configService   *service.ConfigService
-	templateService *service.TemplateService
-	siteConfig      map[string]string
-	siteConfigMu    sync.RWMutex
-	lastConfigCheck time.Time // 记录上一次更新配置的时间，避免频繁抢占写锁
+	linkService       *service.LinkService
+	domainService     *service.DomainService
+	cache             *cache.LinkCache
+	rateLimiter       *cache.RateLimitService
+	redisClient       *redis.Client
+	configService     *service.ConfigService
+	templateService   *service.TemplateService
+	siteConfig        map[string]string
+	siteConfigMu      sync.RWMutex
+	lastConfigCheck   time.Time // 记录上一次更新配置的时间，避免频繁抢占写锁
+	templateCache     sync.Map  // 模板缓存: key(uint/string) -> *cachedTemplate
+	templateCacheTTL  time.Duration // 模板缓存过期时间（默认 10 分钟）
 }
 
 // 短码验证正则（仅允许字母、数字、连字符和下划线，3-20位）
@@ -47,14 +55,15 @@ func NewRedirectHandler(
 	templateService *service.TemplateService,
 ) *RedirectHandler {
 	return &RedirectHandler{
-		linkService:     linkService,
-		domainService:   domainService,
-		cache:           linkCache,
-		rateLimiter:     rateLimiter,
-		redisClient:     redisClient,
-		configService:   configService,
-		templateService: templateService,
-		siteConfig:      make(map[string]string),
+		linkService:       linkService,
+		domainService:     domainService,
+		cache:             linkCache,
+		rateLimiter:       rateLimiter,
+		redisClient:       redisClient,
+		configService:     configService,
+		templateService:   templateService,
+		siteConfig:        make(map[string]string),
+		templateCacheTTL:  10 * time.Minute, // 默认缓存 10 分钟
 	}
 }
 
@@ -233,8 +242,20 @@ func (h *RedirectHandler) renderRedirectPage(c *gin.Context, link *models.ShortL
 	t.Execute(c.Writer, data)
 }
 
-// getTemplateContent 获取指定ID的模板内容
+// getTemplateContent 获取指定ID的模板内容（带缓��）
 func (h *RedirectHandler) getTemplateContent(ctx context.Context, templateID uint) (string, error) {
+	// 1. 尝试从内存缓存获取
+	if val, ok := h.templateCache.Load(templateID); ok {
+		cached := val.(*cachedTemplate)
+		// 检查是否过期
+		if time.Now().Before(cached.expireAt) {
+			return cached.content, nil
+		}
+		// 缓存过期，删除
+		h.templateCache.Delete(templateID)
+	}
+
+	// 2. 从数据库获取
 	template, err := h.templateService.GetByID(ctx, templateID)
 	if err != nil {
 		return "", err
@@ -242,16 +263,63 @@ func (h *RedirectHandler) getTemplateContent(ctx context.Context, templateID uin
 	if !template.Enabled {
 		return "", errors.New("template is disabled")
 	}
+
+	// 3. 写入缓存
+	h.templateCache.Store(templateID, &cachedTemplate{
+		content:  template.Content,
+		expireAt: time.Now().Add(h.templateCacheTTL),
+	})
+
 	return template.Content, nil
 }
 
-// getDefaultTemplateContent 获取默认模板内容
+// getDefaultTemplateContent 获取默认模板内容（带缓存）
 func (h *RedirectHandler) getDefaultTemplateContent(ctx context.Context) (string, error) {
+	const defaultCacheKey = "default"
+
+	// 1. 尝试从内存缓存获取
+	if val, ok := h.templateCache.Load(defaultCacheKey); ok {
+		cached := val.(*cachedTemplate)
+		// 检查是否过期
+		if time.Now().Before(cached.expireAt) {
+			return cached.content, nil
+		}
+		// 缓存过期，删除
+		h.templateCache.Delete(defaultCacheKey)
+	}
+
+	// 2. 从数据库获取
 	template, err := h.templateService.GetDefault(ctx)
 	if err != nil {
 		return "", err
 	}
+
+	// 3. 写入缓存
+	h.templateCache.Store(defaultCacheKey, &cachedTemplate{
+		content:  template.Content,
+		expireAt: time.Now().Add(h.templateCacheTTL),
+	})
+
 	return template.Content, nil
+}
+
+// InvalidateTemplateCache 使模板缓存失效
+// 当模板被更新时调用此方法
+func (h *RedirectHandler) InvalidateTemplateCache(templateID uint) {
+	h.templateCache.Delete(templateID)
+}
+
+// InvalidateDefaultTemplateCache 使默认模板缓存失效
+func (h *RedirectHandler) InvalidateDefaultTemplateCache() {
+	h.templateCache.Delete("default")
+}
+
+// InvalidateAllTemplateCache 使所有模板缓存失效
+func (h *RedirectHandler) InvalidateAllTemplateCache() {
+	h.templateCache.Range(func(key, value any) bool {
+		h.templateCache.Delete(key)
+		return true
+	})
 }
 
 // getFallbackTemplate 获取备用硬编码模板（当数据库查询失败时使用）

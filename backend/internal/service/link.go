@@ -35,6 +35,8 @@ type LinkService struct {
 	lastConfigCheck time.Time // 上次检查配置的时间
 	currentMode     shortcode.GeneratorMode // 当前缓存的模式
 	configCheckMu   sync.RWMutex // 配置检查锁
+	linkCache       *cache.LinkCache // 短链接缓存（可选，用于性能优化）
+	redisCache      *cache.RedisCache // Redis 缓存（用于域名、模板等缓存）
 }
 
 // NewLinkService 创建短链接服务
@@ -48,6 +50,8 @@ func NewLinkService(
 	baseURL string,
 	clickCounter *cache.ClickCounter,
 	workerPool *worker.Pool,
+	linkCache *cache.LinkCache,
+	redisCache *cache.RedisCache,
 ) *LinkService {
 	return &LinkService{
 		linkRepo:         linkRepo,
@@ -61,6 +65,8 @@ func NewLinkService(
 		workerPool:       workerPool,
 		circularCheck:    func(url string) bool { return false }, // 默认不检测
 		currentMode:      generator.GetMode(), // 初始化当前模式
+		linkCache:        linkCache,
+		redisCache:       redisCache,
 	}
 }
 
@@ -244,10 +250,15 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 		Status:     models.LinkStatusActive,
 	}
 
-	// 使用带配额检查的事务方法创建链接
+	// 使用带配额检查的事务方法创���链接
 	// 配额检查和扣减在同一个事务中完成，确保原子性
 	if err := s.linkRepo.CreateWithQuotaCheck(ctx, link, user); err != nil {
 		return nil, err
+	}
+
+	// 更新缓存（写透策略）
+	if s.linkCache != nil {
+		_ = s.linkCache.CreateLink(ctx, link)
 	}
 
 	return &CreateLinkResponse{
@@ -295,6 +306,7 @@ type ResolveOptions struct {
 
 // Resolve 解析短链接（用于跳转）并记录访问日志
 // 支持分域名跳转：根据请求的 Host 查找对应的域名，然后用 code 和 domain_id 查询链接
+// 优先从缓存读取，缓存未命中时查询数据库
 func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOptions) (*models.ShortLink, error) {
 	var link *models.ShortLink
 	var err error
@@ -310,11 +322,27 @@ func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOpt
 			host = parts[0]
 		}
 
-		// 查找域名
-		domain, findErr := s.domainRepo.FindByName(ctx, host)
-		if findErr == nil && domain != nil && domain.IsActive {
-			domainID = domain.ID
-			domainFound = true
+		// 优先从 Redis 缓存获取域名
+		if s.redisCache != nil {
+			var modelsDomain models.Domain
+			cacheErr := s.redisCache.GetDomain(ctx, host, &modelsDomain)
+			if cacheErr == nil && modelsDomain.ID != 0 && modelsDomain.IsActive {
+				domainID = modelsDomain.ID
+				domainFound = true
+			}
+		}
+
+		// 缓存未命中，从数据库查询
+		if !domainFound {
+			domain, findErr := s.domainRepo.FindByName(ctx, host)
+			if findErr == nil && domain != nil && domain.IsActive {
+				domainID = domain.ID
+				domainFound = true
+				// 写入缓存
+				if s.redisCache != nil {
+					_ = s.redisCache.SetDomain(ctx, host, domain)
+				}
+			}
 		}
 		// 如果找不到域名或域名未启用，不回退，直接返回 404
 	}
@@ -324,7 +352,18 @@ func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOpt
 		return nil, apperrors.ErrNotFound
 	}
 
-	// 使用 code 和 domain_id 查询链接
+	// 优先从缓存获取链接（如果缓存可用）
+	if s.linkCache != nil {
+		link, err = s.linkCache.GetLink(ctx, code, domainID)
+		if err == nil {
+			// 缓存命中，记录访问日志
+			s.recordAccessAsync(ctx, link.ID, code, opts)
+			return link, nil
+		}
+		// 缓存未命中或出错，继续查询数据库
+	}
+
+	// 从数据库查询链接
 	link, err = s.linkRepo.FindByCodeAndDomain(ctx, code, domainID)
 	if err != nil {
 		return nil, err
@@ -340,28 +379,31 @@ func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOpt
 		return nil, apperrors.ErrLinkExpired
 	}
 
+	// 异步记录访问日志
+	s.recordAccessAsync(ctx, link.ID, code, opts)
+
+	return link, nil
+}
+
+// recordAccessAsync 异步记录访问日志（避免阻塞请求）
+func (s *LinkService) recordAccessAsync(ctx context.Context, linkID uint, code string, opts *ResolveOptions) {
 	// 异步更新点击计数和访问日志（使用 Worker Pool 防止无界 Goroutine）
 	if s.workerPool != nil {
 		// 使用 Worker Pool
-		linkID := link.ID
-		codeCopy := code
 		optsCopy := *opts
-
 		task := func() {
-			s.recordAccess(context.Background(), linkID, codeCopy, &optsCopy)
+			s.recordAccess(context.Background(), linkID, code, &optsCopy)
 		}
 
 		// 非阻塞提交，如果队列满了则丢弃（避免阻塞请求）
 		if !s.workerPool.Submit(task) {
 			// Pool 已满，记录警告但继续服务
-			log.Printf("WARNING: Worker pool full, dropping access record for link %d", link.ID)
+			log.Printf("WARNING: Worker pool full, dropping access record for link %d", linkID)
 		}
 	} else {
 		// 降级到直接使用 goroutine（不推荐，但保持向后兼容）
-		go s.recordAccess(context.Background(), link.ID, code, opts)
+		go s.recordAccess(context.Background(), linkID, code, opts)
 	}
-
-	return link, nil
 }
 
 // recordAccess 记录访问日志和点击计数
@@ -483,7 +525,16 @@ func (s *LinkService) Update(ctx context.Context, req *UpdateLinkRequest, userID
 	// 更新模板ID（允许修改）
 	link.TemplateID = req.TemplateID
 
-	return s.linkRepo.Update(ctx, link)
+	if err := s.linkRepo.Update(ctx, link); err != nil {
+		return err
+	}
+
+	// 失效缓存（绕写策略）
+	if s.linkCache != nil {
+		_ = s.linkCache.UpdateLink(ctx, link)
+	}
+
+	return nil
 }
 
 // Delete 删除短链接
@@ -500,7 +551,16 @@ func (s *LinkService) Delete(ctx context.Context, code string, userID uint, isAd
 	}
 
 	// 使用带配额返还的事务方法删除链接
-	return s.linkRepo.DeleteWithQuotaRefund(ctx, link.ID, userID)
+	if err := s.linkRepo.DeleteWithQuotaRefund(ctx, link.ID, userID); err != nil {
+		return err
+	}
+
+	// 删除缓存
+	if s.linkCache != nil {
+		_ = s.linkCache.DeleteLink(ctx, link.Code, link.DomainID)
+	}
+
+	return nil
 }
 
 // LinkStats 链接统计
@@ -678,7 +738,23 @@ func (s *LinkService) ListAll(ctx context.Context, req *ListAllLinksRequest) (*L
 
 // DeleteAsAdmin 管理员删除短链接（不检查所有权，配额返还给创建者）
 func (s *LinkService) DeleteAsAdmin(ctx context.Context, linkID uint) error {
-	return s.linkRepo.DeleteAsAdmin(ctx, linkID)
+	// 获取链接信息用于缓存失效
+	link, err := s.linkRepo.FindByID(ctx, linkID)
+	if err != nil {
+		return s.linkRepo.DeleteAsAdmin(ctx, linkID)
+	}
+
+	// 删除链接
+	if err := s.linkRepo.DeleteAsAdmin(ctx, linkID); err != nil {
+		return err
+	}
+
+	// 删除缓存
+	if s.linkCache != nil {
+		_ = s.linkCache.DeleteLink(ctx, link.Code, link.DomainID)
+	}
+
+	return nil
 }
 
 // UpdateAsAdminRequest 管理员更新短链接请求
@@ -692,6 +768,13 @@ type UpdateAsAdminRequest struct {
 
 // UpdateAsAdmin 管理员更新短链接（不检查所有权）
 func (s *LinkService) UpdateAsAdmin(ctx context.Context, req *UpdateAsAdminRequest) error {
+	// 获取链接信息用于缓存失效
+	link, err := s.linkRepo.FindByID(ctx, req.LinkID)
+	if err != nil {
+		// 链接不存在，直接返回
+		return s.linkRepo.UpdateAsAdmin(ctx, req.LinkID, updatesFromRequest(req))
+	}
+
 	updates := make(map[string]interface{})
 
 	if req.URL != "" {
@@ -706,5 +789,30 @@ func (s *LinkService) UpdateAsAdmin(ctx context.Context, req *UpdateAsAdminReque
 	// TemplateID 可以为 nil，所以需要特殊处理
 	updates["template_id"] = req.TemplateID
 
-	return s.linkRepo.UpdateAsAdmin(ctx, req.LinkID, updates)
+	if err := s.linkRepo.UpdateAsAdmin(ctx, req.LinkID, updates); err != nil {
+		return err
+	}
+
+	// 失效缓存
+	if s.linkCache != nil {
+		_ = s.linkCache.UpdateLink(ctx, link)
+	}
+
+	return nil
+}
+
+// updatesFromRequest 从请求构建更新映射
+func updatesFromRequest(req *UpdateAsAdminRequest) map[string]interface{} {
+	updates := make(map[string]interface{})
+	if req.URL != "" {
+		updates["url"] = req.URL
+	}
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	updates["template_id"] = req.TemplateID
+	return updates
 }

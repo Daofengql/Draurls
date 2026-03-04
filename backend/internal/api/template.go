@@ -14,6 +14,7 @@ import (
 type TemplateHandler struct {
 	templateService *service.TemplateService
 	auditService    *service.AuditService
+	redirectHandler *RedirectHandler // 用于模板缓存失效
 }
 
 // NewTemplateHandler 创建模板处理器
@@ -21,7 +22,13 @@ func NewTemplateHandler(templateService *service.TemplateService, auditService *
 	return &TemplateHandler{
 		templateService: templateService,
 		auditService:    auditService,
+		redirectHandler: nil, // 通过 SetRedirectHandler 设置
 	}
+}
+
+// SetRedirectHandler 设置 RedirectHandler 引用（用于缓存失效）
+func (h *TemplateHandler) SetRedirectHandler(rh *RedirectHandler) {
+	h.redirectHandler = rh
 }
 
 // CreateTemplate 创建跳转模板
@@ -97,6 +104,15 @@ func (h *TemplateHandler) UpdateTemplate(c *gin.Context) {
 		return
 	}
 
+	// 使模板缓存失效
+	if h.redirectHandler != nil {
+		h.redirectHandler.InvalidateTemplateCache(id)
+		// 如果更新的是默认模板，也需要使默认模板缓存失效
+		if template.IsDefault {
+			h.redirectHandler.InvalidateDefaultTemplateCache()
+		}
+	}
+
 	// 记录审计日志
 	if h.auditService != nil {
 		resourceID := id
@@ -136,6 +152,11 @@ func (h *TemplateHandler) DeleteTemplate(c *gin.Context) {
 	if err := h.templateService.Delete(c.Request.Context(), id); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 使模板缓存失效
+	if h.redirectHandler != nil {
+		h.redirectHandler.InvalidateTemplateCache(id)
 	}
 
 	// 记录审计日志
@@ -213,6 +234,11 @@ func (h *TemplateHandler) SetDefaultTemplate(c *gin.Context) {
 	if err := h.templateService.SetDefault(c.Request.Context(), id); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 使默认模板缓存失效
+	if h.redirectHandler != nil {
+		h.redirectHandler.InvalidateDefaultTemplateCache()
 	}
 
 	response.Success(c, gin.H{"message": "default template set successfully"})
