@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "draurls-api-collection",
 		"name": "Draurls 麟云短链 API",
-		"description": "Draurls 麟云短链的完整 API 测试集合\n\n## 认证说明\n\n### OIDC 认证\n1. 调用 `获取登录 URL` 获取 OIDC 提供商��录地址\n2. 在浏览器中完成登录\n3. 登录成功后 token 会自动存储在 Cookie 中\n4. 或从 Cookie 中复制 `access_token` 用于 Authorization Header\n\n### 使用 Cookie 认证（Postman 设置）\n1. 打开 Postman Cookie Manager\n2. 添加 Cookie: `access_token` = `<你的token>`\n3. Domain: `localhost:8080`\n\n### 使用 Bearer Token\n在请求头中添加: `Authorization: Bearer <你的token>`",
+		"description": "Draurls 麟云短链的完整 API 测试集合\n\n## 认证说明\n\n### 认证流程\n\n系统使用 Keycloak OIDC 进行用户认证，支持以下登录场景：\n\n1. **首次登录（第一个用户）** - 自动注册为管理员，直接完成登录\n2. **新用户注册** - 显示授权确认页面，用户可选择允许或取消\n3. **已存在用户登录** - 直接完成登录\n4. **被禁用用户登录** - 显示禁用提示页面，无法完成登录\n\n### 用户状态\n\n- active: 正常状态，可以正常登录\n- disabled: 已禁用，无法登录\n- deleted: 已删除，无法登录\n\n### OIDC 认证\n1. 调用 获取登录 URL 获取 OIDC 提供商登录地址\n2. 在浏览器中完成登录\n3. 登录成功后 token 会自动存储在 Cookie 中\n4. 或从 Cookie 中复制 access_token 用于 Authorization Header\n\n### 使用 Cookie 认证（Postman 设置）\n1. 打开 Postman Cookie Manager\n2. 添加 Cookie: access_token = <你的token>\n3. Domain: localhost:8080\n\n### 使用 Bearer Token\n在请求头中添加: Authorization: Bearer <你的token>",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -25,8 +25,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/login-url",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "login-url"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login-url"
+							]
 						},
 						"description": "获取 OIDC 提供商登录 URL，用于前端弹窗登录"
 					}
@@ -38,8 +44,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/callback?code=authorization_code&state=state_parameter",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "callback"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"callback"
+							],
 							"query": [
 								{
 									"key": "code",
@@ -70,8 +82,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/refresh",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "refresh"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
 						},
 						"description": "使用 Refresh Token 获取新的 Access Token"
 					}
@@ -92,10 +110,72 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/logout",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "logout"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
 						},
 						"description": "登出当前用户并清除 Cookie"
+					}
+				},
+				{
+					"name": "确认注册",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"session_id\": \"generated_session_id_from_consent_page\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/confirm-registration",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"confirm-registration"
+							]
+						},
+						"description": "新用户在授权确认页面点击\"允许\"后调用，完成用户注册"
+					}
+				},
+				{
+					"name": "取消注册",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"session_id\": \"generated_session_id_from_consent_page\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/cancel-registration",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"cancel-registration"
+							]
+						},
+						"description": "新用户在授权确认页面点击\"取消\"后调用，不创建用户"
 					}
 				}
 			],
@@ -111,8 +191,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/health",
-							"host": ["{{baseUrl}}"],
-							"path": ["health"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
 						},
 						"description": "检查服务器是否正常运行"
 					}
@@ -124,8 +208,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/readiness",
-							"host": ["{{baseUrl}}"],
-							"path": ["readiness"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"readiness"
+							]
 						},
 						"description": "检查服务器及依赖服务（数据库、Redis）状态"
 					}
@@ -137,8 +225,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/liveness",
-							"host": ["{{baseUrl}}"],
-							"path": ["liveness"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liveness"
+							]
 						},
 						"description": "Kubernetes 存活探针使用"
 					}
@@ -156,8 +248,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/config",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "config"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"config"
+							]
 						},
 						"description": "获取公开的站点配置信息（站点名称、Logo、跳转页设置等）"
 					}
@@ -169,8 +266,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/templates",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "templates"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"templates"
+							]
 						},
 						"description": "获取所有启用的跳转模板列表"
 					}
@@ -182,8 +284,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/domains",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "domains"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"domains"
+							]
 						},
 						"description": "获取所有可用的域名列表"
 					}
@@ -207,8 +314,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/user/profile",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "user", "profile"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"profile"
+							]
 						},
 						"description": "获取当前登录用户的个人信息"
 					}
@@ -233,8 +346,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/user/profile",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "user", "profile"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"profile"
+							]
 						},
 						"description": "更新当前用户的个人信息"
 					}
@@ -251,8 +370,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/user/quota",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "user", "quota"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"quota"
+							]
 						},
 						"description": "获取当前用户的配额使用情况"
 					}
@@ -269,8 +394,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/user/dashboard",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "user", "dashboard"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"dashboard"
+							]
 						},
 						"description": "获取用户仪表盘数据（短链统计、点击统计等）"
 					}
@@ -301,8 +432,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/links",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links"
+							]
 						},
 						"description": "创建一个新的短链接（可指定短码、域名、模板）"
 					}
@@ -327,8 +463,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/links",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links"
+							]
 						},
 						"description": "创建短链接，系统自动生成短码"
 					}
@@ -353,8 +494,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/links",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links"
+							]
 						},
 						"description": "创建有过期时间的短链接"
 					}
@@ -371,8 +517,13 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/links?page=1&page_size=20",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links"
+							],
 							"query": [
 								{
 									"key": "page",
@@ -399,8 +550,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/links/example123",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links", "example123"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links",
+								"example123"
+							]
 						},
 						"description": "获取指定短链接的详细信息"
 					}
@@ -425,8 +582,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/links/1",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links", "1"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links",
+								"1"
+							]
 						},
 						"description": "更新短链接的目标URL、标题、模板等"
 					}
@@ -443,8 +606,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/links/1",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links", "1"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links",
+								"1"
+							]
 						},
 						"description": "删除指定的短链接（软删除）"
 					}
@@ -461,8 +630,15 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/links/example123/stats",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "links", "example123", "stats"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"links",
+								"example123",
+								"stats"
+							]
 						},
 						"description": "获取短链接的点击统计信息"
 					}
@@ -493,8 +669,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/api-keys",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "api-keys"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"api-keys"
+							]
 						},
 						"description": "创建新的API密钥用于接口调用。expires_in 为秒数，0 表示永久"
 					}
@@ -511,8 +692,13 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/api-keys",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "api-keys"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"api-keys"
+							]
 						},
 						"description": "获取当前用户的所有API密钥"
 					}
@@ -529,8 +715,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/api/api-keys/1",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "api-keys", "1"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"api-keys",
+								"1"
+							]
 						},
 						"description": "删除指定的API密钥"
 					}
@@ -556,8 +748,14 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/users?page=1&page_size=20",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "users"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users"
+									],
 									"query": [
 										{
 											"key": "page",
@@ -592,8 +790,15 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/users/quota",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "users", "quota"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"quota"
+									]
 								},
 								"description": "更新指定用户的配额限制。-1 表示无限制"
 							}
@@ -618,8 +823,15 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/users/group",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "users", "group"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"group"
+									]
 								},
 								"description": "设置用户的用户组。inherit_quota=true 表示继承用户组配额"
 							}
@@ -636,8 +848,16 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/users/2/disable",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "users", "2", "disable"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"2",
+										"disable"
+									]
 								},
 								"description": "禁用指定用户"
 							}
@@ -654,8 +874,16 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/users/2/enable",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "users", "2", "enable"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"2",
+										"enable"
+									]
 								},
 								"description": "启用被禁用的用户"
 							}
@@ -678,8 +906,14 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups"
+									]
 								},
 								"description": "获取所有用户组列表"
 							}
@@ -704,8 +938,14 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups"
+									]
 								},
 								"description": "创建新的用户组"
 							}
@@ -722,8 +962,15 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups",
+										"1"
+									]
 								},
 								"description": "获取用户组详情"
 							}
@@ -748,8 +995,15 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups",
+										"1"
+									]
 								},
 								"description": "更新用户组信息"
 							}
@@ -766,8 +1020,15 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups",
+										"1"
+									]
 								},
 								"description": "删除用户组（有用户的组不能删除）"
 							}
@@ -784,8 +1045,16 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups/1/default",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups", "1", "default"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups",
+										"1",
+										"default"
+									]
 								},
 								"description": "设置默认用户组"
 							}
@@ -810,8 +1079,16 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups/1/domains",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups", "1", "domains"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups",
+										"1",
+										"domains"
+									]
 								},
 								"description": "为用户组添加可用域名"
 							}
@@ -828,8 +1105,17 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/groups/1/domains/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "groups", "1", "domains", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"groups",
+										"1",
+										"domains",
+										"1"
+									]
 								},
 								"description": "从用户组移除域名"
 							}
@@ -852,8 +1138,14 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/config",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "config"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"config"
+									]
 								},
 								"description": "获取站点所有配置项（包括敏感配置）"
 							}
@@ -878,8 +1170,14 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/config",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "config"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"config"
+									]
 								},
 								"description": "更新单个站点配置项\n\n可用的配置项:\n- site_name: 站点名称\n- logo_url: Logo URL\n- redirect_page_enabled: 是否启用跳转中间页 (true/false)\n- allow_user_template: 是否允许用户选择跳转模板 (true/false)\n- max_link_length: 最大短链长度\n- shortcode_mode: 短码生成模式 (random/sequence)\n- allow_custom_shortcode: 允许普通用户使用自定义短码 (true/false)\n- enable_signup: 是否允许用户注册 (true/false)"
 							}
@@ -904,8 +1202,15 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/config/batch",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "config", "batch"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"config",
+										"batch"
+									]
 								},
 								"description": "批量更新多个站点配置项"
 							}
@@ -928,8 +1233,14 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/domains",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "domains"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"domains"
+									]
 								},
 								"description": "获取所有域名（包括已禁用的）"
 							}
@@ -954,8 +1265,14 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/domains",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "domains"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"domains"
+									]
 								},
 								"description": "添加新域名"
 							}
@@ -980,8 +1297,15 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/domains/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "domains", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"domains",
+										"1"
+									]
 								},
 								"description": "更新域名信息"
 							}
@@ -998,8 +1322,15 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/domains/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "domains", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"domains",
+										"1"
+									]
 								},
 								"description": "删除域名（软删除）"
 							}
@@ -1016,8 +1347,16 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/domains/1/default",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "domains", "1", "default"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"domains",
+										"1",
+										"default"
+									]
 								},
 								"description": "设置默认域名"
 							}
@@ -1040,8 +1379,15 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/dashboard/summary",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "dashboard", "summary"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"dashboard",
+										"summary"
+									]
 								},
 								"description": "获取系统概览统计（用户数、短链数、点击数等）"
 							}
@@ -1058,8 +1404,15 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/dashboard/trends?days=30",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "dashboard", "trends"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"dashboard",
+										"trends"
+									],
 									"query": [
 										{
 											"key": "days",
@@ -1088,8 +1441,14 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/templates",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "templates"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"templates"
+									]
 								},
 								"description": "获取所有跳转模板（包括已禁用的）"
 							}
@@ -1114,8 +1473,14 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/templates",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "templates"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"templates"
+									]
 								},
 								"description": "创建新的跳转模板（HTML内容）"
 							}
@@ -1132,8 +1497,15 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/templates/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "templates", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"templates",
+										"1"
+									]
 								},
 								"description": "获取模板详情"
 							}
@@ -1158,8 +1530,15 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/templates/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "templates", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"templates",
+										"1"
+									]
 								},
 								"description": "更新模板内容、状态等"
 							}
@@ -1176,8 +1555,15 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/templates/1",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "templates", "1"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"templates",
+										"1"
+									]
 								},
 								"description": "删除模板（默认模板不可删除）"
 							}
@@ -1194,8 +1580,16 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/templates/1/default",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "templates", "1", "default"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"templates",
+										"1",
+										"default"
+									]
 								},
 								"description": "设置指定模板为默认模板"
 							}
@@ -1218,8 +1612,14 @@
 								],
 								"url": {
 									"raw": "{{baseUrl}}/api/admin/audit-logs?page=1&page_size=20&actor_id=1&action=link.create",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "admin", "audit-logs"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"audit-logs"
+									],
 									"query": [
 										{
 											"key": "page",
@@ -1289,8 +1689,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/shorten",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "shorten"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"shorten"
+							]
 						},
 						"description": "使用API签名认证创建短链接，供第三方应用调用。\n\n签名计算方式：\nHMAC-SHA256(apiKeySecret, timestamp + nonce + requestBody + \"/api/v1/shorten\" + \"POST\")"
 					}
@@ -1308,8 +1714,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/example123",
-							"host": ["{{baseUrl}}"],
-							"path": ["example123"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"example123"
+							]
 						},
 						"description": "访问短链接，系统会自动跳转到目标URL并记录访问日志。\n注意：此请求会返回302重定向，Postman会自动跟随跳转。"
 					},

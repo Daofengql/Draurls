@@ -8,6 +8,27 @@
 
 ## 认证说明
 
+### 认证流程
+
+系统使用 Keycloak OIDC 进行用户认证，支持以下登录场景：
+
+1. **首次登录（第一个用户）**
+   - 自动注册为管理员
+   - 直接完成登录，无需确认
+
+2. **新用户注册**
+   - 显示授权确认页面（类似 OAuth 流程）
+   - 用户可选择"允许"或"取消"
+   - 点击"允许"：创建用户并完成登录
+   - 点击"取消"：仅记录日志，不创建用户
+
+3. **已存在用户登录**
+   - 直接完成登录
+
+4. **被禁用用户登录**
+   - 显示禁用提示页面
+   - 无法完成登录，需联系管理员
+
 ### Bearer Token 认证
 
 用于前端用户认证，通过 Keycloak OAuth2 获取。
@@ -166,6 +187,59 @@ Content-Type: application/json
 {
   "refresh_token": "your_refresh_token_here",
   "redirect_to": "http://localhost:3000/login"
+}
+```
+
+#### 2.5 确认注册
+
+```http
+POST /api/auth/confirm-registration
+Content-Type: application/json
+```
+
+新用户在授权确认页面点击"允许"后调用。
+
+**请求��**:
+```json
+{
+  "session_id": "generated_session_id"
+}
+```
+
+**响应**:
+```json
+{
+  "code": 0,
+  "data": {
+    "message": "Registration successful",
+    "redirect_to": "http://localhost:3000/dashboard"
+  }
+}
+```
+
+#### 2.6 取消注册
+
+```http
+POST /api/auth/cancel-registration
+Content-Type: application/json
+```
+
+新用户在授权确认页面点击"取消"后调用。
+
+**请求体**:
+```json
+{
+  "session_id": "generated_session_id"
+}
+```
+
+**响应**:
+```json
+{
+  "code": 0,
+  "data": {
+    "message": "Registration cancelled"
+  }
 }
 ```
 
