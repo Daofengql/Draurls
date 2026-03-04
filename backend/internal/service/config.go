@@ -54,7 +54,8 @@ var predefinedConfigs = map[string]string{
 	models.ConfigEnableSignup:   "是否允许用户注��� (true/false)",
 	models.ConfigShortcodeMode:  "短码生成模式 (random/sequence)",
 	models.ConfigAllowCustomShortcode: "是否允许普通用户使用自定义短码 (true/false)",
-	models.ConfigCORSOrigins:    "CORS 允许的源，多个用逗号分隔，使用 * 表示允许所有（警告：使用 * 时将禁用 Credentials）",
+	models.ConfigCORSOrigins:    "CORS 允许的源，多个用逗号分隔，使用 * 表示允许所有���警告：使用 * 时将禁用 Credentials）",
+	models.ConfigICPNumber:      "ICP备案号",
 }
 
 // GetAllConfig 获取所有配置（管理员专用）
@@ -106,6 +107,7 @@ func (s *ConfigService) GetPublicConfig(ctx context.Context) (map[string]string,
 		models.ConfigRedirectPage,
 		models.ConfigAllowUserTemplate,
 		models.ConfigEnableSignup,
+		models.ConfigICPNumber,
 	}
 
 	result := make(map[string]string)

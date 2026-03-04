@@ -178,6 +178,21 @@ export default function Layout() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Outlet />
       </main>
+
+      {/* 页脚备案信息 */}
+      {siteConfig.icp_number && (
+        <footer className="mt-auto py-4 text-center text-sm text-gray-500">
+          <a
+            href="http://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 hover:text-gray-700"
+          >
+            <img src="//oss-fz.silverdragon.cn/loongapisources/picbed/penglong/2023/07/24/202307240118075832.png" alt="" className="w-4 h-4" />
+            {siteConfig.icp_number}
+          </a>
+        </footer>
+      )}
     </div>
   )
 }

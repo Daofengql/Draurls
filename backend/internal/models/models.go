@@ -146,6 +146,9 @@ const (
 	ConfigShortcodeMode  = "shortcode_mode"
 	ConfigAllowCustomShortcode = "allow_custom_shortcode"
 	ConfigCORSOrigins    = "cors_origins" // CORS 允许的源，多个用逗号分隔，* 表示允许所有
+
+	// 备案配置
+	ConfigICPNumber = "icp_number" // 备案号
 )
 
 // ShortcodeMode 短码生成模式

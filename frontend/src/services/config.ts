@@ -7,6 +7,7 @@ export interface SiteConfig {
   redirect_page_enabled?: string
   allow_user_template?: string
   enable_signup?: string
+  icp_number?: string
 }
 
 export const configService = {

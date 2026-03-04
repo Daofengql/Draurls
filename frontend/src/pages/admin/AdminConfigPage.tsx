@@ -33,6 +33,11 @@ const configItemDefinitions: Omit<ConfigItem, 'value'>[] = [
     description: 'Logo URL',
     type: 'text',
   },
+  {
+    key: 'icp_number',
+    description: 'ICP备案号',
+    type: 'text',
+  },
   // 跳转页面设置
   {
     key: 'redirect_page_enabled',
@@ -77,7 +82,7 @@ const sectionDefinitions: { title: string; icon: string; keys: string[] }[] = [
   {
     title: '基本设置',
     icon: 'basic',
-    keys: ['site_name', 'logo_url'],
+    keys: ['site_name', 'logo_url', 'icp_number'],
   },
   {
     title: '跳转页面设置',
@@ -100,6 +105,7 @@ const sectionDefinitions: { title: string; icon: string; keys: string[] }[] = [
 const defaultValues: Record<string, string> = {
   site_name: '',
   logo_url: '',
+  icp_number: '',
   redirect_page_enabled: 'false',
   allow_user_template: 'false',
   max_link_length: '10',

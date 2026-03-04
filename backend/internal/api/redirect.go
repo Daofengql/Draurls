@@ -556,6 +556,7 @@ func (h *RedirectHandler) GetSiteConfig(c *gin.Context) {
 		"redirect_page_enabled": dbConfig[models.ConfigRedirectPage],
 		"allow_user_template":   dbConfig[models.ConfigAllowUserTemplate],
 		"enable_signup":         dbConfig[models.ConfigEnableSignup],
+		"icp_number":            dbConfig[models.ConfigICPNumber],
 	}
 
 	response.Success(c, publicConfig)
