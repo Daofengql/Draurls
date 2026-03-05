@@ -190,7 +190,7 @@ func (h *AuthHandler) KeycloakCallback(c *gin.Context) {
 	if existingUser != nil {
 		// 检查用户状态
 		if existingUser.Status == models.UserStatusDisabled {
-			// 用户已禁用，显示禁用���面
+			// 用户已禁用，显示禁用页面
 			h.renderDisabledPage(c, existingUser.Username)
 			return
 		}

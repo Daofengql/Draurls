@@ -26,7 +26,7 @@ func (r *ShortLinkRepository) Create(ctx context.Context, link *models.ShortLink
 	return r.db.WithContext(ctx).Create(link).Error
 }
 
-// FindByCode 根据短码���找链接
+// FindByCode 根据短码查找链接
 func (r *ShortLinkRepository) FindByCode(ctx context.Context, code string) (*models.ShortLink, error) {
 	var link models.ShortLink
 	err := r.db.WithContext(ctx).Where("code = ?", code).First(&link).Error

@@ -250,7 +250,7 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 		Status:     models.LinkStatusActive,
 	}
 
-	// 使用带配额检查的事务方法创���链接
+	// 使用带配额检查的事务方法创建链接
 	// 配额检查和扣减在同一个事务中完成，确保原子性
 	if err := s.linkRepo.CreateWithQuotaCheck(ctx, link, user); err != nil {
 		return nil, err

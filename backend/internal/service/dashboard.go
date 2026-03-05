@@ -8,7 +8,7 @@ import (
 	"github.com/surls/backend/internal/repository"
 )
 
-// DashboardService ��表盘服务
+// DashboardService 仪表盘服务
 type DashboardService struct {
 	userRepo     *repository.UserRepository
 	linkRepo     *repository.ShortLinkRepository

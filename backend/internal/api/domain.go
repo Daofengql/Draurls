@@ -257,7 +257,7 @@ func (h *DomainHandler) SetDefaultDomain(c *gin.Context) {
 	response.Success(c, gin.H{"message": "default domain set successfully"})
 }
 
-// ListUserDomains 获取当前���户可用的域名列表
+// ListUserDomains 获取当前用户可用的域名列表
 // @Summary 获取当前用户可用的域名列表
 // @Tags user
 // @Produce json

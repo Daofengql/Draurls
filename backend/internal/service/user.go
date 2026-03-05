@@ -236,7 +236,7 @@ func (s *UserService) SetGroup(ctx context.Context, req *SetGroupRequest) error 
 		// 继承用户组配额模式
 		user.Quota = QuotaInherit
 	} else if req.GroupID != nil {
-		// 使用用户组���额作为个人配额（硬拷贝，原有行为）
+		// 使用用户组配额作为个人配额（硬拷贝，原有行为）
 		group, err := s.groupRepo.FindByID(ctx, *req.GroupID)
 		if err != nil {
 			return err

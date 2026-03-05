@@ -275,7 +275,7 @@ export default function AdminConfigPage() {
       toast.success('CORS 配置已保存')
       loadCORSConfig()
     } catch (err: any) {
-      toast.error(err.message || '保存��败')
+      toast.error(err.message || '保存失败')
     } finally {
       setSavingCors(false)
     }

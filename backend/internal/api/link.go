@@ -149,7 +149,7 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 }
 
 // UpdateLink 更新短链接
-// @Summary 更新��链接
+// @Summary 更新短链接
 // @Tags links
 // @Accept json
 // @Produce json

@@ -242,7 +242,7 @@ func (h *RedirectHandler) renderRedirectPage(c *gin.Context, link *models.ShortL
 	t.Execute(c.Writer, data)
 }
 
-// getTemplateContent 获取指定ID的模板内容（带缓��）
+// getTemplateContent 获取指定ID的模板内容（带缓存）
 func (h *RedirectHandler) getTemplateContent(ctx context.Context, templateID uint) (string, error) {
 	// 1. 尝试从内存缓存获取
 	if val, ok := h.templateCache.Load(templateID); ok {

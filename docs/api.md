@@ -199,7 +199,7 @@ Content-Type: application/json
 
 新用户在授权确认页面点击"允许"后调用。
 
-**请求��**:
+**请求体**:
 ```json
 {
   "session_id": "generated_session_id"
@@ -407,7 +407,7 @@ Authorization: Bearer <token>
 
 **说明**:
 - 普通用户：返回其用户组被授权的域名列表
-- 管理员：返回所有��用的域名
+- 管理员：返回所有启用的域名
 - 如果用户没有用户组或用户组未被授权任何域名，返回空列表
 
 ---
@@ -686,7 +686,7 @@ Authorization: Bearer <admin_token>
 | `/api/admin/groups` | GET | 获取用户组列表 |
 | `/api/admin/groups` | POST | 创建用户组 |
 | `/api/admin/groups/:id` | GET | 获取用户组详情 |
-| `/api/admin/groups/:id` | PUT | 更新用户��� |
+| `/api/admin/groups/:id` | PUT | 更新用户组 |
 | `/api/admin/groups/:id` | DELETE | 删除用户组 |
 | `/api/admin/groups/:id/default` | POST | 设置默认用户组 |
 | `/api/admin/groups/:id/domains` | POST | 添加域名到用户组 |

@@ -105,7 +105,7 @@ func (r *DomainRepository) SetDefault(ctx context.Context, id uint) error {
 	})
 }
 
-// BuildDomainURL 构建���整的域名URL
+// BuildDomainURL 构建完整的域名URL
 func (r *DomainRepository) BuildDomainURL(domain *models.Domain) string {
 	protocol := "https"
 	if !domain.SSL {

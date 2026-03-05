@@ -28,7 +28,7 @@ func (r *SiteConfigRepository) Get(ctx context.Context, key string) (string, err
 	return config.Value, nil
 }
 
-// Set 设置配置（不存���则创建，存在则更新）
+// Set 设置配置（不存在则创建，存在则更新）
 func (r *SiteConfigRepository) Set(ctx context.Context, key, value, description string) error {
 	var config models.SiteConfig
 	err := r.db.WithContext(ctx).Where("`key` = ?", key).First(&config).Error

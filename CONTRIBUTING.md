@@ -9,7 +9,7 @@
 如果您发现了 bug 或有功能建议，请：
 
 1. 先检查 [Issues](https://github.com/Daofengql/Draurls/issues) 是否已有类似问题
-2. 如果没有，创���新的 Issue，并提供：
+2. 如果没有，创建新的 Issue，并提供：
    - 清晰的标题和描述
    - 复现步骤（针对 bug）
    - 预期行为与实际行为

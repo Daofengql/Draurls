@@ -51,10 +51,10 @@ var predefinedConfigs = map[string]string{
 	models.ConfigRedirectPage:   "是否启用跳转中间页 (true/false)",
 	models.ConfigAllowUserTemplate: "是否允许用户选择跳转模板 (true/false)",
 	models.ConfigMaxLinkLength:  "最大短链长度",
-	models.ConfigEnableSignup:   "是否允许用户注��� (true/false)",
+	models.ConfigEnableSignup:   "是否允许用户注册 (true/false)",
 	models.ConfigShortcodeMode:  "短码生成模式 (random/sequence)",
 	models.ConfigAllowCustomShortcode: "是否允许普通用户使用自定义短码 (true/false)",
-	models.ConfigCORSOrigins:    "CORS 允许的源，多个用逗号分隔，使用 * 表示允许所有���警告：使用 * 时将禁用 Credentials）",
+	models.ConfigCORSOrigins:    "CORS 允许的源，多个用逗号分隔，使用 * 表示允许所有（警告：使用 * 时将禁用 Credentials）",
 	models.ConfigICPNumber:      "ICP备案号",
 }
 

@@ -14,7 +14,7 @@ type AuditService struct {
 	auditRepo *repository.AuditLogRepository
 }
 
-// NewAuditService 创建审计日���服务
+// NewAuditService 创建审计日志服务
 func NewAuditService(auditRepo *repository.AuditLogRepository) *AuditService {
 	return &AuditService{
 		auditRepo: auditRepo,
@@ -80,7 +80,7 @@ func (s *AuditService) RecordFromGin(ctx context.Context, actorID uint, action m
 	})
 }
 
-// ListAuditLogsRequest 查��审计日志请求
+// ListAuditLogsRequest 查询审计日志请求
 type ListAuditLogsRequest struct {
 	Page     int
 	PageSize int

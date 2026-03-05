@@ -57,7 +57,7 @@ func ExtractDomain(rawURL string) (string, error) {
 	return parsed.Host, nil
 }
 
-// IsValidURL 检�� URL 是否有效
+// IsValidURL 检查 URL 是否有效
 func IsValidURL(rawURL string) bool {
 	if rawURL == "" {
 		return false
