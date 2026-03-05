@@ -574,7 +574,97 @@ Authorization: Bearer <token>
 
 ---
 
-### 六、API 密钥管理 (需认证)
+### 六、签名认证 API
+
+第三方系统可以使用 HMAC 签名认证的方式调用短链接创建接口，无需 Cookie 认证。
+
+#### 6.1 创建短链接（签名认证）
+
+```http
+POST /api/v1/shorten
+Content-Type: application/json
+X-API-Key: <your_api_key>
+X-Signature: <hmac_sha256_signature>
+X-Timestamp: <unix_timestamp>
+```
+
+**请求头**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| X-API-Key | string | 是 | API 密钥 |
+| X-Signature | string | 是 | HMAC-SHA256 签名 |
+| X-Timestamp | int64 | 是 | Unix 时间戳 |
+
+**请求体**:
+```json
+{
+  "original_url": "https://example.com/very/long/url",
+  "domain": "surls.example.com",
+  "title": "我的短链接"
+}
+```
+
+**签名计算方法**:
+
+```
+signature = HMAC-SHA256(api_secret, timestamp + method + path + body)
+```
+
+其中：
+- `api_secret`: API 密钥对应的密钥
+- `timestamp`: X-Timestamp 的值
+- `method`: HTTP 方法（大写），如 "POST"
+- `path`: 请求路径，如 "/api/v1/shorten"
+- `body`: 请求体的 JSON 字符串（不进行格式化）
+
+**示例（Go）**:
+```go
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+    "strconv"
+)
+
+func calculateSignature(apiSecret, timestamp, method, path, body string) string {
+    data := timestamp + method + path + body
+    h := hmac.New(sha256.New, []byte(apiSecret))
+    h.Write([]byte(data))
+    return hex.EncodeToString(h.Sum(nil))
+}
+
+timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+method := "POST"
+path := "/api/v1/shorten"
+body := `{"original_url":"https://example.com"}`
+signature := calculateSignature(apiSecret, timestamp, method, path, body)
+```
+
+**响应示例**:
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "short_url": "https://surls.example.com/r/abc123",
+    "code": "abc123",
+    "original_url": "https://example.com/very/long/url"
+  }
+}
+```
+
+**错误响应**:
+| 状态码 | 说明 |
+|--------|------|
+| 401 | 签名验证失败 |
+| 403 | API 密钥无效或已禁用 |
+| 429 | 请求频率超限 |
+| 400 | 请求参数错误 |
+
+---
+
+### 七、API 密钥管理 (需认证)
 
 #### 6.1 创建 API 密钥
 
@@ -627,9 +717,9 @@ Authorization: Bearer <token>
 
 ---
 
-### 七、管理员 API (需 Admin 角色)
+### 八、管理员 API (需 Admin 角色)
 
-#### 7.1 用户管理
+#### 8.1 用户管理
 
 ##### 获取用户列表
 
@@ -679,7 +769,7 @@ POST /api/admin/users/:id/enable
 Authorization: Bearer <admin_token>
 ```
 
-#### 7.2 用户组管理
+#### 8.2 用户组管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -701,7 +791,7 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-#### 7.3 域名管理
+#### 8.3 域名管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -720,7 +810,7 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-#### 7.4 模板管理
+#### 8.4 模板管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -740,7 +830,7 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-#### 7.5 站点配置管理
+#### 8.5 站点配置管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -775,7 +865,7 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-#### 7.6 仪表盘统计
+#### 8.6 仪表盘统计
 
 ##### 获取管理员统计摘要
 
@@ -805,7 +895,7 @@ GET /api/admin/dashboard/trends?days=30
 Authorization: Bearer <admin_token>
 ```
 
-#### 7.7 审计日志查询
+#### 8.7 审计日志查询
 
 ```http
 GET /api/admin/audit-logs?page=1&page_size=20&actor_id=1&action=link.create
@@ -830,14 +920,99 @@ Authorization: Bearer <admin_token>
 - `group.create/update/delete`
 - `template.create/update/delete`
 
+#### 8.8 管理员链接管理
+
+##### 8.8.1 获取所有短链接
+
+```http
+GET /api/admin/links?page=1&page_size=20&domain_id=1&status=active&user_id=1
+Authorization: Bearer <admin_token>
+```
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | int | 否 | 页码，默认 1 |
+| page_size | int | 否 | 每页数量，默认 20 |
+| domain_id | int | 否 | 筛选指定域名的链接 |
+| status | string | 否 | 筛选状态：active/expired/disabled |
+| user_id | int | 否 | 筛选指定用户的链接 |
+
+**响应示例**:
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "code": "abc123",
+        "original_url": "https://example.com",
+        "domain_id": 1,
+        "user_id": 1,
+        "title": "示例链接",
+        "clicks": 100,
+        "status": "active",
+        "created_at": "2024-01-01T00:00:00Z"
+      }
+    ],
+    "total": 100,
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
+
+##### 8.8.2 更新短链接（管理员）
+
+```http
+PUT /api/admin/links/:id
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "original_url": "https://new-example.com",
+  "title": "新标题",
+  "status": "disabled",
+  "expires_at": "2024-12-31T23:59:59Z"
+}
+```
+
+**请求体**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| original_url | string | 否 | 目标 URL |
+| title | string | 否 | 链接标题 |
+| status | string | 否 | 状态：active/disabled |
+| expires_at | datetime | 否 | 过期时间 |
+
+##### 8.8.3 删除短链接（管理员）
+
+```http
+DELETE /api/admin/links/:id
+Authorization: Bearer <admin_token>
+```
+
+**响应**:
+```json
+{
+  "code": 0,
+  "message": "success"
+}
+```
+
 ---
 
-### 八、短链接跳转
+
+### 九、短链接跳转
 
 #### 8.1 访问短链接
 
 ```http
-GET /:code
+GET /r/:code
 ```
 
 - 返回 `302` 重定向到目标 URL

@@ -327,38 +327,6 @@
 					}
 				},
 				{
-					"name": "更新用户资料",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"nickname\": \"我的昵称\",\n    \"bio\": \"个人简介\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/user/profile",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"user",
-								"profile"
-							]
-						},
-						"description": "更新当前用户的个人信息"
-					}
-				},
-				{
 					"name": "获取用户配额状态",
 					"request": {
 						"method": "GET",
@@ -668,13 +636,13 @@
 							"raw": "{\n    \"name\": \"我的应用\",\n    \"expires_in\": 2592000\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/api-keys",
+							"raw": "{{baseUrl}}/api/apikeys",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"api",
-								"api-keys"
+								"apikeys"
 							]
 						},
 						"description": "创建新的API密钥用于接口调用。expires_in 为秒数，0 表示永久"
@@ -691,13 +659,13 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/api-keys",
+							"raw": "{{baseUrl}}/api/apikeys",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"api",
-								"api-keys"
+								"apikeys"
 							]
 						},
 						"description": "获取当前用户的所有API密钥"
@@ -720,7 +688,7 @@
 							],
 							"path": [
 								"api",
-								"api-keys",
+								"apikeys",
 								"1"
 							]
 						},
