@@ -446,18 +446,218 @@ function ApiDocModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
               <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.light', color: 'primary.main', mr: 1 }}>
                 3
               </Box>
-              请求体示例
+              请求体参数
+            </Typography>
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>参数名</TableCell>
+                    <TableCell>类型</TableCell>
+                    <TableCell>必填</TableCell>
+                    <TableCell>说明</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  <TableRow>
+                    <TableCell><Box component="code" sx={{ fontFamily: 'monospace' }}>url</Box></TableCell>
+                    <TableCell>string</TableCell>
+                    <TableCell>是</TableCell>
+                    <TableCell>目标URL（需以http://或https://开头）</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell><Box component="code" sx={{ fontFamily: 'monospace' }}>code</Box></TableCell>
+                    <TableCell>string</TableCell>
+                    <TableCell>否</TableCell>
+                    <TableCell>自定义短码（留空自动生成）</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell><Box component="code" sx={{ fontFamily: 'monospace' }}>title</Box></TableCell>
+                    <TableCell>string</TableCell>
+                    <TableCell>否</TableCell>
+                    <TableCell>链接标题</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell><Box component="code" sx={{ fontFamily: 'monospace' }}>expires_at</Box></TableCell>
+                    <TableCell>datetime</TableCell>
+                    <TableCell>否</TableCell>
+                    <TableCell>过期时间（ISO 8601格式）</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+
+          {/* 请求体示例 */}
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.light', color: 'primary.main', mr: 1 }}>
+                4
+              </Box>
+              请求示例
             </Typography>
             <Box component="pre" sx={{ bgcolor: 'grey.900', color: 'success.light', p: 2, borderRadius: 1, overflowX: 'auto', fontSize: '0.75rem' }}>
-              {'{\n  "url": "https://www.example.com",\n  "code": "custom123",\n  "title": "示例标题",\n  "expires_at": "2025-12-31T23:59:59Z"\n}'}
+{`curl -X POST https://your-domain.com/api/v1/shorten \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: your_api_key_here" \\
+  -H "X-Signature: calculated_signature" \\
+  -H "X-Timestamp: 1704067200" \\
+  -H "X-Nonce: random_string_here" \\
+  -d '{
+    "url": "https://www.example.com/very/long/url",
+    "code": "custom123",
+    "title": "我的短链接",
+    "expires_at": "2025-12-31T23:59:59Z"
+  }'`}
             </Box>
           </Box>
 
-          {/* 代码示例和返回结果等更多内容... */}
+          {/* 签名计算 */}
           <Box>
-            <Alert severity="info">
-              完整的API文档请参考项目文档或联系管理员。
-            </Alert>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.light', color: 'primary.main', mr: 1 }}>
+                5
+              </Box>
+              签名计算方法
+            </Typography>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Stack spacing={2}>
+                <Typography variant="body2">
+                  签名计算公式：
+                </Typography>
+                <Box component="pre" sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, overflowX: 'auto', fontSize: '0.75rem', my: 1 }}>
+{`signature = HMAC-SHA256(api_secret, timestamp + method + path + body)`}
+                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  各参数说明：
+                </Typography>
+                <Box component="ul" sx={{ pl: 2, m: 0, fontSize: '0.8rem' }}>
+                  <Typography component="li" variant="body2">api_secret：创建密钥时返回的 Secret（只显示一次）</Typography>
+                  <Typography component="li" variant="body2">timestamp：X-Timestamp 请求头的值</Typography>
+                  <Typography component="li" variant="body2">method：HTTP方法，大写，如 "POST"</Typography>
+                  <Typography component="li" variant="body2">path：请求路径，如 "/api/v1/shorten"</Typography>
+                  <Typography component="li" variant="body2">body：请求体的JSON字符串（不进行格式化）</Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Box>
+
+          {/* 代码示例 */}
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', bg: 'primary.light', color: 'primary.main', mr: 1 }}>
+                6
+              </Box>
+              代码示例
+            </Typography>
+            <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary" gutterBottom>
+                Go 语言示例
+              </Typography>
+              <Box component="pre" sx={{ bgcolor: 'grey.900', color: 'success.light', p: 2, borderRadius: 1, overflowX: 'auto', fontSize: '0.7rem', mt: 1 }}>
+{`import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+    "strconv"
+    "strings"
+    "time"
+)
+
+type ShortenRequest struct {
+    URL       string \`json:"url"\`
+    Code      string \`json:"code,omitempty"\`
+    Title     string \`json:"title,omitempty"\`
+    ExpiresAt string \`json:"expires_at,omitempty"\`
+}
+
+type ShortenResponse struct {
+    Code       string \`json:"code"\`
+    ShortURL   string \`json:"short_url"\`
+    OriginalURL string \`json:"original_url"\`
+}
+
+func CreateShortURL(apiKey, apiSecret, url string) (*ShortenResponse, error) {
+    // 准备请求体
+    reqBody := ShortenRequest{URL: url}
+    bodyJSON, _ := json.Marshal(reqBody)
+    bodyStr := string(bodyJSON)
+
+    // 生成时间戳和随机数
+    timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+    nonce := generateNonce(16)
+
+    // 计算签名
+    data := timestamp + "POST" + "/api/v1/shorten" + bodyStr
+    h := hmac.New(sha256.New, []byte(apiSecret))
+    h.Write([]byte(data))
+    signature := hex.EncodeToString(h.Sum(nil))
+
+    // 发送请求
+    req, _ := http.NewRequest("POST", "https://your-domain.com/api/v1/shorten",
+        strings.NewReader(bodyStr))
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("X-API-Key", apiKey)
+    req.Header.Set("X-Signature", signature)
+    req.Header.Set("X-Timestamp", timestamp)
+    req.Header.Set("X-Nonce", nonce)
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    // ... 处理响应
+}
+
+func generateNonce(length int) string {
+    const charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    b := make([]byte, length)
+    for i := range b {
+        b[i] = charset[rand.Intn(len(charset))]
+    }
+    return string(b)
+}`}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* 响应示例 */}
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.light', color: 'primary.main', mr: 1 }}>
+                7
+              </Box>
+              响应示例
+            </Typography>
+            <Stack spacing={2}>
+              <Typography variant="body2" fontWeight={500}>成功响应：</Typography>
+              <Box component="pre" sx={{ bgcolor: 'success.light', color: 'success.dark', p: 2, borderRadius: 1, overflowX: 'auto', fontSize: '0.75rem' }}>
+{`{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "code": "abc123",
+    "short_url": "https://your-domain.com/r/abc123",
+    "original_url": "https://www.example.com/very/long/url"
+  }
+}`}
+              </Box>
+              <Typography variant="body2" fontWeight={500}>错误响应：</Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>状态码</TableCell>
+                      <TableCell>说明</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow><TableCell>401</TableCell><TableCell>签名验证失败</TableCell></TableRow>
+                    <TableRow><TableCell>403</TableCell><TableCell>API密钥无效或已禁用</TableCell></TableRow>
+                    <TableRow><TableCell>429</TableCell><TableCell>请求频率超限</TableCell></TableRow>
+                    <TableRow><TableCell>400</TableCell><TableCell>请求参数错误</TableCell></TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Stack>
           </Box>
         </Stack>
       </Box>
