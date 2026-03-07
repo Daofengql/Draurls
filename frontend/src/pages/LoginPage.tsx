@@ -1,5 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Alert,
+  Container,
+  Stack,
+} from '@mui/material'
 import { useAuthStore } from '@/store/auth'
 import { authService } from '@/services/auth'
 import { usersService } from '@/services/users'
@@ -21,27 +31,20 @@ export default function LoginPage() {
     setError('')
 
     try {
-      // 获取登录 URL 并打开弹窗
       const success = await authService.loginWithPopup()
 
       if (success) {
-        // 登录成功，先获取用户信息
         setTimeout(async () => {
           try {
-            // 获取真实用户信息
             const userData = await usersService.getProfile()
             if (userData) {
               setUser(userData)
               navigate('/dashboard')
             } else {
-              // 【前置逻辑说明】
-              // 如果获取不到用户数据，说明登录流程并未真正完成，或者后端的 Token 验证失败。
-              // 此时绝对不能伪造数据放行，必须抛出错误并清理可能残留的登录态。
               throw new Error('无法获取用户信息，请重新登录')
             }
           } catch (err) {
             console.error('获取用户信息失败:', err)
-            // 清理残留状态
             useAuthStore.getState().clearAuth()
             setError('获取用户信息失败，请重试')
           }
@@ -57,37 +60,75 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="card w-full max-w-md">
-        <div className="flex flex-col items-center mb-6">
-          {logoUrl ? (
-            <img src={logoUrl} alt={siteName} className="h-12 mb-4" />
-          ) : (
-            <h1 className="text-2xl font-bold text-blue-600">{siteName}</h1>
-          )}
-          <p className="text-gray-500 text-center">短链接服务</p>
-        </div>
-        <p className="text-gray-500 text-center mb-6">使用 Keycloak 账号登录</p>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+        px: 2,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Card>
+          <CardContent sx={{ p: 4 }}>
+            <Stack spacing={3} alignItems="center">
+              {/* Logo 和 站点名称 */}
+              <Box sx={{ textAlign: 'center', width: '100%' }}>
+                {logoUrl ? (
+                  <Box
+                    component="img"
+                    src={logoUrl}
+                    alt={siteName}
+                    sx={{ height: 48, mb: 2 }}
+                  />
+                ) : (
+                  <Typography variant="h4" color="primary.main" fontWeight={700}>
+                    {siteName}
+                  </Typography>
+                )}
+                <Typography variant="body2" color="text.secondary">
+                  短链接服务
+                </Typography>
+              </Box>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-6">
-            {error}
-          </div>
-        )}
+              {/* 提示信息 */}
+              <Typography variant="body2" color="text.secondary">
+                使用 Keycloak 账号登录
+              </Typography>
 
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full btn btn-primary"
-        >
-          {loading ? '登录中...' : '登录'}
-        </button>
+              {/* 错误提示 */}
+              {error && (
+                <Alert severity="error" sx={{ width: '100%' }}>
+                  {error}
+                </Alert>
+              )}
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>点击登录按钮将打开新窗口</p>
-          <p>登录成功后将自动跳转</p>
-        </div>
-      </div>
-    </div>
+              {/* 登录按钮 */}
+              <Button
+                onClick={handleLogin}
+                disabled={loading}
+                variant="contained"
+                fullWidth
+                size="large"
+              >
+                {loading ? '登录中...' : '登录'}
+              </Button>
+
+              {/* 底部提示 */}
+              <Stack spacing={0.5} sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" textAlign="center">
+                  点击登录按钮将打开新窗口
+                </Typography>
+                <Typography variant="caption" color="text.secondary" textAlign="center">
+                  登录成功后将自动跳转
+                </Typography>
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Container>
+    </Box>
   )
 }

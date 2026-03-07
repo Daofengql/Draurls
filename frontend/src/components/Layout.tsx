@@ -1,5 +1,27 @@
 import { useState } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+  AppBar,
+  Box,
+  Toolbar,
+  Typography,
+  IconButton,
+  Button,
+  Menu,
+  MenuItem,
+  Avatar,
+  Container,
+  Stack,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+} from '@mui/material'
+import {
+  Menu as MenuIcon,
+  Logout,
+  AccountCircle,
+  AdminPanelSettings,
+} from '@mui/icons-material'
 import { useAuthStore } from '@/store/auth'
 import { useSiteConfig } from '@/hooks/useSiteConfig'
 
@@ -11,9 +33,30 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const isAdmin = user?.Role === 'admin'
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileMenuAnchor, setMobileMenuAnchor] = useState<null | HTMLElement>(null)
+  const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null)
+
+  const mobileMenuOpen = Boolean(mobileMenuAnchor)
+  const userMenuOpen = Boolean(userMenuAnchor)
+
+  const handleMobileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMobileMenuAnchor(event.currentTarget)
+  }
+
+  const handleMobileMenuClose = () => {
+    setMobileMenuAnchor(null)
+  }
+
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchor(event.currentTarget)
+  }
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null)
+  }
 
   // 站点配置
   const { config: siteConfig } = useSiteConfig()
@@ -24,175 +67,257 @@ export default function Layout() {
   const siteName = siteConfig.site_name || 'Draurls'
   const logoUrl = siteConfig.logo_url
 
+  const isActive = (path: string) => {
+    if (path === '/admin') {
+      return location.pathname.startsWith('/admin')
+    }
+    return location.pathname === path
+  }
+
+  const handleNav = (path: string) => {
+    navigate(path)
+    handleMobileMenuClose()
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'grey.50' }}>
       {/* 顶部导航 */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4 sm:space-x-8">
+      <AppBar position="sticky" elevation={1} sx={{ bgcolor: '#ffffff', color: 'text.primary', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Container maxWidth="xl">
+          <Toolbar disableGutters>
+            {/* Logo 和 站点名称 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 0, mr: 4 }}>
               {logoUrl ? (
-                <img src={logoUrl} alt={siteName} className="h-7" />
+                <Box
+                  component="img"
+                  src={logoUrl}
+                  alt={siteName}
+                  sx={{ height: 40, cursor: 'pointer' }}
+                  onClick={() => handleNav('/dashboard')}
+                />
               ) : (
-                <h1 className="text-xl font-bold text-blue-600">{siteName}</h1>
+                <Typography
+                  variant="h6"
+                  component="div"
+                  sx={{ color: 'primary.main', fontWeight: 700, cursor: 'pointer', fontSize: '1.5rem' }}
+                  onClick={() => handleNav('/dashboard')}
+                >
+                  {siteName}
+                </Typography>
               )}
-              {/* 桌面端导航 */}
-              <nav className="hidden sm:flex space-x-4">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      location.pathname === item.path
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:text-gray-900'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      location.pathname.startsWith('/admin')
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:text-gray-900'
-                    }`}
-                  >
-                    管理后台
-                  </Link>
-                )}
-              </nav>
-            </div>
+            </Box>
 
-            {/* 桌面端用户信息 */}
-            <div className="hidden sm:flex items-center space-x-4">
-              <Link
-                to="/profile"
-                className="flex items-center space-x-2 hover:bg-gray-50 rounded-lg px-3 py-1.5 transition-colors"
-              >
-                {user?.Picture ? (
-                  <img
-                    src={user.Picture}
-                    alt={displayName}
-                    className="w-8 h-8 rounded-full"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                    {displayName?.charAt(0).toUpperCase() || '?'}
-                  </div>
-                )}
-                <span className="text-sm text-gray-700">{displayName || '加载中...'}</span>
-              </Link>
-              <button
-                onClick={logout}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                退出
-              </button>
-            </div>
-
-            {/* 移动端菜单按钮 */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="sm:hidden p-2 rounded-md text-gray-700 hover:bg-gray-100"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* 移动端导航菜单 */}
-        {mobileMenuOpen && (
-          <div className="sm:hidden border-t bg-white">
-            <div className="px-4 py-3 space-y-2">
+            {/* 桌面端导航 */}
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5, flexGrow: 1 }}>
               {navItems.map((item) => (
-                <Link
+                <Button
                   key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-3 py-2 rounded-md text-sm font-medium ${
-                    location.pathname === item.path
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                  onClick={() => handleNav(item.path)}
+                  color={isActive(item.path) ? 'primary' : 'inherit'}
+                  variant="text"
+                  size="small"
+                  sx={{
+                    borderRadius: 2,
+                    color: isActive(item.path) ? 'primary.main' : 'text.primary',
+                    bgcolor: isActive(item.path) ? 'primary.50' : 'transparent',
+                    fontWeight: isActive(item.path) ? 600 : 400,
+                  }}
                 >
                   {item.label}
-                </Link>
+                </Button>
               ))}
               {isAdmin && (
-                <Link
-                  to="/admin"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-3 py-2 rounded-md text-sm font-medium ${
-                    location.pathname.startsWith('/admin')
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                <Button
+                  onClick={() => handleNav('/admin')}
+                  color={isActive('/admin') ? 'primary' : 'inherit'}
+                  variant="text"
+                  size="small"
+                  startIcon={<AdminPanelSettings fontSize="small" />}
+                  sx={{
+                    borderRadius: 2,
+                    color: isActive('/admin') ? 'primary.main' : 'text.primary',
+                    bgcolor: isActive('/admin') ? 'primary.50' : 'transparent',
+                    fontWeight: isActive('/admin') ? 600 : 400,
+                  }}
                 >
                   管理后台
-                </Link>
+                </Button>
               )}
-              <div className="border-t pt-3 mt-3">
-                <Link
-                  to="/profile"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 mb-2"
-                >
-                  {user?.Picture ? (
-                    <img
-                      src={user.Picture}
-                      alt={displayName}
-                      className="w-8 h-8 rounded-full"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                      {displayName?.charAt(0).toUpperCase() || '?'}
-                    </div>
-                  )}
-                  <span>{displayName || '加载中...'}</span>
-                </Link>
-                <button
-                  onClick={() => {
-                    logout()
-                    setMobileMenuOpen(false)
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  退出
-                </button>
-              </div>
-            </div>
-          </div>
+            </Box>
+
+            {/* 桌面端用户信息 */}
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1 }}>
+              <Button
+                onClick={handleUserMenuOpen}
+                sx={{
+                  borderRadius: 2,
+                  px: 1.5,
+                  py: 0.75,
+                  bgcolor: 'transparent',
+                  color: 'text.primary',
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                {user?.Picture ? (
+                  <Avatar src={user.Picture} alt={displayName} sx={{ width: 32, height: 32, mr: 1 }}>
+                    {displayName?.charAt(0).toUpperCase() || '?'}
+                  </Avatar>
+                ) : (
+                  <Avatar sx={{ width: 32, height: 32, mr: 1, bgcolor: 'primary.main' }}>
+                    {displayName?.charAt(0).toUpperCase() || '?'}
+                  </Avatar>
+                )}
+                <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                  {displayName || '加载中...'}
+                </Typography>
+              </Button>
+
+              <Menu
+                anchorEl={userMenuAnchor}
+                open={userMenuOpen}
+                onClose={handleUserMenuClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                <MenuItem onClick={() => { handleNav('/profile'); handleUserMenuClose() }}>
+                  <ListItemIcon><AccountCircle fontSize="small" /></ListItemIcon>
+                  <ListItemText>个人资料</ListItemText>
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={() => { logout(); handleUserMenuClose() }}>
+                  <ListItemIcon><Logout fontSize="small" /></ListItemIcon>
+                  <ListItemText>退出登录</ListItemText>
+                </MenuItem>
+              </Menu>
+            </Box>
+
+            {/* 移动端菜单按钮 */}
+            <Box sx={{ ml: 'auto', display: { xs: 'flex', sm: 'none' } }}>
+              <IconButton
+                size="large"
+                edge="end"
+                color="inherit"
+                onClick={handleMobileMenuOpen}
+              >
+                <MenuIcon />
+              </IconButton>
+            </Box>
+          </Toolbar>
+        </Container>
+      </AppBar>
+
+      {/* 移动端导航菜单 */}
+      <Menu
+        anchorEl={mobileMenuAnchor}
+        open={mobileMenuOpen}
+        onClose={handleMobileMenuClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        sx={{ display: { sm: 'none' } }}
+        PaperProps={{
+          sx: { width: 280, maxWidth: '100%' },
+        }}
+      >
+        <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            {user?.Picture ? (
+              <Avatar src={user.Picture} alt={displayName} sx={{ width: 40, height: 40 }}>
+                {displayName?.charAt(0).toUpperCase() || '?'}
+              </Avatar>
+            ) : (
+              <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}>
+                {displayName?.charAt(0).toUpperCase() || '?'}
+              </Avatar>
+            )}
+            <Typography variant="subtitle1" fontWeight={500}>
+              {displayName || '加载中...'}
+            </Typography>
+          </Stack>
+        </Box>
+
+        <MenuItem onClick={() => handleNav('/dashboard')} selected={isActive('/dashboard')}>
+          仪表盘
+        </MenuItem>
+        <MenuItem onClick={() => handleNav('/links')} selected={isActive('/links')}>
+          我的链接
+        </MenuItem>
+        <MenuItem onClick={() => handleNav('/api-keys')} selected={isActive('/api-keys')}>
+          API密钥
+        </MenuItem>
+
+        {isAdmin && (
+          <>
+            <Divider />
+            <MenuItem onClick={() => handleNav('/admin')} selected={isActive('/admin')}>
+              <ListItemIcon><AdminPanelSettings fontSize="small" /></ListItemIcon>
+              <ListItemText>管理后台</ListItemText>
+            </MenuItem>
+          </>
         )}
-      </header>
+
+        <Divider />
+
+        <MenuItem onClick={() => { handleNav('/profile'); handleMobileMenuClose() }}>
+          <ListItemIcon><AccountCircle fontSize="small" /></ListItemIcon>
+          <ListItemText>个人资料</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { logout(); handleMobileMenuClose() }}>
+          <ListItemIcon><Logout fontSize="small" /></ListItemIcon>
+          <ListItemText>退出登录</ListItemText>
+        </MenuItem>
+      </Menu>
 
       {/* 主内容区 */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <Outlet />
-      </main>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          px: { xs: 2, sm: 3, lg: 4 },
+          py: { xs: 3, sm: 4 },
+        }}
+      >
+        <Container maxWidth="xl" disableGutters>
+          <Outlet />
+        </Container>
+      </Box>
 
       {/* 页脚备案信息 */}
       {siteConfig.icp_number && (
-        <footer className="mt-auto py-4 text-center text-sm text-gray-500">
-          <a
+        <Box
+          component="footer"
+          sx={{
+            py: 2,
+            textAlign: 'center',
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Box
+            component="a"
             href="http://beian.miit.gov.cn/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 hover:text-gray-700"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              color: 'text.secondary',
+              textDecoration: 'none',
+              '&:hover': { color: 'text.primary' },
+            }}
           >
-            <img src="//oss-fz.silverdragon.cn/loongapisources/picbed/penglong/2023/07/24/202307240118075832.png" alt="" className="w-4 h-4" />
-            {siteConfig.icp_number}
-          </a>
-        </footer>
+            <Box
+              component="img"
+              src="//oss-fz.silverdragon.cn/loongapisources/picbed/penglong/2023/07/24/202307240118075832.png"
+              alt=""
+              sx={{ width: 16, height: 16 }}
+            />
+            <Typography variant="body2" color="inherit">
+              {siteConfig.icp_number}
+            </Typography>
+          </Box>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }

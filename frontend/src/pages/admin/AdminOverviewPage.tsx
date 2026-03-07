@@ -1,8 +1,30 @@
 import { useEffect, useState } from 'react'
 import { dashboardService } from '@/services/admin'
 import type { AdminSummary, TrendData } from '@/types'
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Stack,
+  useTheme,
+  useMediaQuery,
+  Skeleton,
+} from '@mui/material'
+import {
+  TrendingUp,
+  People,
+  Link as LinkIcon,
+  TouchApp,
+  CheckCircle,
+  ArrowUpward,
+  ArrowDownward,
+} from '@mui/icons-material'
 
 export default function AdminOverviewPage() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
   const [summary, setSummary] = useState<AdminSummary | null>(null)
   const [trends, setTrends] = useState<TrendData[]>([])
   const [loading, setLoading] = useState(true)
@@ -13,9 +35,7 @@ export default function AdminOverviewPage() {
       dashboardService.getTrends(30),
     ])
       .then(([summaryData, trendData]) => {
-        // api.ts 拦截器已经返回 data 字段内容
         setSummary(summaryData)
-        // 趋势数据是嵌套在 daily_data 中的
         setTrends(trendData.daily_data || [])
       })
       .catch(console.error)
@@ -27,9 +47,24 @@ export default function AdminOverviewPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <Box
+      sx={{
+        animation: 'fadeIn 0.3s ease-in-out',
+        '@keyframes fadeIn': {
+          from: { opacity: 0 },
+          to: { opacity: 1 },
+        },
+      }}
+    >
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gap: { xs: 2, sm: 3 },
+          mb: { xs: 3, sm: 4 },
+        }}
+      >
         <StatCard
           title="总用户数"
           value={summary?.total_users || 0}
@@ -61,42 +96,55 @@ export default function AdminOverviewPage() {
           icon="active"
           color="orange"
         />
-      </div>
+      </Box>
 
       {/* 趋势图表 */}
       {trends.length > 0 && (
-        <div className="card">
-          <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 mb-4">
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-            </svg>
-            近30天趋势
-          </h2>
-          <div className="h-48 sm:h-64">
-            <TrendChart data={trends} />
-          </div>
-        </div>
+        <Card>
+          <CardContent>
+            <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 3 }}>
+              <TrendingUp color="primary" />
+              <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight="-semibold">
+                近30天趋势
+              </Typography>
+            </Stack>
+            <Box sx={{ height: { xs: 192, sm: 256 } }}>
+              <TrendChart data={trends} />
+            </Box>
+          </CardContent>
+        </Card>
       )}
-    </div>
+    </Box>
   )
 }
 
 // 骨架屏
 function AdminOverviewSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+        gap: 3,
+        mb: 4,
+      }}
+    >
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="card">
-          <div className="skeleton-text h-4 w-20 mb-2" />
-          <div className="skeleton-text h-8 w-24 mb-2" />
-          <div className="skeleton-text h-3 w-32" />
-        </div>
+        <Card key={i}>
+          <CardContent>
+            <Skeleton variant="text" width={80} height={20} sx={{ mb: 1 }} />
+            <Skeleton variant="text" width={96} height={40} sx={{ mb: 1 }} />
+            <Skeleton variant="text" width={128} height={16} />
+          </CardContent>
+        </Card>
       ))}
-      <div className="card lg:col-span-4">
-        <div className="skeleton-text h-6 w-32 mb-4" />
-        <div className="skeleton h-64 w-full" />
-      </div>
-    </div>
+      <Card sx={{ gridColumn: '1 / -1' }}>
+        <CardContent>
+          <Skeleton variant="text" width={128} height={28} sx={{ mb: 2 }} />
+          <Skeleton variant="rectangular" height={256} width="100%" />
+        </CardContent>
+      </Card>
+    </Box>
   )
 }
 
@@ -110,6 +158,16 @@ interface StatCardProps {
   color: 'blue' | 'green' | 'purple' | 'orange'
 }
 
+const colorConfigs: Record<
+  StatCardProps['color'],
+  { bg: string; color: string }
+> = {
+  blue: { bg: 'primary.50', color: 'primary.main' },
+  green: { bg: 'success.50', color: 'success.main' },
+  purple: { bg: 'secondary.50', color: 'secondary.main' },
+  orange: { bg: 'warning.50', color: 'warning.main' },
+}
+
 function StatCard({
   title,
   value,
@@ -119,69 +177,94 @@ function StatCard({
   icon,
   color,
 }: StatCardProps) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    purple: 'bg-purple-50 text-purple-600',
-    orange: 'bg-orange-50 text-orange-600',
-  }
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+  const config = colorConfigs[color]
 
   const icons = {
-    users: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
-    ),
-    links: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-      </svg>
-    ),
-    clicks: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-      </svg>
-    ),
-    active: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
+    users: <People />,
+    links: <LinkIcon />,
+    clicks: <TouchApp />,
+    active: <CheckCircle />,
   }
 
   return (
-    <div className="card hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-gray-500 text-xs sm:text-sm">{title}</h3>
-          <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">
-            {value.toLocaleString()}
-            {suffix}
-          </p>
-          {change !== undefined && changeLabel && (
-            <p className={`text-xs sm:text-sm mt-1.5 sm:mt-2 flex items-center gap-1 ${
-              change > 0 ? 'text-green-600' : change < 0 ? 'text-red-600' : 'text-gray-500'
-            }`}>
-              {change > 0 ? (
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                </svg>
-              ) : change < 0 ? (
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
-              ) : null}
-              <span className="truncate">{change >= 0 ? '+' : ''}{change} {changeLabel}</span>
-            </p>
-          )}
-        </div>
-        <div className={`p-2 sm:p-2.5 rounded-lg ${colorClasses[color]} flex-shrink-0`}>
-          <div className="w-5 h-5 sm:w-7 sm:h-7">
-            {icons[icon]}
-          </div>
-        </div>
-      </div>
-    </div>
+    <Card
+      sx={{
+        height: '100%',
+        transition: 'box-shadow 0.2s',
+        '&:hover': {
+          boxShadow: theme.shadows[4],
+        },
+      }}
+    >
+      <CardContent>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant={isMobile ? 'caption' : 'body2'}
+              color="text.secondary"
+              sx={{ textTransform: 'none' }}
+            >
+              {title}
+            </Typography>
+            <Typography
+              variant={isMobile ? 'h4' : 'h3'}
+              fontWeight="bold"
+              sx={{ mt: { xs: 0.5, sm: 1 } }}
+            >
+              {value.toLocaleString()}
+              {suffix}
+            </Typography>
+            {change !== undefined && changeLabel && (
+              <Stack
+                direction="row"
+                alignItems="center"
+                gap={0.5}
+                sx={{
+                  mt: { xs: 1, sm: 1.5 },
+                  color:
+                    change > 0
+                      ? 'success.main'
+                      : change < 0
+                      ? 'error.main'
+                      : 'text.secondary',
+                }}
+              >
+                {change > 0 ? (
+                  <ArrowUpward sx={{ fontSize: { xs: 14, sm: 16 } }} />
+                ) : change < 0 ? (
+                  <ArrowDownward sx={{ fontSize: { xs: 14, sm: 16 } }} />
+                ) : null}
+                <Typography
+                  variant={isMobile ? 'caption' : 'body2'}
+                  component="span"
+                  sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  {change >= 0 ? '+' : ''}{change} {changeLabel}
+                </Typography>
+              </Stack>
+            )}
+          </Box>
+          <Box
+            sx={{
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: 2,
+              bgcolor: config.bg,
+              color: config.color,
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Box sx={{ fontSize: { xs: 20, sm: 28 } }}>
+              {icons[icon]}
+            </Box>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -216,7 +299,7 @@ function TrendChart({ data }: { data: TrendData[] }) {
     return `${x},${y}`
   }).join(' ')
 
-  // 生成链接数据路径（缩放到同一高度范围，避免差异太大）
+  // 生成链接数据路径
   const linksPath = data.map((item, i) => {
     const x = padding.left + (i / (data.length - 1)) * plotWidth
     const y = padding.top + plotHeight - (item.links / maxValues.links) * plotHeight
@@ -243,8 +326,18 @@ function TrendChart({ data }: { data: TrendData[] }) {
   }))
 
   return (
-    <div className="h-full w-full relative">
-      <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+    <Box
+      sx={{
+        height: '100%',
+        width: '100%',
+        position: 'relative',
+      }}
+    >
+      <svg
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        style={{ width: '100%', height: '100%' }}
+        preserveAspectRatio="xMidYMid meet"
+      >
         {/* Y轴标签 */}
         {yAxisTicks.map((tick, i) => (
           <text
@@ -252,7 +345,8 @@ function TrendChart({ data }: { data: TrendData[] }) {
             x={padding.left - 8}
             y={tick.y + 4}
             textAnchor="end"
-            className="fill-gray-400 text-xs"
+            fill="#9ca3af"
+            fontSize="12"
           >
             {tick.label}
           </text>
@@ -295,7 +389,9 @@ function TrendChart({ data }: { data: TrendData[] }) {
             cy={point.y}
             r="4"
             fill="#3b82f6"
-            className="hover:r-5 transition-all cursor-pointer"
+            style={{ transition: 'r 0.2s', cursor: 'pointer' }}
+            onMouseEnter={(e) => e.currentTarget.setAttribute('r', '6')}
+            onMouseLeave={(e) => e.currentTarget.setAttribute('r', '4')}
           />
         ))}
 
@@ -307,40 +403,97 @@ function TrendChart({ data }: { data: TrendData[] }) {
             cy={point.y}
             r="4"
             fill="#22c55e"
-            className="hover:r-5 transition-all cursor-pointer"
+            style={{ transition: 'r 0.2s', cursor: 'pointer' }}
+            onMouseEnter={(e) => e.currentTarget.setAttribute('r', '6')}
+            onMouseLeave={(e) => e.currentTarget.setAttribute('r', '4')}
           />
         ))}
       </svg>
 
       {/* 图例 - 右上角 */}
-      <div className="absolute top-0 right-0 flex gap-4 text-xs bg-white/80 px-2 py-1 rounded">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-          <span className="text-gray-600">点击数</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-          <span className="text-gray-600">链接数</span>
-        </div>
-      </div>
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          display: 'flex',
+          gap: 2,
+          fontSize: '0.75rem',
+          bgcolor: 'rgba(255, 255, 255, 0.8)',
+          px: 1,
+          py: 0.5,
+          borderRadius: 1,
+        }}
+      >
+        <Stack direction="row" alignItems="center" gap={0.75}>
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
+              bgcolor: 'primary.main',
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            点击数
+          </Typography>
+        </Stack>
+        <Stack direction="row" alignItems="center" gap={0.75}>
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
+              bgcolor: 'success.main',
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            链接数
+          </Typography>
+        </Stack>
+      </Box>
 
       {/* 悬停提示 */}
       {data.map((item, i) => (
-        <div
+        <Box
           key={i}
-          className="absolute inset-0 group"
-          style={{
+          sx={{
+            position: 'absolute',
+            inset: 0,
             left: `${((i / (data.length - 1)) * plotWidth / svgWidth) * 100}%`,
             width: `${(plotWidth / (data.length - 1) / svgWidth) * 100}%`,
             top: 0,
-            height: '100%'
+            height: '100%',
+            '&:hover .tooltip': {
+              opacity: 1,
+            },
           }}
         >
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+          <Box
+            className="tooltip"
+            sx={{
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              mb: 0.5,
+              px: 1,
+              py: 0.5,
+              bgcolor: 'grey.800',
+              color: 'white',
+              fontSize: '0.75rem',
+              borderRadius: 0.5,
+              opacity: 0,
+              transition: 'opacity 0.2s',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              zIndex: 10,
+            }}
+          >
             {formatDate(item.date)}: {item.links} 链接, {item.clicks} 点击
-          </div>
-        </div>
+          </Box>
+        </Box>
       ))}
-    </div>
+    </Box>
   )
 }

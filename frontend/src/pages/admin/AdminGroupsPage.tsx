@@ -329,7 +329,7 @@ export default function AdminGroupsPage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingGroup ? '编辑用户组' : '创建用户组'}
-        size="medium"
+        size="md"
         footer={
           <div className="flex justify-end gap-3">
             <button

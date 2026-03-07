@@ -1,4 +1,14 @@
-import { ReactNode, useEffect } from 'react'
+import { ReactNode } from 'react'
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Box,
+  Breakpoint,
+} from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
 
 interface ModalProps {
   isOpen: boolean
@@ -6,62 +16,73 @@ interface ModalProps {
   title: string | ReactNode
   children: ReactNode
   footer?: ReactNode
-  size?: 'small' | 'medium' | 'large'
+  size?: Breakpoint
 }
 
-export default function Modal({ isOpen, onClose, title, children, footer, size = 'medium' }: ModalProps) {
-  // 防止背景滚动
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  const sizeClasses = {
-    small: 'max-w-sm w-full',
-    medium: 'max-w-lg w-full',
-    large: 'max-w-3xl w-full',
-  }
-
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+}: ModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div
-        className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col animate-fade-in`}
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth={size}
+      fullWidth
+      PaperProps={{
+        sx: {
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2,
+          py: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
       >
-        {/* 头部 */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b flex-shrink-0">
-          <h2 className="text-lg sm:text-xl font-semibold">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded p-1 transition-colors"
-            aria-label="关闭"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <DialogTitle sx={{ p: 0, fontSize: '1.25rem', fontWeight: 600 }}>
+          {title}
+        </DialogTitle>
+        <IconButton onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
+      </Box>
 
-        {/* 内容 */}
-        <div className="px-4 sm:px-6 py-4 overflow-y-auto flex-1">{children}</div>
+      <DialogContent
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          p: 2,
+        }}
+      >
+        {children}
+      </DialogContent>
 
-        {/* 底部 */}
-        {footer && (
-          <div className="px-4 sm:px-6 py-4 border-t bg-gray-50 flex-shrink-0">
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-3 gap-2">
-              {footer}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+      {footer && (
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1,
+            borderTop: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.default',
+          }}
+        >
+          {footer}
+        </DialogActions>
+      )}
+    </Dialog>
   )
 }

@@ -388,7 +388,7 @@ export default function AdminLinksPage() {
         isOpen={!!editLink}
         onClose={() => setEditLink(null)}
         title="编辑短链接"
-        size="medium"
+        size="md"
         footer={
           <div className="flex justify-end gap-3">
             <button

@@ -307,7 +307,7 @@ export default function AdminDomainsPage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingDomain ? '编辑域名' : '添加域名'}
-        size="medium"
+        size="md"
         footer={
           <div className="flex justify-end gap-3">
             <button

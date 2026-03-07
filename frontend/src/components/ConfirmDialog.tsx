@@ -1,3 +1,17 @@
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+} from '@mui/material'
+import {
+  Error as ErrorIcon,
+  Warning as WarningIcon,
+  Info as InfoIcon,
+} from '@mui/icons-material'
+
 interface ConfirmDialogProps {
   isOpen: boolean
   title: string
@@ -7,6 +21,21 @@ interface ConfirmDialogProps {
   onConfirm: () => void
   onCancel: () => void
   type?: 'danger' | 'warning' | 'info'
+}
+
+const typeConfig = {
+  danger: {
+    icon: <ErrorIcon fontSize="large" color="error" />,
+    color: 'error' as const,
+  },
+  warning: {
+    icon: <WarningIcon fontSize="large" color="warning" />,
+    color: 'warning' as const,
+  },
+  info: {
+    icon: <InfoIcon fontSize="large" color="info" />,
+    color: 'primary' as const,
+  },
 }
 
 export default function ConfirmDialog({
@@ -19,35 +48,30 @@ export default function ConfirmDialog({
   onCancel,
   type = 'info',
 }: ConfirmDialogProps) {
-  if (!isOpen) return null
-
-  const typeStyles = {
-    danger: 'bg-red-600 hover:bg-red-700',
-    warning: 'bg-yellow-600 hover:bg-yellow-700',
-    info: 'bg-blue-600 hover:bg-blue-700',
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-0 sm:mx-4 p-4 sm:p-6 animate-fade-in">
-        <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">{title}</h2>
-        <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">{message}</p>
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
-          <button
-            onClick={onCancel}
-            className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 text-white rounded-md transition-colors ${typeStyles[type]}`}
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Dialog open={isOpen} onClose={onCancel} maxWidth="sm" fullWidth>
+      <Box sx={{ textAlign: 'center', pt: 3, pb: 1 }}>
+        {typeConfig[type].icon}
+      </Box>
+      <DialogTitle sx={{ textAlign: 'center', fontSize: '1.25rem', fontWeight: 600 }}>
+        {title}
+      </DialogTitle>
+      <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
+        {message}
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: 'center', pb: 3, gap: 1 }}>
+        <Button onClick={onCancel} variant="outlined" size="small">
+          {cancelText}
+        </Button>
+        <Button
+          onClick={onConfirm}
+          variant="contained"
+          color={typeConfig[type].color}
+          size="small"
+        >
+          {confirmText}
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }

@@ -189,7 +189,7 @@ export default function AdminTemplatesPage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingTemplate ? '编辑模板' : '创建模板'}
-        size="large"
+        size="lg"
         footer={
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             {!editingTemplate && (
@@ -269,7 +269,7 @@ export default function AdminTemplatesPage() {
         isOpen={!!previewTemplate}
         onClose={() => setPreviewTemplate(null)}
         title="模板预览"
-        size="large"
+        size="lg"
         footer={
           <div className="flex justify-end">
             <button

@@ -1,3 +1,19 @@
+import {
+  Box,
+  Typography,
+  IconButton,
+  Button,
+  Stack,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material'
+import {
+  KeyboardArrowLeft,
+  KeyboardArrowRight,
+  KeyboardDoubleArrowLeft,
+  KeyboardDoubleArrowRight,
+} from '@mui/icons-material'
+
 interface PaginationProps {
   currentPage: number
   totalPages: number
@@ -13,12 +29,15 @@ export default function Pagination({
   pageSize,
   onPageChange,
 }: PaginationProps) {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
   const startItem = (currentPage - 1) * pageSize + 1
   const endItem = Math.min(currentPage * pageSize, total)
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = []
-    const showPages = 5 // 显示的页码数量
+    const showPages = 5
 
     if (totalPages <= showPages) {
       for (let i = 1; i <= totalPages; i++) {
@@ -40,40 +59,79 @@ export default function Pagination({
   if (totalPages <= 1) return null
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
-      <div className="text-sm text-gray-600 text-center sm:text-left">
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { sm: 'center' },
+        justifyContent: 'space-between',
+        gap: 2,
+        mt: 3,
+      }}
+    >
+      <Typography variant="body2" color="text.secondary">
         显示 {startItem} - {endItem} 条，共 {total} 条
-      </div>
-      <div className="flex items-center justify-center gap-1 flex-wrap">
-        <button
+      </Typography>
+
+      <Stack spacing={1} direction="row" alignItems="center" flexWrap="wrap" justifyContent="center">
+        <IconButton
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          size="small"
+          title="第一页"
+        >
+          <KeyboardDoubleArrowLeft fontSize="small" />
+        </IconButton>
+
+        <Button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-3 py-2 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          startIcon={<KeyboardArrowLeft />}
+          size="small"
+          variant="outlined"
         >
-          上一页
-        </button>
+          {isMobile ? '' : '上一页'}
+        </Button>
+
         {getPageNumbers().map((page, i) => (
-          <button
+          <Button
             key={i}
             onClick={() => typeof page === 'number' && onPageChange(page)}
             disabled={page === '...'}
-            className={`px-3 py-2 border rounded min-w-[2.5rem] text-sm ${
-              page === currentPage
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'hover:bg-gray-50'
-            } ${page === '...' ? 'cursor-default' : ''}`}
+            variant={page === currentPage ? 'contained' : 'outlined'}
+            size="small"
+            sx={{
+              minWidth: 40,
+              ...(page === '...' && {
+                border: 'none',
+                cursor: 'default',
+                '&:hover': { bgcolor: 'transparent' },
+              }),
+            }}
           >
             {page}
-          </button>
+          </Button>
         ))}
-        <button
+
+        <Button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="px-3 py-2 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          endIcon={<KeyboardArrowRight />}
+          size="small"
+          variant="outlined"
         >
-          下一页
-        </button>
-      </div>
-    </div>
+          {isMobile ? '' : '下一页'}
+        </Button>
+
+        <IconButton
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          size="small"
+          title="最后一页"
+        >
+          <KeyboardDoubleArrowRight fontSize="small" />
+        </IconButton>
+      </Stack>
+    </Box>
   )
 }

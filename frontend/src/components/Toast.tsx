@@ -1,4 +1,11 @@
 import { useEffect, useState } from 'react'
+import {
+  Alert,
+  Box,
+  IconButton,
+  Collapse,
+} from '@mui/material'
+import { Close, CheckCircle, Error, Warning, Info } from '@mui/icons-material'
 
 interface Toast {
   id: number
@@ -15,15 +22,11 @@ const notifyListeners = () => {
 }
 
 export const toast = {
-  // 【前置逻辑说明】
-  // 封装一个通用的 add 方法，在将 toast 推入数组的同时，
-  // 启动一个 3 秒的定时器，时间到了自动调用 remove 方法清除对应的 toast。
   add: (message: string, type: Toast['type']) => {
     const id = toastId++
     toasts.push({ id, message, type })
     notifyListeners()
 
-    // 3秒后自动销毁
     setTimeout(() => {
       toast.remove(id)
     }, 3000)
@@ -39,6 +42,25 @@ export const toast = {
   },
 }
 
+const typeConfig = {
+  success: {
+    icon: <CheckCircle fontSize="inherit" />,
+    severity: 'success' as const,
+  },
+  error: {
+    icon: <Error fontSize="inherit" />,
+    severity: 'error' as const,
+  },
+  warning: {
+    icon: <Warning fontSize="inherit" />,
+    severity: 'warning' as const,
+  },
+  info: {
+    icon: <Info fontSize="inherit" />,
+    severity: 'info' as const,
+  },
+}
+
 export default function ToastContainer() {
   const [toastList, setToastList] = useState<Toast[]>([])
 
@@ -51,29 +73,39 @@ export default function ToastContainer() {
     }
   }, [])
 
-  const typeStyles = {
-    success: 'bg-green-500',
-    error: 'bg-red-500',
-    warning: 'bg-yellow-500',
-    info: 'bg-blue-500',
-  }
-
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <Box
+      sx={{
+        position: 'fixed',
+        top: { xs: 12, sm: 16 },
+        right: { xs: 12, sm: 16 },
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        maxWidth: { xs: 'calc(100vw - 24px)', sm: 400 },
+      }}
+    >
       {toastList.map((t) => (
-        <div
-          key={t.id}
-          className={`${typeStyles[t.type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-fade-in`}
-        >
-          <span>{t.message}</span>
-          <button
-            onClick={() => toast.remove(t.id)}
-            className="text-white hover:text-gray-200"
+        <Collapse key={t.id} in>
+          <Alert
+            severity={typeConfig[t.type].severity}
+            icon={typeConfig[t.type].icon}
+            action={
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={() => toast.remove(t.id)}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            }
+            sx={{ boxShadow: 2 }}
           >
-            &times;
-          </button>
-        </div>
+            {t.message}
+          </Alert>
+        </Collapse>
       ))}
-    </div>
+    </Box>
   )
 }

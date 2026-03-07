@@ -10,6 +10,58 @@ import Modal from '@/components/Modal'
 import { toast } from '@/components/Toast'
 import { formatDateTime, truncate } from '@/utils/format'
 import { HelpModal } from '@/components/HelpTooltip'
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
+  IconButton,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Card,
+  CardContent,
+  Link,
+  Tooltip,
+  CircularProgress,
+  Alert,
+  ChipProps,
+} from '@mui/material'
+import {
+  Add,
+  Help,
+  Edit,
+  Delete,
+  ContentCopy,
+} from '@mui/icons-material'
+
+const getStatusProps = (status: string): ChipProps['color'] => {
+  const props: Record<string, ChipProps['color']> = {
+    active: 'success',
+    disabled: 'error',
+    expired: 'default',
+  }
+  return props[status] || 'default'
+}
+
+const getStatusLabel = (status: string): string => {
+  const labels: Record<string, string> = {
+    active: '正常',
+    disabled: '禁用',
+    expired: '过期',
+  }
+  return labels[status] || '未知'
+}
 
 export default function LinksPage() {
   const [links, setLinks] = useState<ShortLink[]>([])
@@ -32,7 +84,12 @@ export default function LinksPage() {
 
   // 编辑弹窗
   const [editLink, setEditLink] = useState<ShortLink | null>(null)
-  const [editForm, setEditForm] = useState({ title: '', url: '', status: 'active', template_id: null as number | null })
+  const [editForm, setEditForm] = useState({
+    title: '',
+    url: '',
+    status: 'active',
+    template_id: null as number | null
+  })
 
   // 统计弹窗
   const [statsLink, setStatsLink] = useState<ShortLink | null>(null)
@@ -44,7 +101,6 @@ export default function LinksPage() {
   // 帮助文档弹窗
   const [showHelpModal, setShowHelpModal] = useState(false)
 
-  // 加载域名列表和站点配置
   useEffect(() => {
     domainsService.listUser().then((data) => {
       setDomains(data || [])
@@ -53,24 +109,27 @@ export default function LinksPage() {
       }
     }).catch(console.error)
 
-    // 加载站点配置
     configService.get().then((config) => {
       setSiteConfig(config as SiteConfig)
     }).catch(console.error)
 
-    // 加载模板列表
     configService.getTemplates().then((data) => {
       setTemplates(data || [])
+      // 默认选中默认模板
+      if (data && data.length > 0) {
+        const defaultTemplate = data.find((t) => t.IsDefault)
+        if (defaultTemplate) {
+          setSelectedTemplate(defaultTemplate.ID)
+        }
+      }
     }).catch(console.error)
   }, [])
 
-  // 加载链接列表
   const loadLinks = () => {
     setLoading(true)
     linksService
       .list({ page, page_size: pageSize })
       .then((res) => {
-        console.log('Links received:', res)
         setLinks(res.data || [])
         setTotal(res.total || 0)
       })
@@ -85,7 +144,6 @@ export default function LinksPage() {
     loadLinks()
   }, [page])
 
-  // 创建短链接
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
@@ -112,7 +170,6 @@ export default function LinksPage() {
     }
   }
 
-  // 打开编辑弹窗
   const openEditModal = async (link: ShortLink) => {
     setEditLink(link)
     setEditForm({
@@ -123,7 +180,6 @@ export default function LinksPage() {
     })
   }
 
-  // 保存编辑
   const handleSaveEdit = async () => {
     if (!editLink) return
 
@@ -142,7 +198,6 @@ export default function LinksPage() {
     }
   }
 
-  // 查看统计
   const viewStats = async (link: ShortLink) => {
     setStatsLink(link)
     try {
@@ -153,7 +208,6 @@ export default function LinksPage() {
     }
   }
 
-  // 删除链接
   const handleDelete = async () => {
     if (!deleteConfirm) return
 
@@ -167,7 +221,6 @@ export default function LinksPage() {
     }
   }
 
-  // 获取链接的完整URL
   const getFullUrl = (link: ShortLink) => {
     const domain = domains.find((d) => d.ID === link.DomainID) || domains[0]
     if (domain) {
@@ -177,209 +230,216 @@ export default function LinksPage() {
     return `/r/${link.Code}`
   }
 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      active: 'bg-green-100 text-green-800',
-      disabled: 'bg-red-100 text-red-800',
-      expired: 'bg-gray-100 text-gray-800',
-    }
-    const labels: Record<string, string> = {
-      active: '正常',
-      disabled: '禁用',
-      expired: '过期',
-    }
-    const style = styles[status] || 'bg-gray-100 text-gray-800'
-    const label = labels[status] || '未知'
+  const renderMobileCard = (link: ShortLink) => {
+    const fullUrl = getFullUrl(link)
     return (
-      <span className={`px-2 py-1 rounded text-xs ${style}`}>
-        {label}
-      </span>
+      <Card key={link.ID} sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+              <Link
+                href={fullUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+                color="primary"
+                fontWeight={500}
+                sx={{ flex: 1, minWidth: 0 }}
+              >
+                {fullUrl}
+              </Link>
+              <Stack direction="row" spacing={0.5}>
+                <CopyButton text={fullUrl}>
+                  <IconButton size="small"><ContentCopy fontSize="small" /></IconButton>
+                </CopyButton>
+                <IconButton size="small" color="success" onClick={() => openEditModal(link)}>
+                  <Edit fontSize="small" />
+                </IconButton>
+                <IconButton size="small" color="error" onClick={() => setDeleteConfirm(link)}>
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Stack>
+            </Stack>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                目标URL
+              </Typography>
+              <Typography variant="body2" color="text.primary" noWrap title={link.URL}>
+                {truncate(link.URL, 60)}
+              </Typography>
+            </Box>
+
+            {link.Title && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  标题
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  {link.Title}
+                </Typography>
+              </Box>
+            )}
+
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip label={getStatusLabel(link.Status)} color={getStatusProps(link.Status)} size="small" />
+              <Typography variant="caption" color="text.secondary">
+                {formatDateTime(link.CreatedAt)}
+              </Typography>
+            </Stack>
+
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  点击数
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color="primary"
+                  fontWeight={500}
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => viewStats(link)}
+                >
+                  {link.ClickCount}
+                </Typography>
+              </Box>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderTableRow = (link: ShortLink) => {
+    const fullUrl = getFullUrl(link)
+    return (
+      <TableRow key={link.ID} hover>
+        <TableCell>
+          <Link
+            href={fullUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            underline="hover"
+            color="primary"
+            fontWeight={500}
+          >
+            {fullUrl}
+          </Link>
+        </TableCell>
+        <TableCell>
+          <Tooltip title={link.URL}>
+            <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 300 }}>
+              {truncate(link.URL, 50)}
+            </Typography>
+          </Tooltip>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.primary">
+            {link.Title || '-'}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Chip label={getStatusLabel(link.Status)} color={getStatusProps(link.Status)} size="small" />
+        </TableCell>
+        <TableCell>
+          <Button
+            size="small"
+            onClick={() => viewStats(link)}
+            sx={{ minWidth: 40, p: 0.5 }}
+          >
+            {link.ClickCount}
+          </Button>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {formatDateTime(link.CreatedAt)}
+          </Typography>
+        </TableCell>
+        <TableCell align="right">
+          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+            <CopyButton text={fullUrl}>
+              <IconButton size="small"><ContentCopy fontSize="small" /></IconButton>
+            </CopyButton>
+            <IconButton size="small" color="success" onClick={() => openEditModal(link)}>
+              <Edit fontSize="small" />
+            </IconButton>
+            <IconButton size="small" color="error" onClick={() => setDeleteConfirm(link)}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Stack>
+        </TableCell>
+      </TableRow>
     )
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">我的链接</h1>
-          <button
-            type="button"
-            onClick={() => setShowHelpModal(true)}
-            className="text-gray-400 hover:text-gray-600 focus:outline-none p-1"
-            title="查看使用说明"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-        <button
+    <Stack spacing={3}>
+      {/* 页面标题 */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Typography variant="h4" fontWeight={700}>
+            我的链接
+          </Typography>
+          <IconButton onClick={() => setShowHelpModal(true)} size="small">
+            <Help color="action" />
+          </IconButton>
+        </Stack>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
           onClick={() => setShowCreateModal(true)}
-          className="btn btn-primary"
         >
           创建短链接
-        </button>
-      </div>
+        </Button>
+      </Stack>
 
       {/* 链接列表 */}
-      <div className="card">
+      <Paper variant="outlined" sx={{ p: 2 }}>
         {loading ? (
-          <div className="text-center py-8 text-gray-500">加载中...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
         ) : links.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p className="mb-4">暂无链接</p>
-            <button
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              暂无链接
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
               onClick={() => setShowCreateModal(true)}
-              className="btn btn-primary"
             >
               创建第一个短链接
-            </button>
-          </div>
+            </Button>
+          </Box>
         ) : (
           <>
             {/* 移动端卡片布局 */}
-            <div className="sm:hidden space-y-4">
-              {links.map((link) => {
-                const fullUrl = getFullUrl(link)
-                return (
-                  <div key={link.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <a
-                        href={fullUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm break-all"
-                      >
-                        {fullUrl}
-                      </a>
-                      {getStatusBadge(link.Status)}
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">目标URL</p>
-                      <p className="text-sm text-gray-600 truncate" title={link.URL}>
-                        {truncate(link.URL, 60)}
-                      </p>
-                    </div>
-                    {link.Title && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">标题</p>
-                        <p className="text-sm text-gray-600">{link.Title}</p>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500">点击数</p>
-                        <button
-                          onClick={() => viewStats(link)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          {link.ClickCount}
-                        </button>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">创建时间</p>
-                        <p className="text-gray-600">{formatDateTime(link.CreatedAt)}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
-                      <CopyButton text={fullUrl} className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded">
-                        复制
-                      </CopyButton>
-                      <button
-                        onClick={() => openEditModal(link)}
-                        className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(link)}
-                        className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              {links.map(renderMobileCard)}
+            </Box>
 
             {/* 桌面端表格布局 */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">短链接</th>
-                    <th className="text-left py-3 px-4">目标URL</th>
-                    <th className="text-left py-3 px-4">标题</th>
-                    <th className="text-left py-3 px-4">状态</th>
-                    <th className="text-left py-3 px-4">点击</th>
-                    <th className="text-left py-3 px-4">创建时间</th>
-                    <th className="text-right py-3 px-4">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {links.map((link) => {
-                    const fullUrl = getFullUrl(link)
-                    return (
-                      <tr key={link.ID} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">
-                          <a
-                            href={fullUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            {fullUrl}
-                          </a>
-                        </td>
-                        <td className="py-3 px-4 max-w-xs">
-                          <p className="text-sm text-gray-500 truncate" title={link.URL}>
-                            {truncate(link.URL, 50)}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {link.Title || '-'}
-                        </td>
-                        <td className="py-3 px-4">{getStatusBadge(link.Status)}</td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => viewStats(link)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            {link.ClickCount}
-                          </button>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-500">
-                          {formatDateTime(link.CreatedAt)}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <CopyButton
-                              text={fullUrl}
-                              className="text-blue-600 hover:text-blue-800 text-sm"
-                            >
-                              复制
-                            </CopyButton>
-                            <button
-                              onClick={() => openEditModal(link)}
-                              className="text-green-600 hover:text-green-800 text-sm"
-                            >
-                              编辑
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(link)}
-                              className="text-red-600 hover:text-red-800 text-sm"
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>短链接</TableCell>
+                      <TableCell>目标URL</TableCell>
+                      <TableCell>标题</TableCell>
+                      <TableCell>状态</TableCell>
+                      <TableCell>点击</TableCell>
+                      <TableCell>创建时间</TableCell>
+                      <TableCell align="right">操作</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {links.map(renderTableRow)}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
 
             <Pagination
               currentPage={page}
@@ -390,126 +450,109 @@ export default function LinksPage() {
             />
           </>
         )}
-      </div>
+      </Paper>
 
       {/* 创建弹窗 */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title={
-          <div className="flex items-center gap-2">
-            创建短链接
-            <button
-              type="button"
-              onClick={() => setShowHelpModal(true)}
-              className="text-gray-400 hover:text-gray-600 focus:outline-none"
-              title="查看使用说明"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography>创建短链接</Typography>
+            <Tooltip title="查看使用说明">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowHelpModal(true)
+                }}
+              >
+                <Help fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         }
-        size="medium"
         footer={
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="btn btn-secondary"
-            >
+          <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Button onClick={() => setShowCreateModal(false)}>
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               form="create-form"
               type="submit"
+              variant="contained"
               disabled={submitting || !url}
-              className="btn btn-primary disabled:bg-gray-300"
             >
               {submitting ? '创建中...' : '创建'}
-            </button>
-          </div>
+            </Button>
+          </Stack>
         }
       >
-        <form id="create-form" onSubmit={handleCreate} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              目标URL <span className="text-red-500">*</span>
-            </label>
-            <input
+        <form id="create-form" onSubmit={handleCreate}>
+          <Stack spacing={2.5}>
+            <TextField
+              label="目标URL"
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/very/long/url"
-              className="input w-full text-sm"
               required
+              fullWidth
+              autoFocus
             />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                自定义短码
-              </label>
-              <input
-                type="text"
+
+            <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField
+                label="自定义短码"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="留空自动生成"
-                className="input w-full text-sm"
+                fullWidth
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                选择域名
-              </label>
-              <select
-                value={selectedDomain}
-                onChange={(e) => setSelectedDomain(Number(e.target.value))}
-                className="input w-full text-sm"
-              >
-                {domains.map((domain) => (
-                  <option key={domain.ID} value={domain.ID}>
-                    {domain.Name} {domain.IsDefault ? '(默认)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              标题
-            </label>
-            <input
-              type="text"
+              <FormControl fullWidth>
+                <InputLabel>选择域名</InputLabel>
+                <Select
+                  value={selectedDomain}
+                  label="选择域名"
+                  onChange={(e) => setSelectedDomain(Number(e.target.value))}
+                >
+                  {domains.map((domain) => (
+                    <MenuItem key={domain.ID} value={domain.ID}>
+                      {domain.Name} {domain.IsDefault ? '(默认)' : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <TextField
+              label="标题"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="链接标题"
-              className="input w-full text-sm"
+              fullWidth
             />
-          </div>
-          {/* 跳转模板选择 - 仅在启用跳转页且允许用户选择时显示 */}
-          {siteConfig?.redirect_page_enabled === 'true' && siteConfig?.allow_user_template === 'true' && templates.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                跳转模板
-              </label>
-              <select
-                value={selectedTemplate || ''}
-                onChange={(e) => setSelectedTemplate(e.target.value ? Number(e.target.value) : null)}
-                className="input w-full text-sm"
-              >
-                <option value="">使用默认模板</option>
-                {templates.map((template) => (
-                  <option key={template.ID} value={template.ID}>
-                    {template.Name} {template.IsDefault ? '(默认)' : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                选择用户访问此链接时显示的跳转页面模板
-              </p>
-            </div>
-          )}
+
+            {siteConfig?.redirect_page_enabled === 'true' && siteConfig?.allow_user_template === 'true' && templates.length > 0 && (
+              <FormControl fullWidth>
+                <InputLabel>跳转模板</InputLabel>
+                <Select
+                  value={selectedTemplate || ''}
+                  label="跳转模板"
+                  onChange={(e) => setSelectedTemplate(Number(e.target.value))}
+                >
+                  {templates.map((template) => (
+                    <MenuItem key={template.ID} value={template.ID}>
+                      {template.Name} {template.IsDefault ? '(默认)' : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                  选择用户访问此链接时显示的跳转页面模板
+                </Typography>
+              </FormControl>
+            )}
+          </Stack>
         </form>
       </Modal>
 
@@ -518,78 +561,59 @@ export default function LinksPage() {
         isOpen={!!editLink}
         onClose={() => setEditLink(null)}
         title="编辑短链接"
-        size="medium"
         footer={
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setEditLink(null)}
-              className="btn btn-secondary"
-            >
+          <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Button onClick={() => setEditLink(null)}>
               取消
-            </button>
-            <button onClick={handleSaveEdit} className="btn btn-primary">
+            </Button>
+            <Button onClick={handleSaveEdit} variant="contained">
               保存
-            </button>
-          </div>
+            </Button>
+          </Stack>
         }
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              目标URL
-            </label>
-            <input
-              type="url"
-              value={editForm.url}
-              onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
-              className="input w-full text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              标题
-            </label>
-            <input
-              type="text"
-              value={editForm.title}
-              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              className="input w-full text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              状态
-            </label>
-            <select
+        <Stack spacing={2.5}>
+          <TextField
+            label="目标URL"
+            type="url"
+            value={editForm.url}
+            onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+            fullWidth
+          />
+          <TextField
+            label="标题"
+            value={editForm.title}
+            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+            fullWidth
+          />
+          <FormControl fullWidth>
+            <InputLabel>状态</InputLabel>
+            <Select
               value={editForm.status}
+              label="状态"
               onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-              className="input w-full text-sm"
             >
-              <option key="active" value="active">正常</option>
-              <option key="disabled" value="disabled">禁用</option>
-            </select>
-          </div>
-          {/* 跳转模板选择 - 仅在启用跳转页且允许用户选择时显示 */}
+              <MenuItem value="active">正常</MenuItem>
+              <MenuItem value="disabled">禁用</MenuItem>
+            </Select>
+          </FormControl>
           {siteConfig?.redirect_page_enabled === 'true' && siteConfig?.allow_user_template === 'true' && templates.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                跳转模板
-              </label>
-              <select
+            <FormControl fullWidth>
+              <InputLabel>跳转模板</InputLabel>
+              <Select
                 value={editForm.template_id || ''}
+                label="跳转模板"
                 onChange={(e) => setEditForm({ ...editForm, template_id: e.target.value ? Number(e.target.value) : null })}
-                className="input w-full text-sm"
               >
-                <option value="">使用默认模板</option>
                 {templates.map((template) => (
-                  <option key={template.ID} value={template.ID}>
+                  <MenuItem key={template.ID} value={template.ID}>
                     {template.Name} {template.IsDefault ? '(默认)' : ''}
-                  </option>
+                  </MenuItem>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormControl>
           )}
-        </div>
+        </Stack>
       </Modal>
 
       {/* 统计弹窗 */}
@@ -598,32 +622,35 @@ export default function LinksPage() {
         onClose={() => setStatsLink(null)}
         title="链接统计"
         footer={
-          <div className="flex justify-end">
-            <button
-              onClick={() => setStatsLink(null)}
-              className="btn btn-primary"
-            >
-              关闭
-            </button>
-          </div>
+          <Button onClick={() => setStatsLink(null)} variant="contained">
+            关闭
+          </Button>
         }
       >
         {statsLink && (
-          <div>
-            <p className="mb-4 text-gray-600">
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
               短链接: <strong>{getFullUrl(statsLink)}</strong>
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">总点击数</p>
-                <p className="text-2xl font-bold text-blue-600">{stats?.click_count || 0}</p>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">独立IP</p>
-                <p className="text-2xl font-bold text-green-600">{stats?.unique_ips || 0}</p>
-              </div>
-            </div>
-          </div>
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Paper variant="outlined" sx={{ p: 3, bgcolor: 'primary.50', flex: 1, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  总点击数
+                </Typography>
+                <Typography variant="h4" color="primary.main" fontWeight={700}>
+                  {stats?.click_count || 0}
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 3, bgcolor: 'success.50', flex: 1, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  独立IP
+                </Typography>
+                <Typography variant="h4" color="success.main" fontWeight={700}>
+                  {stats?.unique_ips || 0}
+                </Typography>
+              </Paper>
+            </Box>
+          </Stack>
         )}
       </Modal>
 
@@ -643,63 +670,91 @@ export default function LinksPage() {
         onClose={() => setShowHelpModal(false)}
         title="创建短链接说明"
       >
-        <div className="space-y-4">
-          <section>
-            <h4 className="font-medium text-gray-900 mb-2">字段说明</h4>
-            <dl className="space-y-2">
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">目标URL *</dt>
-                <dd className="text-sm text-gray-600">需要缩短的长链接，必须以 http:// 或 https:// 开头</dd>
-              </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">自定义短码</dt>
-                <dd className="text-sm text-gray-600">
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              字段说明
+            </Typography>
+            <Stack spacing={2}>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  目标URL *
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  需要缩短的长链接，必须以 http:// 或 https:// 开头
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  自定义短码
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   可选。留空则系统自动生成随机短码。
                   自定义短码建议使用字母、数字组合，便于记忆。
-                </dd>
-              </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">选择域名</dt>
-                <dd className="text-sm text-gray-600">
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  选择域名
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   选择短链接使用的域名。不同域名可以用于不同业务场景。
-                </dd>
-              </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">标题</dt>
-                <dd className="text-sm text-gray-600">
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  标题
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   可选。为链接添加描述性标题，便于后续管理和识别。
-                </dd>
-              </div>
-              <div className="bg-blue-50 p-3 rounded">
-                <dt className="font-medium text-blue-700">跳转模板</dt>
-                <dd className="text-sm text-gray-600">
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'primary.50' }}>
+                <Typography variant="body2" fontWeight={500} color="primary.main" gutterBottom>
+                  跳转模板
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   选择用户访问短链接时显示的跳转页面模板。
                   仅在管理员启用了跳转页面并允许用户选择模板时可用。
                   不同模板可以有不同的视觉风格和提示信息。
-                </dd>
-              </div>
-            </dl>
-          </section>
-          <section>
-            <h4 className="font-medium text-gray-900 mb-2">使用提示</h4>
-            <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-              <li>相同的目标URL会自动复用已有的短链接</li>
-              <li>自定义短码不能与已有短码重复</li>
-              <li>短链接创建后可以随时编辑目标URL和标题</li>
-              <li>如果未选择模板，将使用系统默认跳转模板</li>
-            </ul>
-          </section>
+                </Typography>
+              </Paper>
+            </Stack>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              使用提示
+            </Typography>
+            <Box component="ul" sx={{ pl: 2, m: 0 }}>
+              <Typography component="li" variant="caption" color="text.secondary">
+                相同的目标URL会自动复用已有的短链接
+              </Typography>
+              <Typography component="li" variant="caption" color="text.secondary">
+                自定义短码不能与已有短码重复
+              </Typography>
+              <Typography component="li" variant="caption" color="text.secondary">
+                短链接创建后可以随时编辑目标URL和标题
+              </Typography>
+              <Typography component="li" variant="caption" color="text.secondary">
+                如果未选择模板，将使用系统默认跳转模板
+              </Typography>
+            </Box>
+          </Box>
+
           {siteConfig?.redirect_page_enabled !== 'true' && (
-            <section className="bg-yellow-50 border border-yellow-200 p-3 rounded">
-              <h4 className="font-medium text-yellow-800 mb-1">模板功能未启用</h4>
-              <p className="text-sm text-yellow-700">
+            <Alert severity="warning">
+              <Typography variant="body2" fontWeight={500}>
+                模板功能未启用
+              </Typography>
+              <Typography variant="caption">
                 当前跳转页面功能未启用，模板选择不可用。
                 如需使用，请联系管理员在"站点配置"中启用"跳转页面设置"。
-              </p>
-            </section>
+              </Typography>
+            </Alert>
           )}
-        </div>
+        </Stack>
       </HelpModal>
-    </div>
+    </Stack>
   )
 }
