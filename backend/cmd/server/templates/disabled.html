@@ -59,24 +59,56 @@
         .info-box p strong {
             color: #7f1d1d;
         }
+        .info-box .note {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #fecaca;
+            font-size: 13px;
+            color: #b91c1c;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
         .btn {
-            padding: 12px 32px;
+            flex: 1;
+            padding: 12px 24px;
             border-radius: 8px;
             font-size: 16px;
             font-weight: 500;
             cursor: pointer;
             border: none;
             transition: all 0.2s;
+        }
+        .btn-primary {
             background: #ef4444;
             color: white;
         }
-        .btn:hover {
+        .btn-primary:hover {
             background: #dc2626;
+        }
+        .btn-primary:disabled {
+            background: #fca5a5;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        .btn-secondary:hover {
+            background: #d1d5db;
         }
         .footer-text {
             margin-top: 24px;
             font-size: 13px;
             color: #9ca3af;
+        }
+        .error-msg {
+            color: #dc2626;
+            font-size: 14px;
+            margin-top: 12px;
+            display: none;
         }
     </style>
 </head>
@@ -84,28 +116,78 @@
     <div class="container">
         <div class="icon">🔒</div>
         <h2 class="title">账号已禁用</h2>
-        <p class="subtitle">您的账号暂时无法登录</p>
+        <p class="subtitle">您的账号在本站点已被禁用</p>
 
         <div class="info-box">
             <p><strong>用户名：</strong>{{ .Username }}</p>
             <p style="margin-top: 12px;">
-                您的账号已被管理员禁用。如需恢复访问，请联系系统管理员。
+                您的账号已被本站点管理员禁用。如需恢复访问，请联系系统管理员。
+            </p>
+            <p class="note">
+                <strong>注意：</strong>这是本站点的封禁，您的 Keycloak 账号状态未受影响。
             </p>
         </div>
 
-        <button class="btn" onclick="closeWindow()">关闭窗口</button>
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="closeWindow()">关闭窗口</button>
+            <button class="btn btn-primary" id="logoutBtn" onclick="handleLogout()">退出登录</button>
+        </div>
 
+        <p class="error-msg" id="errorMsg"></p>
         <p class="footer-text">如有疑问，请联系技术支持</p>
     </div>
 
     <script>
+        async function handleLogout() {
+            const btn = document.getElementById('logoutBtn');
+            const errorMsg = document.getElementById('errorMsg');
+
+            btn.disabled = true;
+            btn.textContent = '退出中...';
+            errorMsg.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+
+                if (response.ok) {
+                    errorMsg.style.display = 'none';
+                    // 清除可能残留的 localStorage
+                    try {
+                        localStorage.removeItem('access_token');
+                    } catch (e) {}
+
+                    // 尝试关闭窗口
+                    window.close();
+
+                    // 如果无法关闭，显示提示
+                    setTimeout(function () {
+                        if (!window.closed) {
+                            document.querySelector('.footer-text').textContent = '已退出登录，请关闭此窗口';
+                            btn.textContent = '已退出';
+                        }
+                    }, 500);
+                } else {
+                    throw new Error('退出失败');
+                }
+            } catch (err) {
+                errorMsg.textContent = '退出失败，请手动关闭窗口';
+                errorMsg.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = '重试';
+            }
+        }
+
         function closeWindow() {
             window.close();
-            // 如果窗口无法关闭（某些浏览器限制），显示提示
-            setTimeout(function() {
+            setTimeout(function () {
                 if (!window.closed) {
-                    document.querySelector('.footer-text').textContent =
-                        '请手动关闭此窗口';
+                    document.querySelector('.footer-text').textContent = '请手动关闭此窗口';
                 }
             }, 500);
         }
