@@ -7,10 +7,7 @@ import {
   Box,
   Typography,
   TextField,
-  Select,
   MenuItem,
-  FormControl,
-  InputLabel,
   Card,
   CardContent,
   Stack,
@@ -315,22 +312,21 @@ export default function AdminAuditLogsPage() {
 
       {/* 筛选器 */}
       <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <FormControl fullWidth>
-            <InputLabel>操作类型</InputLabel>
-            <Select
-              value={filterAction}
-              label="操作类型"
-              onChange={(e) => handleActionChange(e.target.value)}
-              size="small"
-            >
-              {actionOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+          <TextField
+            select
+            label="操作类型"
+            value={filterAction}
+            onChange={(e) => handleActionChange(e.target.value)}
+            fullWidth
+            size="small"
+          >
+            {actionOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             type="number"
             label="操作者 ID"
