@@ -203,6 +203,51 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 	if err == nil && existingLink != nil {
 		// 检查是否过期
 		if existingLink.ExpiresAt == nil || existingLink.ExpiresAt.After(time.Now()) {
+			// 比较时效，如果新请求的时效更长，则更新
+			needUpdate := false
+			newExpiresAt := req.ExpiresAt
+
+			if existingLink.ExpiresAt == nil {
+				// 已存在链接是永久的，只有当新请求也是永久时才不更新
+				needUpdate = !newExpiresAt.IsZero()
+			} else if newExpiresAt.IsZero() {
+				// 新请求是永久的，已存在链接有时效，更新为永久
+				needUpdate = true
+			} else if newExpiresAt.After(*existingLink.ExpiresAt) {
+				// 新请求的时效更长
+				needUpdate = true
+			}
+
+			if needUpdate {
+				// 更新为最长时效
+				var updatedExpiresAt *time.Time
+				if !newExpiresAt.IsZero() {
+					if newExpiresAt.Before(time.Now()) {
+						return nil, apperrors.ErrExpired
+					}
+					updatedExpiresAt = &newExpiresAt
+				}
+
+				existingLink.ExpiresAt = updatedExpiresAt
+				if err := s.linkRepo.Update(ctx, existingLink); err != nil {
+					return nil, err
+				}
+
+				// 失效缓存
+				if s.linkCache != nil {
+					_ = s.linkCache.UpdateLink(ctx, existingLink)
+				}
+
+				return &CreateLinkResponse{
+					Code:        existingLink.Code,
+					ShortURL:    s.buildShortURLWithDomain(existingLink.Code, domainID),
+					OriginalURL: existingLink.URL,
+					Title:       existingLink.Title,
+					ExpiresAt:   updatedExpiresAt,
+				}, nil
+			}
+
+			// 时效相同或已存在链接的时效更长，直接返回
 			return &CreateLinkResponse{
 				Code:        existingLink.Code,
 				ShortURL:    s.buildShortURLWithDomain(existingLink.Code, domainID),
@@ -213,61 +258,67 @@ func (s *LinkService) Create(ctx context.Context, req *CreateLinkRequest) (*Crea
 		}
 	}
 
-	// 生成短码
-	var code string
-	if req.Code != "" {
-		// 自定义短码
-		code, err = s.generator.GenerateCustom(ctx, req.Code)
-		if err != nil {
-			return nil, err
+	// 生成短码和创建链接（带重试机制处理 code 冲突）
+	const maxCreateRetries = 3
+	var lastErr error
+
+	for retry := 0; retry < maxCreateRetries; retry++ {
+		var code string
+		if req.Code != "" {
+			if retry > 0 {
+				return nil, apperrors.ErrCodeTaken
+			}
+			code, err = s.generator.GenerateCustom(ctx, req.Code)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			code, err = s.generator.Generate(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
-	} else {
-		// 随机短码
-		code, err = s.generator.Generate(ctx)
-		if err != nil {
-			return nil, err
+
+		var expiresAt *time.Time
+		if !req.ExpiresAt.IsZero() {
+			if req.ExpiresAt.Before(time.Now()) {
+				return nil, apperrors.ErrExpired
+			}
+			expiresAt = &req.ExpiresAt
+		}
+
+		link := &models.ShortLink{
+			Code:       code,
+			DomainID:   domainID,
+			TemplateID: req.TemplateID,
+			URL:        normalizedURL,
+			UserID:     req.UserID,
+			Title:      req.Title,
+			ExpiresAt:  expiresAt,
+			Status:     models.LinkStatusActive,
+		}
+
+		lastErr = s.linkRepo.CreateWithQuotaCheck(ctx, link, user)
+		if lastErr == nil {
+			if s.linkCache != nil {
+				_ = s.linkCache.CreateLink(ctx, link)
+			}
+			return &CreateLinkResponse{
+				Code:        code,
+				ShortURL:    s.buildShortURLWithDomain(code, domainID),
+				OriginalURL: normalizedURL,
+				Title:       req.Title,
+				ExpiresAt:   expiresAt,
+			}, nil
+		}
+
+		// 随机短码冲突时重试
+		if req.Code == "" && retry < maxCreateRetries-1 {
+			continue
 		}
 	}
 
-	// 处理过期时间
-	var expiresAt *time.Time
-	if !req.ExpiresAt.IsZero() {
-		if req.ExpiresAt.Before(time.Now()) {
-			return nil, apperrors.ErrExpired
-		}
-		expiresAt = &req.ExpiresAt
-	}
-
-	// 创建短链接记录
-	link := &models.ShortLink{
-		Code:       code,
-		DomainID:   domainID,
-		TemplateID: req.TemplateID,
-		URL:        normalizedURL,
-		UserID:     req.UserID,
-		Title:      req.Title,
-		ExpiresAt:  expiresAt,
-		Status:     models.LinkStatusActive,
-	}
-
-	// 使用带配额检查的事务方法创建链接
-	// 配额检查和扣减在同一个事务中完成，确保原子性
-	if err := s.linkRepo.CreateWithQuotaCheck(ctx, link, user); err != nil {
-		return nil, err
-	}
-
-	// 更新缓存（写透策略）
-	if s.linkCache != nil {
-		_ = s.linkCache.CreateLink(ctx, link)
-	}
-
-	return &CreateLinkResponse{
-		Code:        code,
-		ShortURL:    s.buildShortURLWithDomain(code, domainID),
-		OriginalURL: normalizedURL,
-		Title:       req.Title,
-		ExpiresAt:   expiresAt,
-	}, nil
+	return nil, lastErr
 }
 
 // GetLink 获取短链接信息
@@ -376,7 +427,14 @@ func (s *LinkService) Resolve(ctx context.Context, code string, opts *ResolveOpt
 
 	// 检查过期
 	if link.ExpiresAt != nil && link.ExpiresAt.Before(time.Now()) {
-		return nil, apperrors.ErrLinkExpired
+		// 删除过期记录
+		_ = s.linkRepo.Delete(ctx, link.ID)
+		// 失效缓存
+		if s.linkCache != nil {
+			_ = s.linkCache.DeleteLink(ctx, code, domainID)
+		}
+		// 返回 404 而不是 410
+		return nil, apperrors.ErrLinkNotFound
 	}
 
 	// 异步记录访问日志

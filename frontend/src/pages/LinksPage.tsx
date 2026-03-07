@@ -80,6 +80,7 @@ export default function LinksPage() {
   const [title, setTitle] = useState('')
   const [selectedDomain, setSelectedDomain] = useState<number>(1)
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null)
+  const [expiresAt, setExpiresAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   // 编辑弹窗
@@ -88,7 +89,8 @@ export default function LinksPage() {
     title: '',
     url: '',
     status: 'active',
-    template_id: null as number | null
+    template_id: null as number | null,
+    expires_at: ''
   })
 
   // 统计弹窗
@@ -149,18 +151,27 @@ export default function LinksPage() {
     setSubmitting(true)
 
     try {
+      // 将 datetime-local 格式转换为完整的 ISO 格式（带时区）
+      let formattedExpiresAt: string | undefined
+      if (expiresAt) {
+        const date = new Date(`${expiresAt}:00`)
+        formattedExpiresAt = date.toISOString()
+      }
+
       await linksService.create({
         url,
         code: code || undefined,
         title: title || undefined,
         domain_id: selectedDomain,
-        template_id: selectedTemplate ?? null,
+        template_id: selectedTemplate ?? undefined,
+        expires_at: formattedExpiresAt,
       })
       toast.success('短链接创建成功')
       setUrl('')
       setCode('')
       setTitle('')
       setSelectedTemplate(null)
+      setExpiresAt('')
       setShowCreateModal(false)
       loadLinks()
     } catch (err: any) {
@@ -176,7 +187,8 @@ export default function LinksPage() {
       title: link.Title || '',
       url: link.URL,
       status: link.Status,
-      template_id: link.TemplateID || null
+      template_id: link.TemplateID || null,
+      expires_at: link.ExpiresAt ? new Date(link.ExpiresAt).toISOString().slice(0, 16) : ''
     })
   }
 
@@ -184,11 +196,15 @@ export default function LinksPage() {
     if (!editLink) return
 
     try {
+      // 将 datetime-local 格式转换为完整的 ISO 格式
+      const formattedExpiresAt = editForm.expires_at ? new Date(`${editForm.expires_at}:00`).toISOString() : undefined
+
       await linksService.update(editLink.Code, {
         Title: editForm.title,
         URL: editForm.url,
         Status: editForm.status as any,
         TemplateID: editForm.template_id ?? null,
+        ExpiresAt: formattedExpiresAt,
       })
       toast.success('链接更新成功')
       setEditLink(null)
@@ -281,6 +297,15 @@ export default function LinksPage() {
               </Box>
             )}
 
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                到期时间
+              </Typography>
+              <Typography variant="body2" color={link.ExpiresAt ? 'text.primary' : 'success.main'}>
+                {link.ExpiresAt ? formatDateTime(link.ExpiresAt) : '永久有效'}
+              </Typography>
+            </Box>
+
             <Stack direction="row" spacing={1} alignItems="center">
               <Chip label={getStatusLabel(link.Status)} color={getStatusProps(link.Status)} size="small" />
               <Typography variant="caption" color="text.secondary">
@@ -349,6 +374,11 @@ export default function LinksPage() {
           >
             {link.ClickCount}
           </Button>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {link.ExpiresAt ? formatDateTime(link.ExpiresAt) : '永久'}
+          </Typography>
         </TableCell>
         <TableCell>
           <Typography variant="body2" color="text.secondary">
@@ -430,6 +460,7 @@ export default function LinksPage() {
                       <TableCell>标题</TableCell>
                       <TableCell>状态</TableCell>
                       <TableCell>点击</TableCell>
+                      <TableCell>到期时间</TableCell>
                       <TableCell>创建时间</TableCell>
                       <TableCell align="right">操作</TableCell>
                     </TableRow>
@@ -537,10 +568,11 @@ export default function LinksPage() {
               <FormControl fullWidth>
                 <InputLabel>跳转模板</InputLabel>
                 <Select
-                  value={selectedTemplate || ''}
+                  value={selectedTemplate ?? 'direct'}
                   label="跳转模板"
-                  onChange={(e) => setSelectedTemplate(Number(e.target.value))}
+                  onChange={(e) => setSelectedTemplate(e.target.value === 'direct' ? null : Number(e.target.value))}
                 >
+                  <MenuItem value="direct">直接跳转（不使用模板）</MenuItem>
                   {templates.map((template) => (
                     <MenuItem key={template.ID} value={template.ID}>
                       {template.Name} {template.IsDefault ? '(默认)' : ''}
@@ -548,10 +580,20 @@ export default function LinksPage() {
                   ))}
                 </Select>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                  选择用户访问此链接时显示的跳转页面模板
+                  选择用户访问此链接时显示的跳转页面模板，或选择直接跳转
                 </Typography>
               </FormControl>
             )}
+
+            <TextField
+              label="过期时间"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+              helperText="留空表示永不过期"
+            />
           </Stack>
         </form>
       </Modal>
@@ -601,10 +643,11 @@ export default function LinksPage() {
             <FormControl fullWidth>
               <InputLabel>跳转模板</InputLabel>
               <Select
-                value={editForm.template_id || ''}
+                value={editForm.template_id ?? 'direct'}
                 label="跳转模板"
-                onChange={(e) => setEditForm({ ...editForm, template_id: e.target.value ? Number(e.target.value) : null })}
+                onChange={(e) => setEditForm({ ...editForm, template_id: e.target.value === 'direct' ? null : Number(e.target.value) })}
               >
+                <MenuItem value="direct">直接跳转（不使用模板）</MenuItem>
                 {templates.map((template) => (
                   <MenuItem key={template.ID} value={template.ID}>
                     {template.Name} {template.IsDefault ? '(默认)' : ''}
@@ -613,6 +656,16 @@ export default function LinksPage() {
               </Select>
             </FormControl>
           )}
+
+          <TextField
+            label="过期时间"
+            type="datetime-local"
+            value={editForm.expires_at}
+            onChange={(e) => setEditForm({ ...editForm, expires_at: e.target.value })}
+            fullWidth
+            slotProps={{ inputLabel: { shrink: true } }}
+            helperText="留空表示永不过期"
+          />
         </Stack>
       </Modal>
 

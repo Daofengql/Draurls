@@ -38,6 +38,7 @@ export const linksService = {
       title: data.Title,
       status: data.Status,
       template_id: data.TemplateID,
+      expires_at: data.ExpiresAt,
     }),
 
   // 删除链接

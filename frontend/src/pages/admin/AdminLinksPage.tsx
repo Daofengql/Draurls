@@ -6,7 +6,7 @@ import CopyButton from '@/components/CopyButton'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal from '@/components/Modal'
 import { toast } from '@/components/Toast'
-import { truncate } from '@/utils/format'
+import { truncate, formatDateTime } from '@/utils/format'
 import {
   Box,
   Typography,
@@ -309,6 +309,11 @@ export default function AdminLinksPage() {
             {link.ClickCount}
           </Button>
         </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {link.ExpiresAt ? formatDateTime(link.ExpiresAt) : '永久'}
+          </Typography>
+        </TableCell>
         <TableCell align="right">
           <Stack direction="row" spacing={0.5} justifyContent="flex-end">
             <CopyButton text={fullUrl}>
@@ -418,6 +423,7 @@ export default function AdminLinksPage() {
                       <TableCell>创建者</TableCell>
                       <TableCell>状态</TableCell>
                       <TableCell>点击</TableCell>
+                      <TableCell>到期时间</TableCell>
                       <TableCell align="right">操作</TableCell>
                     </TableRow>
                   </TableHead>
