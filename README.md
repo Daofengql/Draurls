@@ -8,14 +8,15 @@
 - **跳转模板** - 用户可自定义跳转页面模板
 - **用户系统** - OIDC 认证、用户分组、配额管理
 - **API 接口** - RESTful API + HMAC 签名认证
-- **性能优化** - Redis 多级缓存、接口限流
-- **管理面板** - 响应式设计，支持移动端
+- **性能优化** - Redis 多级缓存（短链接、域名、模板）、接口限流
+- **管理面板** - Material-UI 响应式设计，支持移动端
+- **站点配置** - 支持 ICP 备案号配置等功能
 
 ## 技术栈
 
 | 后端 | 前端 | 数据库 | 缓存 | 认证 |
 |------|------|--------|------|------|
-| Go + Gin | React + TypeScript | MySQL 8.0 | Redis 7 | Keycloak |
+| Go + Gin | React + TypeScript + MUI | MySQL 8.0 | Redis 7 | Keycloak |
 
 ## 快速开始
 
