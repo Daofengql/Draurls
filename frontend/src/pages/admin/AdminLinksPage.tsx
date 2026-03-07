@@ -7,6 +7,35 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import Modal from '@/components/Modal'
 import { toast } from '@/components/Toast'
 import { truncate } from '@/utils/format'
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Card,
+  CardContent,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  IconButton,
+  CircularProgress,
+  Link,
+} from '@mui/material'
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Refresh as RefreshIcon,
+} from '@mui/icons-material'
 
 export default function AdminLinksPage() {
   const [links, setLinks] = useState<ShortLink[]>([])
@@ -141,236 +170,263 @@ export default function AdminLinksPage() {
   }
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      active: 'bg-green-100 text-green-800',
-      disabled: 'bg-red-100 text-red-800',
-      expired: 'bg-gray-100 text-gray-800',
+    const colors: Record<string, 'success' | 'error' | 'default'> = {
+      active: 'success',
+      disabled: 'error',
+      expired: 'default',
     }
     const labels: Record<string, string> = {
       active: '正常',
       disabled: '禁用',
       expired: '过期',
     }
-    const style = styles[status] || 'bg-gray-100 text-gray-800'
-    const label = labels[status] || '未知'
     return (
-      <span className={`px-2 py-1 rounded text-xs ${style}`}>
-        {label}
-      </span>
+      <Chip label={labels[status] || '未知'} color={colors[status] || 'default'} size="small" />
+    )
+  }
+
+  const renderMobileCard = (link: ShortLink) => {
+    const fullUrl = getFullUrl(link)
+    return (
+      <Card key={link.ID} sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Link
+                href={fullUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="primary"
+                fontWeight={500}
+                sx={{ flex: 1, minWidth: 0, fontSize: '0.875rem' }}
+              >
+                {fullUrl}
+              </Link>
+              {getStatusBadge(link.Status)}
+            </Stack>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                目标URL
+              </Typography>
+              <Typography variant="body2" color="text.primary" noWrap title={link.URL}>
+                {truncate(link.URL, 60)}
+              </Typography>
+            </Box>
+
+            {link.Title && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  标题
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  {link.Title}
+                </Typography>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  创建者
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  ID: {link.UserID}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  点击数
+                </Typography>
+                <Button
+                  size="small"
+                  onClick={() => viewStats(link)}
+                  sx={{ p: 0, minWidth: 'auto', fontWeight: 600 }}
+                  color="primary"
+                >
+                  {link.ClickCount}
+                </Button>
+              </Box>
+            </Box>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
+              <CopyButton text={fullUrl}>
+                <Button size="small">复制</Button>
+              </CopyButton>
+              <Button size="small" color="success" onClick={() => openEditModal(link)}>
+                编辑
+              </Button>
+              <Button size="small" color="error" onClick={() => setDeleteConfirm(link)}>
+                删除
+              </Button>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderTableRow = (link: ShortLink) => {
+    const fullUrl = getFullUrl(link)
+    return (
+      <TableRow key={link.ID} hover>
+        <TableCell>
+          <Link
+            href={fullUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            color="primary"
+            fontWeight={500}
+            underline="hover"
+          >
+            {fullUrl}
+          </Link>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary" noWrap title={link.URL} sx={{ maxWidth: 200 }}>
+            {truncate(link.URL, 50)}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.primary">
+            {link.Title || '-'}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            ID: {link.UserID}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          {getStatusBadge(link.Status)}
+        </TableCell>
+        <TableCell>
+          <Button
+            size="small"
+            onClick={() => viewStats(link)}
+            sx={{ minWidth: 40, p: 0.5 }}
+          >
+            {link.ClickCount}
+          </Button>
+        </TableCell>
+        <TableCell align="right">
+          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+            <CopyButton text={fullUrl}>
+              <Button size="small">复制</Button>
+            </CopyButton>
+            <IconButton size="small" color="success" onClick={() => openEditModal(link)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" color="error" onClick={() => setDeleteConfirm(link)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        </TableCell>
+      </TableRow>
     )
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold">短链接管理</h2>
-      </div>
+    <Stack spacing={3}>
+      {/* 页面标题 */}
+      <Typography variant="h5" fontWeight={600}>
+        短链接管理
+      </Typography>
 
       {/* 过滤器 */}
-      <div className="card mb-4">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">域名</label>
-            <select
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap>
+          <FormControl size="small" sx={{ minWidth: 120, flex: 1 }}>
+            <InputLabel>域名</InputLabel>
+            <Select
               value={filterDomain || ''}
+              label="域名"
               onChange={(e) => setFilterDomain(e.target.value ? Number(e.target.value) : null)}
-              className="input w-full text-sm"
             >
-              <option value="">全部域名</option>
+              <MenuItem value="">全部域名</MenuItem>
               {domains.map((d) => (
-                <option key={d.ID} value={d.ID}>
+                <MenuItem key={d.ID} value={d.ID}>
                   {d.Name}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">状态</label>
-            <select
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120, flex: 1 }}>
+            <InputLabel>状态</InputLabel>
+            <Select
               value={filterStatus}
+              label="状态"
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="input w-full text-sm"
             >
-              <option value="">全部状态</option>
-              <option value="active">正常</option>
-              <option value="disabled">禁用</option>
-              <option value="expired">过期</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">用户ID</label>
-            <input
-              type="number"
-              value={filterUserId}
-              onChange={(e) => setFilterUserId(e.target.value)}
-              placeholder="输入用户ID"
-              className="input w-full text-sm"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={resetFilters}
-              className="btn btn-secondary w-full text-sm"
-            >
-              重置过滤
-            </button>
-          </div>
-        </div>
-      </div>
+              <MenuItem value="">全部状态</MenuItem>
+              <MenuItem value="active">正常</MenuItem>
+              <MenuItem value="disabled">禁用</MenuItem>
+              <MenuItem value="expired">过期</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField
+            type="number"
+            label="用户ID"
+            value={filterUserId}
+            onChange={(e) => setFilterUserId(e.target.value)}
+            placeholder="输入用户ID"
+            size="small"
+            sx={{ flex: 1 }}
+          />
+
+          <Button
+            variant="outlined"
+            onClick={resetFilters}
+            startIcon={<RefreshIcon />}
+            sx={{ height: 40 }}
+          >
+            重置
+          </Button>
+        </Stack>
+      </Paper>
 
       {/* 链接列表 */}
-      <div className="card">
+      <Paper variant="outlined" sx={{ p: 2 }}>
         {loading ? (
-          <div className="text-center py-8 text-gray-500">加载中...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
         ) : links.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p>暂无链接</p>
-          </div>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography variant="body1" color="text.secondary">
+              暂无链接
+            </Typography>
+          </Box>
         ) : (
           <>
             {/* 移动端卡片布局 */}
-            <div className="sm:hidden space-y-4">
-              {links.map((link) => {
-                const fullUrl = getFullUrl(link)
-                return (
-                  <div key={link.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <a
-                        href={fullUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm break-all"
-                      >
-                        {fullUrl}
-                      </a>
-                      {getStatusBadge(link.Status)}
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">目标URL</p>
-                      <p className="text-sm text-gray-600 truncate" title={link.URL}>
-                        {truncate(link.URL, 60)}
-                      </p>
-                    </div>
-                    {link.Title && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">标题</p>
-                        <p className="text-sm text-gray-600">{link.Title}</p>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500">创建者</p>
-                        <p className="text-gray-600">ID: {link.UserID}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">点击数</p>
-                        <button
-                          onClick={() => viewStats(link)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          {link.ClickCount}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
-                      <CopyButton text={fullUrl} className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded">
-                        复制
-                      </CopyButton>
-                      <button
-                        onClick={() => openEditModal(link)}
-                        className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(link)}
-                        className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              {links.map(renderMobileCard)}
+            </Box>
 
             {/* 桌面端表格布局 */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">短链接</th>
-                    <th className="text-left py-3 px-4">目标URL</th>
-                    <th className="text-left py-3 px-4">标题</th>
-                    <th className="text-left py-3 px-4">创建者</th>
-                    <th className="text-left py-3 px-4">状态</th>
-                    <th className="text-left py-3 px-4">点击</th>
-                    <th className="text-right py-3 px-4">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {links.map((link) => {
-                    const fullUrl = getFullUrl(link)
-                    return (
-                      <tr key={link.ID} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">
-                          <a
-                            href={fullUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            {fullUrl}
-                          </a>
-                        </td>
-                        <td className="py-3 px-4 max-w-xs">
-                          <p className="text-sm text-gray-500 truncate" title={link.URL}>
-                            {truncate(link.URL, 50)}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {link.Title || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          ID: {link.UserID}
-                        </td>
-                        <td className="py-3 px-4">{getStatusBadge(link.Status)}</td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => viewStats(link)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            {link.ClickCount}
-                          </button>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <CopyButton
-                              text={fullUrl}
-                              className="text-blue-600 hover:text-blue-800 text-sm"
-                            >
-                              复制
-                            </CopyButton>
-                            <button
-                              onClick={() => openEditModal(link)}
-                              className="text-green-600 hover:text-green-800 text-sm"
-                            >
-                              编辑
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(link)}
-                              className="text-red-600 hover:text-red-800 text-sm"
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>短链接</TableCell>
+                      <TableCell>目标URL</TableCell>
+                      <TableCell>标题</TableCell>
+                      <TableCell>创建者</TableCell>
+                      <TableCell>状态</TableCell>
+                      <TableCell>点击</TableCell>
+                      <TableCell align="right">操作</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {links.map(renderTableRow)}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
 
             <Pagination
               currentPage={page}
@@ -381,7 +437,7 @@ export default function AdminLinksPage() {
             />
           </>
         )}
-      </div>
+      </Paper>
 
       {/* 编辑弹窗 */}
       <Modal
@@ -390,56 +446,53 @@ export default function AdminLinksPage() {
         title="编辑短链接"
         size="md"
         footer={
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setEditLink(null)}
-              className="btn btn-secondary"
-            >
+          <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Button onClick={() => setEditLink(null)}>
               取消
-            </button>
-            <button onClick={handleSaveEdit} className="btn btn-primary">
+            </Button>
+            <Button onClick={handleSaveEdit} variant="contained">
               保存
-            </button>
-          </div>
+            </Button>
+          </Stack>
         }
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
               目标URL
-            </label>
-            <input
+            </Typography>
+            <TextField
               type="url"
               value={editForm.url}
               onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
-              className="input w-full text-sm"
+              fullWidth
+              size="small"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          </Box>
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
               标题
-            </label>
-            <input
+            </Typography>
+            <TextField
               type="text"
               value={editForm.title}
               onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              className="input w-full text-sm"
+              fullWidth
+              size="small"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              状态
-            </label>
-            <select
+          </Box>
+          <FormControl fullWidth size="small">
+            <InputLabel>状态</InputLabel>
+            <Select
               value={editForm.status}
+              label="状态"
               onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-              className="input w-full text-sm"
             >
-              <option value="active">正常</option>
-              <option value="disabled">禁用</option>
-            </select>
-          </div>
-        </div>
+              <MenuItem value="active">正常</MenuItem>
+              <MenuItem value="disabled">禁用</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
       </Modal>
 
       {/* 统计弹窗 */}
@@ -448,32 +501,37 @@ export default function AdminLinksPage() {
         onClose={() => setStatsLink(null)}
         title="链接统计"
         footer={
-          <div className="flex justify-end">
-            <button
-              onClick={() => setStatsLink(null)}
-              className="btn btn-primary"
-            >
+          <Stack direction="row" justifyContent="flex-end">
+            <Button onClick={() => setStatsLink(null)} variant="contained">
               关闭
-            </button>
-          </div>
+            </Button>
+          </Stack>
         }
       >
         {statsLink && (
-          <div>
-            <p className="mb-4 text-gray-600">
+          <Stack spacing={3}>
+            <Typography variant="body2" color="text.secondary">
               短链接: <strong>{getFullUrl(statsLink)}</strong>
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">总点击数</p>
-                <p className="text-2xl font-bold text-blue-600">{stats?.click_count || 0}</p>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">独立IP</p>
-                <p className="text-2xl font-bold text-green-600">{stats?.unique_ips || 0}</p>
-              </div>
-            </div>
-          </div>
+            </Typography>
+            <Stack direction="row" spacing={2}>
+              <Paper variant="outlined" sx={{ flex: 1, p: 3, bgcolor: 'primary.50', textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  总点击数
+                </Typography>
+                <Typography variant="h4" color="primary.main" fontWeight={700}>
+                  {stats?.click_count || 0}
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ flex: 1, p: 3, bgcolor: 'success.50', textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  独立IP
+                </Typography>
+                <Typography variant="h4" color="success.main" fontWeight={700}>
+                  {stats?.unique_ips || 0}
+                </Typography>
+              </Paper>
+            </Stack>
+          </Stack>
         )}
       </Modal>
 
@@ -486,6 +544,6 @@ export default function AdminLinksPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </div>
+    </Stack>
   )
 }

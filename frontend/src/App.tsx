@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Box, Typography, CircularProgress } from '@mui/material'
 import { useAuthStore } from './store/auth'
 import Layout from './components/Layout'
 import ToastContainer from './components/Toast'
@@ -27,9 +28,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // 只有在初始化完成前显示加载状态
   if (!isInitialized || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">加载中...</div>
-      </div>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress size={40} sx={{ mb: 2 }} />
+          <Typography color="text.secondary">加载中...</Typography>
+        </Box>
+      </Box>
     )
   }
 
@@ -53,9 +57,12 @@ function App() {
   // 认证状态检查中不渲染任何内容
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">加载中...</div>
-      </div>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress size={40} sx={{ mb: 2 }} />
+          <Typography color="text.secondary">加载中...</Typography>
+        </Box>
+      </Box>
     )
   }
 

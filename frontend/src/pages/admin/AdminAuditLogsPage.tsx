@@ -3,6 +3,28 @@ import { auditLogsService } from '@/services/admin'
 import type { AuditLog } from '@/types'
 import Pagination from '@/components/Pagination'
 import { formatDateTime } from '@/utils/format'
+import {
+  Box,
+  Typography,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Card,
+  CardContent,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  ChipProps,
+  CircularProgress,
+} from '@mui/material'
 
 // 操作类型选项
 const actionOptions = [
@@ -79,25 +101,25 @@ const getResourceLabel = (resource: string) => {
 }
 
 // 获取操作类型样式
-const getActionBadgeStyle = (action: string) => {
+const getActionBadgeColor = (action: string): ChipProps['color'] => {
   // 创建操作 - 绿色
   if (action.endsWith('.create')) {
-    return 'bg-green-100 text-green-800'
+    return 'success'
   }
-  // 更新操作 - 蓝色
+  // 更新操作 - 蓝色/默认
   if (action.endsWith('.update')) {
-    return 'bg-blue-100 text-blue-800'
+    return 'info'
   }
   // 删除操作 - 红色
   if (action.endsWith('.delete') || action.endsWith('.disable')) {
-    return 'bg-red-100 text-red-800'
+    return 'error'
   }
   // 启用操作 - 绿色
   if (action.endsWith('.enable')) {
-    return 'bg-green-100 text-green-800'
+    return 'success'
   }
-  // 默认 - 灰色
-  return 'bg-gray-100 text-gray-800'
+  // 默认 - 默认灰色
+  return 'default'
 }
 
 export default function AdminAuditLogsPage() {
@@ -133,7 +155,6 @@ export default function AdminAuditLogsPage() {
       })
       .catch((err) => {
         console.error(err)
-        // 使用 toast 需要导入，这里简单处理
       })
       .finally(() => setLoading(false))
   }
@@ -152,143 +173,217 @@ export default function AdminAuditLogsPage() {
     setPage(1)
   }
 
+  const renderMobileCard = (log: AuditLog) => {
+    return (
+      <Card key={log.ID} sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Chip label={getActionLabel(log.Action)} color={getActionBadgeColor(log.Action)} size="small" />
+              <Typography variant="caption" color="text.secondary">
+                #{log.ID}
+              </Typography>
+            </Stack>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                资源
+              </Typography>
+              <Typography variant="body2" color="text.primary">
+                {getResourceLabel(log.Resource)}
+                {log.ResourceID && ` #${log.ResourceID}`}
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                操作者
+              </Typography>
+              <Typography variant="body2" color="text.primary">
+                用户 ID: {log.ActorID}
+              </Typography>
+            </Box>
+
+            {log.Details && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  详情
+                </Typography>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1,
+                    mt: 0.5,
+                    bgcolor: 'background.paper',
+                    fontFamily: 'monospace',
+                    fontSize: '0.75rem',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {log.Details}
+                </Paper>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  IP地址
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  {log.IPAddress || '-'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  时间
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  {formatDateTime(log.CreatedAt)}
+                </Typography>
+              </Box>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderTableRow = (log: AuditLog) => {
+    return (
+      <TableRow key={log.ID} hover>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            #{log.ID}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Chip label={getActionLabel(log.Action)} color={getActionBadgeColor(log.Action)} size="small" />
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.primary">
+            {getResourceLabel(log.Resource)}
+            {log.ResourceID && (
+              <Typography component="span" color="text.secondary">
+                {' '}#{log.ResourceID}
+              </Typography>
+            )}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            用户 {log.ActorID}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              maxWidth: 200,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontFamily: 'monospace',
+            }}
+          >
+            {log.Details || '-'}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {log.IPAddress || '-'}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {formatDateTime(log.CreatedAt)}
+          </Typography>
+        </TableCell>
+      </TableRow>
+    )
+  }
+
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold">审计日志</h2>
-      </div>
+    <Stack spacing={3}>
+      {/* 页面标题 */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="h5" fontWeight={600}>
+          审计日志
+        </Typography>
+      </Box>
 
       {/* 筛选器 */}
-      <div className="card mb-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              操作类型
-            </label>
-            <select
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <FormControl fullWidth>
+            <InputLabel>操作类型</InputLabel>
+            <Select
               value={filterAction}
+              label="操作类型"
               onChange={(e) => handleActionChange(e.target.value)}
-              className="input w-full text-sm"
+              size="small"
             >
               {actionOptions.map((option) => (
-                <option key={option.value} value={option.value}>
+                <MenuItem key={option.value} value={option.value}>
                   {option.label}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              操作者 ID
-            </label>
-            <input
-              type="number"
-              value={filterActorId}
-              onChange={(e) => handleActorIdChange(e.target.value)}
-              placeholder="输入用户ID"
-              className="input w-full text-sm"
-              min={1}
-            />
-          </div>
-        </div>
-      </div>
+            </Select>
+          </FormControl>
+          <TextField
+            type="number"
+            label="操作者 ID"
+            value={filterActorId}
+            onChange={(e) => handleActorIdChange(e.target.value)}
+            placeholder="输入用户ID"
+            fullWidth
+            size="small"
+            inputProps={{ min: 1 }}
+          />
+        </Stack>
+      </Paper>
 
-      <div className="card">
+      {/* 日志列表 */}
+      <Paper variant="outlined" sx={{ p: 2 }}>
         {loading ? (
-          <div className="text-center py-8 text-gray-500">加载中...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
         ) : logs.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">暂无审计日志</div>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography variant="body1" color="text.secondary">
+              暂无审计日志
+            </Typography>
+          </Box>
         ) : (
           <>
             {/* 移动端卡片布局 */}
-            <div className="sm:hidden space-y-4">
-              {logs.map((log) => (
-                <div key={log.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className={`px-2 py-1 rounded text-xs ${getActionBadgeStyle(log.Action)}`}>
-                      {getActionLabel(log.Action)}
-                    </span>
-                    <span className="text-xs text-gray-500">#{log.ID}</span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">资源</p>
-                    <p className="text-sm text-gray-700">
-                      {getResourceLabel(log.Resource)}
-                      {log.ResourceID && ` #${log.ResourceID}`}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">操作者</p>
-                    <p className="text-sm text-gray-700">用户 ID: {log.ActorID}</p>
-                  </div>
-                  {log.Details && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">详情</p>
-                      <p className="text-xs text-gray-600 break-all font-mono bg-white p-2 rounded">
-                        {log.Details}
-                      </p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">IP地址</p>
-                      <p className="text-xs text-gray-700">{log.IPAddress || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">时间</p>
-                      <p className="text-xs text-gray-700">{formatDateTime(log.CreatedAt)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              {logs.map(renderMobileCard)}
+            </Box>
 
             {/* 桌面端表格布局 */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">ID</th>
-                    <th className="text-left py-3 px-4">操作</th>
-                    <th className="text-left py-3 px-4">资源</th>
-                    <th className="text-left py-3 px-4">操作者</th>
-                    <th className="text-left py-3 px-4">详情</th>
-                    <th className="text-left py-3 px-4">IP地址</th>
-                    <th className="text-left py-3 px-4">时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((log) => (
-                    <tr key={log.ID} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-500">#{log.ID}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded text-xs ${getActionBadgeStyle(log.Action)}`}>
-                          {getActionLabel(log.Action)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        {getResourceLabel(log.Resource)}
-                        {log.ResourceID && (
-                          <span className="text-gray-500"> #{log.ResourceID}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
-                        用户 {log.ActorID}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate font-mono">
-                        {log.Details || '-'}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">
-                        {log.IPAddress || '-'}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">
-                        {formatDateTime(log.CreatedAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ID</TableCell>
+                      <TableCell>操作</TableCell>
+                      <TableCell>资源</TableCell>
+                      <TableCell>操作者</TableCell>
+                      <TableCell>详情</TableCell>
+                      <TableCell>IP地址</TableCell>
+                      <TableCell>时间</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {logs.map(renderTableRow)}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
 
             <Pagination
               currentPage={page}
@@ -299,7 +394,7 @@ export default function AdminAuditLogsPage() {
             />
           </>
         )}
-      </div>
-    </div>
+      </Paper>
+    </Stack>
   )
 }

@@ -5,6 +5,26 @@ import Modal from '@/components/Modal'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from '@/components/Toast'
 import { formatDateTime } from '@/utils/format'
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Stack,
+  Paper,
+  Chip,
+  CircularProgress,
+  FormControlLabel,
+  Checkbox,
+} from '@mui/material'
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as PreviewIcon,
+  Star as StarIcon,
+  Description as DescriptionIcon,
+} from '@mui/icons-material'
 
 export default function AdminTemplatesPage() {
   const [templates, setTemplates] = useState<RedirectTemplate[]>([])
@@ -99,90 +119,118 @@ export default function AdminTemplatesPage() {
   }
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold">跳转模板</h2>
-        <button onClick={handleCreate} className="btn btn-primary w-full sm:w-auto">
+    <Stack spacing={3}>
+      {/* 页面标题 */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="h5" fontWeight={600}>
+          跳转模板
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreate}
+        >
           创建模板
-        </button>
-      </div>
+        </Button>
+      </Box>
 
-      <div className="card">
+      {/* 模板列表 */}
+      <Paper variant="outlined" sx={{ p: 2 }}>
         {loading ? (
-          <div className="text-center py-8 text-gray-500">加载中...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
         ) : templates.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="mb-4">
-              <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <p className="text-gray-500 mb-4">暂无跳转模板</p>
-            <button
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <DescriptionIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              暂无跳转模板
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
               onClick={handleCreate}
-              className="btn btn-primary"
             >
               创建第一个模板
-            </button>
-          </div>
+            </Button>
+          </Box>
         ) : (
-          <div className="space-y-4">
+          <Stack spacing={2}>
             {templates.map((template) => (
-              <div
+              <Paper
                 key={template.ID}
-                className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow"
+                variant="outlined"
+                sx={{
+                  p: { xs: 2, sm: 3 },
+                  transition: 'box-shadow 0.2s',
+                  '&:hover': { boxShadow: 2 },
+                }}
               >
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-medium text-gray-900">{template.Name}</h3>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  alignItems={{ sm: 'flex-start' }}
+                  justifyContent="space-between"
+                  gap={2}
+                >
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Stack direction="row" alignItems="center" gap={1} mb={1}>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {template.Name}
+                      </Typography>
                       {template.IsDefault && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          默认
-                        </span>
+                        <Chip label="默认" size="small" color="primary" />
                       )}
-                    </div>
+                    </Stack>
                     {template.Description && (
-                      <p className="text-sm text-gray-600 mb-3">{template.Description}</p>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {template.Description}
+                      </Typography>
                     )}
-                    <p className="text-xs text-gray-400 mt-2">
+                    <Typography variant="caption" color="text.disabled">
                       创建于 {formatDateTime(template.CreatedAt)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 sm:ml-4 flex-shrink-0">
-                    <button
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                    <Button
+                      size="small"
+                      startIcon={<PreviewIcon fontSize="small" />}
                       onClick={() => setPreviewTemplate(template)}
-                      className="text-gray-600 hover:text-gray-800 text-xs sm:text-sm px-2 py-1 rounded hover:bg-gray-100 transition-colors"
                     >
                       预览
-                    </button>
+                    </Button>
                     {!template.IsDefault && (
-                      <button
+                      <Button
+                        size="small"
+                        color="primary"
+                        startIcon={<StarIcon fontSize="small" />}
                         onClick={() => handleSetDefault(template.ID)}
-                        className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                       >
                         设为默认
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
+                      size="small"
+                      color="success"
+                      startIcon={<EditIcon fontSize="small" />}
                       onClick={() => handleEdit(template)}
-                      className="text-green-600 hover:text-green-800 text-xs sm:text-sm px-2 py-1 rounded hover:bg-green-50 transition-colors"
                     >
                       编辑
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<DeleteIcon fontSize="small" />}
                       onClick={() => setDeleteConfirm(template)}
-                      className="text-red-600 hover:text-red-800 text-xs sm:text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors"
                     >
                       删除
-                    </button>
-                  </div>
-                </div>
-              </div>
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Paper>
             ))}
-          </div>
+          </Stack>
         )}
-      </div>
+      </Paper>
 
       {/* 创建/编辑弹窗 */}
       <Modal
@@ -191,77 +239,83 @@ export default function AdminTemplatesPage() {
         title={editingTemplate ? '编辑模板' : '创建模板'}
         size="lg"
         footer={
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2}>
             {!editingTemplate && (
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.is_default}
-                  onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-                  className="rounded"
-                />
-                <span className="text-sm text-gray-700">设为默认模板</span>
-              </label>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.is_default}
+                    onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+                  />
+                }
+                label="设为默认模板"
+              />
             )}
-            <div className="flex gap-3 sm:ml-auto">
-              <button
-                onClick={() => setShowModal(false)}
-                className="btn btn-secondary"
-              >
+            <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+              <Button onClick={() => setShowModal(false)}>
                 取消
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleSave}
                 disabled={!formData.name.trim() || !formData.content.trim()}
-                className="btn btn-primary disabled:bg-gray-300 disabled:cursor-not-allowed"
+                variant="contained"
               >
                 {editingTemplate ? '保存' : '创建'}
-              </button>
-            </div>
-          </div>
+              </Button>
+            </Stack>
+          </Stack>
         }
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              模板名称 <span className="text-red-500">*</span>
-            </label>
-            <input
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
+              模板名称 <span style={{ color: 'red' }}>*</span>
+            </Typography>
+            <TextField
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input w-full text-sm"
+              fullWidth
+              size="small"
               placeholder="例如：简单跳转、品牌页面"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          </Box>
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
               描述
-            </label>
-            <input
+            </Typography>
+            <TextField
               type="text"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="input w-full text-sm"
+              fullWidth
+              size="small"
               placeholder="模板用途说明"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              模板内容 <span className="text-red-500">*</span>
-            </label>
-            <textarea
+          </Box>
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
+              模板内容 <span style={{ color: 'red' }}>*</span>
+            </Typography>
+            <TextField
+              multiline
+              rows={12}
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              className="input w-full font-mono text-xs sm:text-sm"
-              rows={12}
+              fullWidth
+              size="small"
               placeholder="输入HTML模板内容，可使用 {{.URL}} 变量表示目标链接"
+              slotProps={{
+                input: {
+                  sx: { fontFamily: 'monospace', fontSize: '0.875rem' }
+                }
+              }}
             />
-            <p className="mt-2 text-xs sm:text-sm text-gray-500">
-              可用变量: <code className="bg-gray-100 px-1 rounded">{'{{.URL}}'}</code> - 目标链接
-            </p>
-          </div>
-        </div>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              可用变量: <Box component="code" sx={{ bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 }}>{'{{.URL}}'}</Box> - 目标链接
+            </Typography>
+          </Box>
+        </Stack>
       </Modal>
 
       {/* 预览弹窗 */}
@@ -271,34 +325,45 @@ export default function AdminTemplatesPage() {
         title="模板预览"
         size="lg"
         footer={
-          <div className="flex justify-end">
-            <button
-              onClick={() => setPreviewTemplate(null)}
-              className="btn btn-primary"
-            >
+          <Stack direction="row" justifyContent="flex-end">
+            <Button onClick={() => setPreviewTemplate(null)} variant="contained">
               关闭
-            </button>
-          </div>
+            </Button>
+          </Stack>
         }
       >
         {previewTemplate && (
-          <div>
-            <p className="mb-4 text-sm text-gray-600">
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
               预览模板: <strong>{previewTemplate.Name}</strong>
-            </p>
-            <div className="border border-gray-200 rounded-md bg-gray-50 p-4">
+            </Typography>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 0,
+                bgcolor: 'grey.50',
+                overflow: 'hidden',
+                borderRadius: 1,
+              }}
+            >
               <iframe
                 srcDoc={previewTemplate.Content.replace(/\{\{\.URL\}\}/g, 'https://example.com/target')}
-                className="w-full h-80 border-0 rounded bg-white"
+                style={{
+                  width: '100%',
+                  height: '320px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                }}
                 title="模板预览"
                 sandbox="allow-scripts"
                 referrerPolicy="no-referrer"
               />
-            </div>
-            <p className="mt-4 text-xs text-gray-500">
-              预览中 &ldquo;{'{{.URL}}'}&rdquo; 变量被替换为示例链接
-            </p>
-          </div>
+            </Paper>
+            <Typography variant="caption" color="text.secondary">
+              预览中 {"{{.URL}}"} 变量被替换为示例链接
+            </Typography>
+          </Stack>
         )}
       </Modal>
 
@@ -311,6 +376,6 @@ export default function AdminTemplatesPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </div>
+    </Stack>
   )
 }

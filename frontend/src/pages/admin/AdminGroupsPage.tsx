@@ -5,6 +5,33 @@ import Modal from '@/components/Modal'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from '@/components/Toast'
 import { formatDateTime } from '@/utils/format'
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  IconButton,
+  FormControlLabel,
+  Checkbox,
+  CircularProgress,
+} from '@mui/material'
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Star as StarIcon,
+} from '@mui/icons-material'
 
 export default function AdminGroupsPage() {
   const [groups, setGroups] = useState<UserGroup[]>([])
@@ -176,153 +203,202 @@ export default function AdminGroupsPage() {
     }
   }
 
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold">用户组管理</h2>
-        <button onClick={handleCreate} className="btn btn-primary w-full sm:w-auto">
-          创建用户组
-        </button>
-      </div>
+  const renderMobileCard = (group: UserGroup) => {
+    return (
+      <Card key={group.ID} sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack direction="row" alignItems="center" gap={1}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  {group.Name}
+                </Typography>
+                {group.IsDefault && (
+                  <Chip label="默认" size="small" color="success" />
+                )}
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                ID: {group.ID}
+              </Typography>
+            </Stack>
 
-      <div className="card">
+            {group.Description && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  描述
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  {group.Description}
+                </Typography>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  默认配额
+                </Typography>
+                <Chip
+                  label={group.DefaultQuota === -1 ? '无限' : group.DefaultQuota}
+                  size="small"
+                  color="primary"
+                />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  创建时间
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  {formatDateTime(group.CreatedAt)}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
+              <Button
+                size="small"
+                onClick={() => handleEdit(group)}
+                startIcon={<EditIcon fontSize="small" />}
+              >
+                编辑
+              </Button>
+              {!group.IsDefault && (
+                <Button
+                  size="small"
+                  onClick={() => handleSetDefault(group)}
+                  color="success"
+                  startIcon={<StarIcon fontSize="small" />}
+                >
+                  设为默认
+                </Button>
+              )}
+              <Button
+                size="small"
+                color="error"
+                onClick={() => setDeleteConfirm(group)}
+                startIcon={<DeleteIcon fontSize="small" />}
+              >
+                删除
+              </Button>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderTableRow = (group: UserGroup) => {
+    return (
+      <TableRow key={group.ID} hover>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {group.ID}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <Typography variant="body2" fontWeight={500}>
+              {group.Name}
+            </Typography>
+            {group.IsDefault && (
+              <Chip label="默认" size="small" color="success" />
+            )}
+          </Stack>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {group.Description || '-'}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Chip
+            label={group.DefaultQuota === -1 ? '无限' : group.DefaultQuota}
+            size="small"
+            color="primary"
+          />
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {formatDateTime(group.CreatedAt)}
+          </Typography>
+        </TableCell>
+        <TableCell align="right">
+          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+            <IconButton size="small" color="primary" onClick={() => handleEdit(group)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+            {!group.IsDefault && (
+              <IconButton size="small" color="success" onClick={() => handleSetDefault(group)}>
+                <StarIcon fontSize="small" />
+              </IconButton>
+            )}
+            <IconButton size="small" color="error" onClick={() => setDeleteConfirm(group)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  return (
+    <Stack spacing={3}>
+      {/* 页面标题 */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="h5" fontWeight={600}>
+          用户组管理
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreate}
+        >
+          创建用户组
+        </Button>
+      </Box>
+
+      {/* 用户组列表 */}
+      <Paper variant="outlined" sx={{ p: 2 }}>
         {loading ? (
-          <div className="text-center py-8 text-gray-500">加载中...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
         ) : groups.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p>暂无用户组</p>
-          </div>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography variant="body1" color="text.secondary">
+              暂无用户组
+            </Typography>
+          </Box>
         ) : (
           <>
             {/* 移动端卡片布局 */}
-            <div className="sm:hidden space-y-4">
-              {groups.map((group) => (
-                <div key={group.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-gray-900">{group.Name}</h3>
-                      {group.IsDefault && (
-                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">
-                          默认
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-500">ID: {group.ID}</span>
-                  </div>
-                  {group.Description && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">描述</p>
-                      <p className="text-sm text-gray-600">{group.Description}</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">默认配额</p>
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                        {group.DefaultQuota === -1 ? '无限' : group.DefaultQuota}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">创建时间</p>
-                      <p className="text-gray-600">{formatDateTime(group.CreatedAt)}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-2 border-t border-gray-200 flex-wrap">
-                    <button
-                      onClick={() => handleEdit(group)}
-                      className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                    >
-                      编辑
-                    </button>
-                    {!group.IsDefault && (
-                      <button
-                        onClick={() => handleSetDefault(group)}
-                        className="text-xs px-3 py-1.5 text-green-600 hover:bg-green-50 rounded"
-                      >
-                        设为默认
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setDeleteConfirm(group)}
-                      className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
-                    >
-                      删除
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              {groups.map(renderMobileCard)}
+            </Box>
 
             {/* 桌面端表格布局 */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">ID</th>
-                    <th className="text-left py-3 px-4">名称</th>
-                    <th className="text-left py-3 px-4">描述</th>
-                    <th className="text-left py-3 px-4">默认配额</th>
-                    <th className="text-left py-3 px-4">创建时间</th>
-                    <th className="text-right py-3 px-4">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.map((group) => (
-                    <tr key={group.ID} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-500">{group.ID}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{group.Name}</span>
-                          {group.IsDefault && (
-                            <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">
-                              默认
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
-                        {group.Description || '-'}
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                          {group.DefaultQuota === -1 ? '无限' : group.DefaultQuota}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">
-                        {formatDateTime(group.CreatedAt)}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleEdit(group)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            编辑
-                          </button>
-                          {!group.IsDefault && (
-                            <button
-                              onClick={() => handleSetDefault(group)}
-                              className="text-green-600 hover:text-green-800 text-sm"
-                            >
-                              设为默认
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setDeleteConfirm(group)}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                          >
-                            删除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ID</TableCell>
+                      <TableCell>名称</TableCell>
+                      <TableCell>描述</TableCell>
+                      <TableCell>默认配额</TableCell>
+                      <TableCell>创建时间</TableCell>
+                      <TableCell align="right">操作</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {groups.map(renderTableRow)}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
           </>
         )}
-      </div>
+      </Paper>
 
       {/* 创建/编辑弹窗 */}
       <Modal
@@ -331,134 +407,147 @@ export default function AdminGroupsPage() {
         title={editingGroup ? '编辑用户组' : '创建用户组'}
         size="md"
         footer={
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowModal(false)}
-              disabled={saving}
-              className="btn btn-secondary"
-            >
+          <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Button onClick={() => setShowModal(false)} disabled={saving}>
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleSave}
               disabled={!formData.name.trim() || saving}
-              className="btn btn-primary disabled:bg-gray-300"
+              variant="contained"
             >
               {saving ? '保存中...' : editingGroup ? '保存' : '创建'}
-            </button>
-          </div>
+            </Button>
+          </Stack>
         }
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              名称 <span className="text-red-500">*</span>
-            </label>
-            <input
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
+              名称 <span style={{ color: 'red' }}>*</span>
+            </Typography>
+            <TextField
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input w-full text-sm"
+              fullWidth
+              size="small"
               placeholder="例如：VIP用户、免费用户"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          </Box>
+
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
               描述
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              className="input w-full text-sm"
+            </Typography>
+            <TextField
+              multiline
               rows={3}
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              fullWidth
+              size="small"
               placeholder="用户组描述..."
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          </Box>
+
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
               默认配额
-            </label>
-            <input
+            </Typography>
+            <TextField
               type="number"
               value={formData.default_quota}
-              onChange={(e) =>
-                setFormData({ ...formData, default_quota: Number(e.target.value) })
-              }
-              className="input w-full text-sm"
-              min={-1}
+              onChange={(e) => setFormData({ ...formData, default_quota: Number(e.target.value) })}
+              fullWidth
+              size="small"
+              inputProps={{ min: -1 }}
+              helperText="设为 -1 表示无限配额"
             />
-            <p className="mt-1 text-sm text-gray-500">设为 -1 表示无限配额</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="is_default"
-              checked={formData.is_default}
-              onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-              className="rounded"
-            />
-            <label htmlFor="is_default" className="text-sm font-medium text-gray-700">
-              设为默认用户组（新注册用户自动加入）
-            </label>
-          </div>
+          </Box>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={formData.is_default}
+                onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+              />
+            }
+            label="设为默认用户组（新注册用户自动加入）"
+          />
 
           {/* 域名选择 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
               可用域名
-            </label>
-            <p className="text-sm text-gray-500 mb-2">
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
               选择此用户组可以使用的域名。如果不选择，则只能使用系统默认域名。
-            </p>
+            </Typography>
             {domains.length === 0 ? (
-              <div className="text-sm text-gray-500 bg-gray-50 rounded p-3 text-center">
-                暂无可用域名，请先在域名管理中添加域名
-              </div>
+              <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.50' }}>
+                <Typography variant="body2" color="text.secondary">
+                  暂无可用域名，请先在域名管理中添加域名
+                </Typography>
+              </Paper>
             ) : (
-              <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+              <Paper
+                variant="outlined"
+                sx={{
+                  maxHeight: 200,
+                  overflow: 'auto',
+                  divideColor: 'divider',
+                }}
+              >
                 {domains.map((domain) => {
                   const isSelected = formData.selectedDomains.includes(domain.ID)
                   return (
-                    <div
+                    <Box
                       key={domain.ID}
-                      className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer"
                       onClick={() => toggleDomain(domain.ID)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 2,
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'action.hover' },
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                      }}
                     >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
+                      <Stack direction="row" alignItems="center" gap={2}>
+                        <Checkbox
                           checked={isSelected}
                           onChange={() => toggleDomain(domain.ID)}
-                          className="rounded"
+                          onClick={(e) => e.stopPropagation()}
                         />
-                        <div>
-                          <div className="font-medium text-sm">{domain.Name}</div>
+                        <Box>
+                          <Typography variant="body2" fontWeight={500}>
+                            {domain.Name}
+                          </Typography>
                           {domain.Description && (
-                            <div className="text-xs text-gray-500">{domain.Description}</div>
+                            <Typography variant="caption" color="text.secondary">
+                              {domain.Description}
+                            </Typography>
                           )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
+                        </Box>
+                      </Stack>
+                      <Stack direction="row" spacing={1}>
                         {domain.IsDefault && (
-                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
-                            默认
-                          </span>
+                          <Chip label="默认" size="small" color="primary" />
                         )}
                         {!domain.IsActive && (
-                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                            已禁用
-                          </span>
+                          <Chip label="已禁用" size="small" color="default" />
                         )}
-                      </div>
-                    </div>
+                      </Stack>
+                    </Box>
                   )
                 })}
-              </div>
+              </Paper>
             )}
-          </div>
-        </div>
+          </Box>
+        </Stack>
       </Modal>
 
       {/* 删除确认 */}
@@ -470,6 +559,6 @@ export default function AdminGroupsPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </div>
+    </Stack>
   )
 }

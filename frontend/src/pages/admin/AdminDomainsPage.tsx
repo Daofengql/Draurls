@@ -6,6 +6,32 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from '@/components/Toast'
 import { formatDateTime } from '@/utils/format'
 import { getDomainValidationError } from '@/utils/validator'
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  IconButton,
+  FormControlLabel,
+  Checkbox,
+  CircularProgress,
+} from '@mui/material'
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material'
 
 export default function AdminDomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([])
@@ -22,7 +48,7 @@ export default function AdminDomainsPage() {
   })
   const [nameError, setNameError] = useState<string | null>(null)
 
-  // 删除确认
+  // 删除���认
   const [deleteConfirm, setDeleteConfirm] = useState<Domain | null>(null)
 
   const loadDomains = () => {
@@ -118,189 +144,218 @@ export default function AdminDomainsPage() {
     }
   }
 
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold">域名管理</h2>
-        <button onClick={handleCreate} className="btn btn-primary w-full sm:w-auto">
-          添加域名
-        </button>
-      </div>
+  const renderMobileCard = (domain: Domain) => {
+    return (
+      <Card key={domain.ID} sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack direction="row" alignItems="center" gap={1}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  {domain.Name}
+                </Typography>
+                {domain.IsDefault && (
+                  <Chip label="默认" size="small" color="primary" />
+                )}
+              </Stack>
+            </Stack>
 
-      <div className="card">
+            {domain.Description && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  描述
+                </Typography>
+                <Typography variant="body2" color="text.primary">
+                  {domain.Description}
+                </Typography>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  协议
+                </Typography>
+                <Chip
+                  label={domain.SSL ? 'HTTPS' : 'HTTP'}
+                  size="small"
+                  color={domain.SSL ? 'success' : 'default'}
+                />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  状态
+                </Typography>
+                <Chip
+                  label={domain.IsActive ? '启用' : '禁用'}
+                  size="small"
+                  color={domain.IsActive ? 'success' : 'error'}
+                />
+              </Box>
+            </Box>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                创建时间
+              </Typography>
+              <Typography variant="body2" color="text.primary">
+                {formatDateTime(domain.CreatedAt)}
+              </Typography>
+            </Box>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
+              {!domain.IsDefault && (
+                <Button
+                  size="small"
+                  onClick={() => handleSetDefault(domain.ID)}
+                  color="secondary"
+                >
+                  设为默认
+                </Button>
+              )}
+              <Button size="small" onClick={() => handleEdit(domain)} startIcon={<EditIcon fontSize="small" />}>
+                编辑
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                onClick={() => setDeleteConfirm(domain)}
+                startIcon={<DeleteIcon fontSize="small" />}
+              >
+                删除
+              </Button>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderTableRow = (domain: Domain) => {
+    return (
+      <TableRow key={domain.ID} hover>
+        <TableCell>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <Typography variant="body2" fontWeight={500}>
+              {domain.Name}
+            </Typography>
+            {domain.IsDefault && (
+              <Chip label="默认" size="small" color="primary" />
+            )}
+          </Stack>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {domain.Description || '-'}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Chip
+            label={domain.SSL ? 'HTTPS' : 'HTTP'}
+            size="small"
+            color={domain.SSL ? 'success' : 'default'}
+          />
+        </TableCell>
+        <TableCell>
+          <Chip
+            label={domain.IsActive ? '启用' : '禁用'}
+            size="small"
+            color={domain.IsActive ? 'success' : 'error'}
+          />
+        </TableCell>
+        <TableCell>
+          {domain.IsDefault ? (
+            <Typography variant="body2" color="success.main">
+              是
+            </Typography>
+          ) : (
+            <Button
+              size="small"
+              onClick={() => handleSetDefault(domain.ID)}
+              color="secondary"
+            >
+              设为默认
+            </Button>
+          )}
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary">
+            {formatDateTime(domain.CreatedAt)}
+          </Typography>
+        </TableCell>
+        <TableCell align="right">
+          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+            <IconButton size="small" color="primary" onClick={() => handleEdit(domain)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" color="error" onClick={() => setDeleteConfirm(domain)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  return (
+    <Stack spacing={3}>
+      {/* 页面标题 */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="h5" fontWeight={600}>
+          域名管理
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreate}
+        >
+          添加域名
+        </Button>
+      </Box>
+
+      {/* 域名列表 */}
+      <Paper variant="outlined" sx={{ p: 2 }}>
         {loading ? (
-          <div className="text-center py-8 text-gray-500">加载中...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
         ) : domains.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">暂无域名</div>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography variant="body1" color="text.secondary">
+              暂无域名
+            </Typography>
+          </Box>
         ) : (
           <>
             {/* 移动端卡片布局 */}
-            <div className="sm:hidden space-y-4">
-              {domains.map((domain) => (
-                <div key={domain.ID} className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{domain.Name}</span>
-                      {domain.IsDefault && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
-                          默认
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {domain.Description && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">描述</p>
-                      <p className="text-sm text-gray-600">{domain.Description}</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">协议</p>
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          domain.SSL
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {domain.SSL ? 'HTTPS' : 'HTTP'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">状态</p>
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          domain.IsActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {domain.IsActive ? '启用' : '禁用'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-sm">
-                    <p className="text-xs text-gray-500 mb-1">创建时间</p>
-                    <p className="text-gray-600">{formatDateTime(domain.CreatedAt)}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
-                    {!domain.IsDefault && (
-                      <button
-                        onClick={() => handleSetDefault(domain.ID)}
-                        className="text-xs px-3 py-1.5 text-purple-600 hover:bg-purple-50 rounded"
-                      >
-                        设为默认
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleEdit(domain)}
-                      className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                    >
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(domain)}
-                      className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded"
-                    >
-                      删除
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              {domains.map(renderMobileCard)}
+            </Box>
 
             {/* 桌面端表格布局 */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">域名</th>
-                    <th className="text-left py-3 px-4">描述</th>
-                    <th className="text-left py-3 px-4">协议</th>
-                    <th className="text-left py-3 px-4">状态</th>
-                    <th className="text-left py-3 px-4">默认</th>
-                    <th className="text-left py-3 px-4">创建时间</th>
-                    <th className="text-right py-3 px-4">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {domains.map((domain) => (
-                    <tr key={domain.ID} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{domain.Name}</span>
-                          {domain.IsDefault && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                              默认
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
-                        {domain.Description || '-'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-1 rounded text-xs ${
-                            domain.SSL
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {domain.SSL ? 'HTTPS' : 'HTTP'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-1 rounded text-xs ${
-                            domain.IsActive
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {domain.IsActive ? '启用' : '禁用'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {domain.IsDefault ? (
-                          <span className="text-green-600">是</span>
-                        ) : (
-                          <button
-                            onClick={() => handleSetDefault(domain.ID)}
-                            className="text-purple-600 hover:text-purple-800 text-sm"
-                          >
-                            设为默认
-                          </button>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">
-                        {formatDateTime(domain.CreatedAt)}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleEdit(domain)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            编辑
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(domain)}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                          >
-                            删除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>域名</TableCell>
+                      <TableCell>描述</TableCell>
+                      <TableCell>协议</TableCell>
+                      <TableCell>状态</TableCell>
+                      <TableCell>默认</TableCell>
+                      <TableCell>创建时间</TableCell>
+                      <TableCell align="right">操作</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {domains.map(renderTableRow)}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
           </>
         )}
-      </div>
+      </Paper>
 
       {/* 创建/编辑弹窗 */}
       <Modal
@@ -309,78 +364,72 @@ export default function AdminDomainsPage() {
         title={editingDomain ? '编辑域名' : '添加域名'}
         size="md"
         footer={
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowModal(false)}
-              className="btn btn-secondary"
-            >
+          <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Button onClick={() => setShowModal(false)}>
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleSave}
               disabled={!formData.name.trim() || !!nameError}
-              className="btn btn-primary disabled:bg-gray-300"
+              variant="contained"
             >
               {editingDomain ? '保存' : '添加'}
-            </button>
-          </div>
+            </Button>
+          </Stack>
         }
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              域名 <span className="text-red-500">*</span>
-            </label>
-            <input
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
+              域名 <span style={{ color: 'red' }}>*</span>
+            </Typography>
+            <TextField
               type="text"
               value={formData.name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className={`input w-full text-sm ${nameError ? 'border-red-500 focus:border-red-500' : ''}`}
+              error={!!nameError}
+              helperText={nameError || '支持域名、域名:端口、IP、IP:端口、localhost'}
+              fullWidth
+              size="small"
               placeholder="例如：example.com 或 example.com:8080"
             />
-            {nameError ? (
-              <p className="mt-1 text-sm text-red-500">{nameError}</p>
-            ) : (
-              <p className="mt-1 text-sm text-gray-500">
-                支持域名、域名:端口、IP、IP:端口、localhost
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          </Box>
+
+          <Box>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
               描述
-            </label>
-            <input
+            </Typography>
+            <TextField
               type="text"
               value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              className="input w-full text-sm"
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              fullWidth
+              size="small"
               placeholder="域名用途说明"
             />
-          </div>
-          <div className="flex flex-col sm:flex-row sm:gap-4 gap-3">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.ssl}
-                onChange={(e) => setFormData({ ...formData, ssl: e.target.checked })}
-                className="rounded"
-              />
-              <span className="text-sm">启用 HTTPS</span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="rounded"
-              />
-              <span className="text-sm">启用状态</span>
-            </label>
-          </div>
-        </div>
+          </Box>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={formData.ssl}
+                  onChange={(e) => setFormData({ ...formData, ssl: e.target.checked })}
+                />
+              }
+              label="启用 HTTPS"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                />
+              }
+              label="启用状态"
+            />
+          </Stack>
+        </Stack>
       </Modal>
 
       {/* 删除确认 */}
@@ -392,6 +441,6 @@ export default function AdminDomainsPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </div>
+    </Stack>
   )
 }

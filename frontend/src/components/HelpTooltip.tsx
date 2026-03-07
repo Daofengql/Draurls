@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { Box, IconButton, Popover, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material'
+import HelpIcon from '@mui/icons-material/Help'
+import CloseIcon from '@mui/icons-material/Close'
 
 interface HelpTooltipProps {
   content: React.ReactNode
@@ -6,27 +9,54 @@ interface HelpTooltipProps {
 }
 
 export function HelpTooltip({ content, className = '' }: HelpTooltipProps) {
-  const [show, setShow] = useState(false)
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+
+  const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
+
+  const handleClose = () => {
+    setAnchorEl(null)
+  }
+
+  const open = Boolean(anchorEl)
 
   return (
-    <div className={'relative inline-block ' + className}>
-      <button
-        type="button"
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        onClick={() => setShow(!show)}
-        className="text-gray-400 hover:text-gray-600 focus:outline-none"
+    <Box className={className} sx={{ display: 'inline-block' }}>
+      <IconButton
+        size="small"
+        onMouseEnter={handleOpen}
+        onClick={handleOpen}
+        sx={{ color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
       >
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-        </svg>
-      </button>
-      {show && (
-        <div className="absolute left-full ml-2 top-0 z-50 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg shadow-lg">
+        <HelpIcon fontSize="small" />
+      </IconButton>
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: 'grey.800',
+              color: 'white',
+              p: 1.5,
+              maxWidth: 280,
+              borderRadius: 2,
+              mt: 0.5,
+              ml: 0.5,
+            }
+          }
+        }}
+        onMouseLeave={handleClose}
+      >
+        <Typography variant="caption" component="div">
           {content}
-        </div>
-      )}
-    </div>
+        </Typography>
+      </Popover>
+    </Box>
   )
 }
 
@@ -38,28 +68,30 @@ interface HelpModalProps {
 }
 
 export function HelpModal({ isOpen, onClose, title, children }: HelpModalProps) {
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-4 text-sm">
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{ sx: { maxHeight: '80vh' } }}
+    >
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h6" component="span">
+          {title}
+        </Typography>
+        <IconButton onClick={onClose} size="small" sx={{ color: 'text.disabled' }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="body2" component="div">
           {children}
-        </div>
-        <div className="flex justify-end p-4 border-t">
-          <button onClick={onClose} className="btn btn-secondary">
-            关闭
-          </button>
-        </div>
-      </div>
-    </div>
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>关闭</Button>
+      </DialogActions>
+    </Dialog>
   )
 }

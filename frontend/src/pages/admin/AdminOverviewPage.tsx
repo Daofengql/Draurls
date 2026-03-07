@@ -20,6 +20,7 @@ import {
   ArrowUpward,
   ArrowDownward,
 } from '@mui/icons-material'
+import { LineChart } from '@mui/x-charts/LineChart'
 
 export default function AdminOverviewPage() {
   const theme = useTheme()
@@ -104,11 +105,11 @@ export default function AdminOverviewPage() {
           <CardContent>
             <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 3 }}>
               <TrendingUp color="primary" />
-              <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight="-semibold">
+              <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight="semibold">
                 近30天趋势
               </Typography>
             </Stack>
-            <Box sx={{ height: { xs: 192, sm: 256 } }}>
+            <Box sx={{ height: { xs: 240, sm: 300 }, width: '100%' }}>
               <TrendChart data={trends} />
             </Box>
           </CardContent>
@@ -141,7 +142,7 @@ function AdminOverviewSkeleton() {
       <Card sx={{ gridColumn: '1 / -1' }}>
         <CardContent>
           <Skeleton variant="text" width={128} height={28} sx={{ mb: 2 }} />
-          <Skeleton variant="rectangular" height={256} width="100%" />
+          <Skeleton variant="rectangular" height={300} width="100%" />
         </CardContent>
       </Card>
     </Box>
@@ -269,231 +270,41 @@ function StatCard({
 }
 
 function TrendChart({ data }: { data: TrendData[] }) {
-  const maxValues = data.reduce(
-    (acc, item) => ({
-      links: Math.max(acc.links, item.links),
-      clicks: Math.max(acc.clicks, item.clicks),
-    }),
-    { links: 1, clicks: 1 }
-  )
+  const theme = useTheme()
 
   // 格式化日期显示
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
+  const xAxisLabels = data.map((item) => {
+    const date = new Date(item.date)
     return `${date.getMonth() + 1}/${date.getDate()}`
-  }
-
-  // SVG 尺寸配置
-  const svgWidth = 800
-  const svgHeight = 200
-  const padding = { top: 20, right: 20, bottom: 20, left: 40 }
-
-  // 计算绘图区域
-  const plotWidth = svgWidth - padding.left - padding.right
-  const plotHeight = svgHeight - padding.top - padding.bottom
-
-  // 生成点击数据路径
-  const clicksPath = data.map((item, i) => {
-    const x = padding.left + (i / (data.length - 1)) * plotWidth
-    const y = padding.top + plotHeight - (item.clicks / maxValues.clicks) * plotHeight
-    return `${x},${y}`
-  }).join(' ')
-
-  // 生成链接数据路径
-  const linksPath = data.map((item, i) => {
-    const x = padding.left + (i / (data.length - 1)) * plotWidth
-    const y = padding.top + plotHeight - (item.links / maxValues.links) * plotHeight
-    return `${x},${y}`
-  }).join(' ')
-
-  // 生成数据点
-  const clicksPoints = data.map((item, i) => {
-    const x = padding.left + (i / (data.length - 1)) * plotWidth
-    const y = padding.top + plotHeight - (item.clicks / maxValues.clicks) * plotHeight
-    return { x, y, value: item.clicks, date: item.date }
   })
 
-  const linksPoints = data.map((item, i) => {
-    const x = padding.left + (i / (data.length - 1)) * plotWidth
-    const y = padding.top + plotHeight - (item.links / maxValues.links) * plotHeight
-    return { x, y, value: item.links, date: item.date }
-  })
-
-  // Y轴刻度
-  const yAxisTicks = [0, 25, 50, 75, 100].map(pct => ({
-    y: padding.top + plotHeight - (pct / 100) * plotHeight,
-    label: Math.round(maxValues.clicks * pct / 100)
-  }))
+  const linksData = data.map((item) => item.links)
+  const clicksData = data.map((item) => item.clicks)
 
   return (
-    <Box
+    <LineChart
+      series={[
+        {
+          data: clicksData,
+          label: '点击数',
+          color: theme.palette.primary.main,
+          valueFormatter: (v) => `${v ?? 0} 次`,
+        },
+        {
+          data: linksData,
+          label: '链接数',
+          color: theme.palette.success.main,
+          valueFormatter: (v) => `${v ?? 0} 个`,
+        },
+      ]}
+      xAxis={[{ scaleType: 'point', data: xAxisLabels }]}
       sx={{
-        height: '100%',
-        width: '100%',
-        position: 'relative',
+        '& .MuiLineElement-root': {
+          strokeWidth: 2,
+        },
       }}
-    >
-      <svg
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        style={{ width: '100%', height: '100%' }}
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* Y轴标签 */}
-        {yAxisTicks.map((tick, i) => (
-          <text
-            key={i}
-            x={padding.left - 8}
-            y={tick.y + 4}
-            textAnchor="end"
-            fill="#9ca3af"
-            fontSize="12"
-          >
-            {tick.label}
-          </text>
-        ))}
-
-        {/* 水平网格线 */}
-        {[0, 25, 50, 75, 100].map((pct, i) => (
-          <line
-            key={i}
-            x1={padding.left}
-            y1={padding.top + plotHeight - (pct / 100) * plotHeight}
-            x2={svgWidth - padding.right}
-            y2={padding.top + plotHeight - (pct / 100) * plotHeight}
-            stroke="#e5e7eb"
-            strokeWidth="1"
-          />
-        ))}
-
-        {/* 点击折线 */}
-        <polyline
-          fill="none"
-          stroke="#3b82f6"
-          strokeWidth="2"
-          points={clicksPath}
-        />
-
-        {/* 链接折线 */}
-        <polyline
-          fill="none"
-          stroke="#22c55e"
-          strokeWidth="2"
-          points={linksPath}
-        />
-
-        {/* 点击数据点 */}
-        {clicksPoints.map((point, i) => (
-          <circle
-            key={`click-${i}`}
-            cx={point.x}
-            cy={point.y}
-            r="4"
-            fill="#3b82f6"
-            style={{ transition: 'r 0.2s', cursor: 'pointer' }}
-            onMouseEnter={(e) => e.currentTarget.setAttribute('r', '6')}
-            onMouseLeave={(e) => e.currentTarget.setAttribute('r', '4')}
-          />
-        ))}
-
-        {/* 链接数据点 */}
-        {linksPoints.map((point, i) => (
-          <circle
-            key={`link-${i}`}
-            cx={point.x}
-            cy={point.y}
-            r="4"
-            fill="#22c55e"
-            style={{ transition: 'r 0.2s', cursor: 'pointer' }}
-            onMouseEnter={(e) => e.currentTarget.setAttribute('r', '6')}
-            onMouseLeave={(e) => e.currentTarget.setAttribute('r', '4')}
-          />
-        ))}
-      </svg>
-
-      {/* 图例 - 右上角 */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          display: 'flex',
-          gap: 2,
-          fontSize: '0.75rem',
-          bgcolor: 'rgba(255, 255, 255, 0.8)',
-          px: 1,
-          py: 0.5,
-          borderRadius: 1,
-        }}
-      >
-        <Stack direction="row" alignItems="center" gap={0.75}>
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              bgcolor: 'primary.main',
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            点击数
-          </Typography>
-        </Stack>
-        <Stack direction="row" alignItems="center" gap={0.75}>
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              bgcolor: 'success.main',
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            链接数
-          </Typography>
-        </Stack>
-      </Box>
-
-      {/* 悬停提示 */}
-      {data.map((item, i) => (
-        <Box
-          key={i}
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            left: `${((i / (data.length - 1)) * plotWidth / svgWidth) * 100}%`,
-            width: `${(plotWidth / (data.length - 1) / svgWidth) * 100}%`,
-            top: 0,
-            height: '100%',
-            '&:hover .tooltip': {
-              opacity: 1,
-            },
-          }}
-        >
-          <Box
-            className="tooltip"
-            sx={{
-              position: 'absolute',
-              bottom: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              mb: 0.5,
-              px: 1,
-              py: 0.5,
-              bgcolor: 'grey.800',
-              color: 'white',
-              fontSize: '0.75rem',
-              borderRadius: 0.5,
-              opacity: 0,
-              transition: 'opacity 0.2s',
-              pointerEvents: 'none',
-              whiteSpace: 'nowrap',
-              zIndex: 10,
-            }}
-          >
-            {formatDate(item.date)}: {item.links} 链接, {item.clicks} 点击
-          </Box>
-        </Box>
-      ))}
-    </Box>
+      height={300}
+      margin={{ top: 10, right: 30, bottom: 30, left: 40 }}
+    />
   )
 }

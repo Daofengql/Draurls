@@ -88,13 +88,36 @@ const themeOptions: ThemeOptions = {
             boxShadow: 'none',
           },
         },
+        contained: {
+          boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.1)',
+          '&:hover': {
+            boxShadow: '0 4px 8px 0 rgba(0, 0, 0, 0.12)',
+          },
+        },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+          boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.08), 0 1px 3px 0 rgba(0, 0, 0, 0.04)',
           border: '1px solid #e5e7eb',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.08), 0 1px 3px 0 rgba(0, 0, 0, 0.04)',
+        },
+        outlined: {
+          border: '1px solid #e5e7eb',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.08), 0 1px 3px 0 rgba(0, 0, 0, 0.04)',
         },
       },
     },

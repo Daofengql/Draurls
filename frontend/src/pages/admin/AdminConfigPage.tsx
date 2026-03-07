@@ -2,6 +2,36 @@ import { useEffect, useState, useMemo } from 'react'
 import { configService } from '@/services/admin'
 import { toast } from '@/components/Toast'
 import { HelpModal } from '@/components/HelpTooltip'
+import {
+  Box,
+  Typography,
+  TextField,
+  Select,
+  MenuItem,
+  Switch,
+  Button,
+  Card,
+  CardContent,
+  Stack,
+  Paper,
+  Chip,
+  IconButton,
+  Alert,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+} from '@mui/material'
+import {
+  Settings as SettingsIcon,
+  ArrowForward as RedirectIcon,
+  Link as LinkIcon,
+  Person as UserIcon,
+  Lock as LockIcon,
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  Help as HelpIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material'
 
 interface ConfigItem {
   key: string
@@ -16,7 +46,7 @@ interface ConfigItem {
 
 interface ConfigSection {
   title: string
-  icon: string
+  icon: React.ReactNode
   configs: ConfigItem[]
 }
 
@@ -78,25 +108,25 @@ const configItemDefinitions: Omit<ConfigItem, 'value'>[] = [
 ]
 
 // 分区定义（每个分区包含哪些配置项的key）
-const sectionDefinitions: { title: string; icon: string; keys: string[] }[] = [
+const sectionDefinitions: { title: string; icon: React.ReactNode; keys: string[] }[] = [
   {
     title: '基本设置',
-    icon: 'basic',
+    icon: <SettingsIcon color="primary" />,
     keys: ['site_name', 'logo_url', 'icp_number'],
   },
   {
     title: '跳转页面设置',
-    icon: 'redirect',
+    icon: <RedirectIcon color="primary" />,
     keys: ['redirect_page_enabled', 'allow_user_template'],
   },
   {
     title: '短链设置',
-    icon: 'link',
+    icon: <LinkIcon color="primary" />,
     keys: ['max_link_length', 'shortcode_mode', 'allow_custom_shortcode'],
   },
   {
     title: '用户设置',
-    icon: 'user',
+    icon: <UserIcon color="primary" />,
     keys: ['enable_signup'],
   },
 ]
@@ -112,29 +142,6 @@ const defaultValues: Record<string, string> = {
   shortcode_mode: 'sequence',
   allow_custom_shortcode: 'false',
   enable_signup: 'true',
-}
-
-const icons = {
-  basic: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 012 2m0 2a2 2 0 012 2m-6 9l2 2 4-4-6 6" />
-    </svg>
-  ),
-  redirect: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5M6 18l5 5m0 0l-5-5" />
-    </svg>
-  ),
-  link: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-    </svg>
-  ),
-  user: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-    </svg>
-  ),
 }
 
 export default function AdminConfigPage() {
@@ -170,11 +177,11 @@ export default function AdminConfigPage() {
   }, [configItems])
 
   useEffect(() => {
-    loadConfigs()
+    loadConfigs(true)
   }, [])
 
-  const loadConfigs = () => {
-    setLoading(true)
+  const loadConfigs = (showLoading = false) => {
+    if (showLoading) setLoading(true)
     configService
       .get()
       .then((data) => {
@@ -192,7 +199,9 @@ export default function AdminConfigPage() {
         console.error(err)
         toast.error('加载配置失败')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (showLoading) setLoading(false)
+      })
   }
 
   const handleUpdate = async (key: string, value: string) => {
@@ -212,10 +221,10 @@ export default function AdminConfigPage() {
       }
 
       toast.success('配置已更新')
-      loadConfigs()
+      loadConfigs(false) // 静默刷新
     } catch (err: any) {
       toast.error(err.message || '更新失败')
-      loadConfigs()
+      loadConfigs(false)
     }
   }
 
@@ -223,12 +232,11 @@ export default function AdminConfigPage() {
     setSaving(true)
     try {
       await configService.batchUpdate(configValues)
-      toast.success('所有配置已保存，页面即将刷新')
-      setTimeout(() => {
-        window.location.reload()
-      }, 500)
+      toast.success('所有配置已保存')
+      loadConfigs()
     } catch (err: any) {
       toast.error(err.message || '保存失败')
+    } finally {
       setSaving(false)
     }
   }
@@ -305,7 +313,7 @@ export default function AdminConfigPage() {
 
     if (config.type === 'select') {
       return (
-        <select
+        <Select
           value={config.value}
           onChange={(e) => {
             const newValue = e.target.value
@@ -313,254 +321,297 @@ export default function AdminConfigPage() {
             handleUpdate(config.key, newValue)
           }}
           disabled={disabled}
-          className="input w-full sm:max-w-xs text-sm disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          fullWidth
+          size="small"
         >
           {config.options?.map((opt, idx) => (
-            <option key={opt} value={opt}>
+            <MenuItem key={opt} value={opt}>
               {config.optionLabels?.[idx] || opt}
-            </option>
+            </MenuItem>
           ))}
-        </select>
+        </Select>
       )
     }
 
     if (config.type === 'boolean') {
-      const isEnabled = config.value === 'true'
       return (
-        <button
-          type="button"
-          onClick={() => {
-            const newValue = isEnabled ? 'false' : 'true'
+        <Switch
+          checked={config.value === 'true'}
+          onChange={(e) => {
+            const newValue = e.target.checked ? 'true' : 'false'
             handleChange(newValue)
             handleUpdate(config.key, newValue)
           }}
           disabled={disabled}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            isEnabled ? 'bg-blue-600' : 'bg-gray-200'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              isEnabled ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
+        />
       )
     }
 
     if (config.type === 'number') {
       return (
-        <input
+        <TextField
           type="number"
           value={config.value}
           onChange={(e) => handleChange(e.target.value)}
           onBlur={(e) => handleUpdate(config.key, e.target.value)}
-          className="input w-full sm:max-w-xs text-sm"
+          size="small"
+          fullWidth
+          disabled={disabled}
         />
       )
     }
 
     if (config.type === 'textarea') {
       return (
-        <textarea
+        <TextField
+          multiline
+          rows={3}
           value={config.value}
           onChange={(e) => handleChange(e.target.value)}
           onBlur={(e) => handleUpdate(config.key, e.target.value)}
-          className="input w-full text-sm"
-          rows={3}
+          size="small"
+          fullWidth
+          disabled={disabled}
         />
       )
     }
 
     return (
-      <input
+      <TextField
         type="text"
         value={config.value}
         onChange={(e) => handleChange(e.target.value)}
         onBlur={(e) => handleUpdate(config.key, e.target.value)}
-        className="input w-full sm:max-w-xs text-sm"
+        size="small"
+        fullWidth
+        disabled={disabled}
       />
     )
   }
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold">站点配置</h2>
-          <button
-            type="button"
-            onClick={() => setShowHelpModal(true)}
-            className="text-gray-400 hover:text-gray-600 focus:outline-none"
-            title="查看配置说明"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-        <button
+    <Stack spacing={3}>
+      {/* 页面标题 */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Typography variant="h5" fontWeight={600}>
+            站点配置
+          </Typography>
+          <IconButton onClick={() => setShowHelpModal(true)} size="small">
+            <HelpIcon color="action" />
+          </IconButton>
+        </Stack>
+        <Button
+          variant="contained"
+          startIcon={<SaveIcon />}
           onClick={handleSaveAll}
           disabled={saving}
-          className="btn btn-primary disabled:bg-gray-300 w-full sm:w-auto"
         >
           {saving ? '保存中...' : '保存所有配置'}
-        </button>
-      </div>
+        </Button>
+      </Box>
 
-      <div className="space-y-4 sm:space-y-6">
-        {loading ? (
-          <div className="card text-center py-8 text-gray-500">加载中...</div>
-        ) : (
-          configSections.map((section) => (
-            <div key={section.title} className="card">
-              <div className="flex items-center gap-2 mb-4 sm:mb-6 border-b pb-4">
-                <div className="text-blue-600">{icons[section.icon as keyof typeof icons]}</div>
-                <h3 className="text-lg font-semibold">{section.title}</h3>
-              </div>
-              <div className="space-y-4 sm:space-y-5">
-                {section.configs.map((config) => {
-                  const enabled = isConfigEnabled(config)
-                  return (
-                    <div
-                      key={config.key}
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        !enabled ? 'opacity-50' : ''
-                      }`}
-                    >
-                      <div className="flex-1">
-                        <label className="font-medium text-gray-700 text-sm sm:text-base">
-                          {config.description}
-                        </label>
-                        {config.dependsOn && !enabled && (
-                          <p className="text-xs text-gray-500">
-                            需要启用"{configItemDefinitions.find((d) => d.key === config.dependsOn)?.description}"
-                          </p>
-                        )}
-                      </div>
-                      {renderInput(config)}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {/* 配置分区 - 网格卡片布局 */}
+      {loading ? (
+        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">加载中...</Typography>
+        </Paper>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: 'repeat(2, 1fr)',
+              lg: 'repeat(2, 1fr)',
+            },
+            gap: 3,
+          }}
+        >
+          {configSections.map((section) => (
+            <Card key={section.title} variant="outlined" sx={{ height: 'fit-content' }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 2 }}>
+                  {section.icon}
+                  <Typography variant="h6" fontWeight={600}>
+                    {section.title}
+                  </Typography>
+                </Stack>
+                <Stack spacing={2}>
+                  {section.configs.map((config) => {
+                    const enabled = isConfigEnabled(config)
+                    return (
+                      <Box
+                        key={config.key}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 1,
+                          bgcolor: 'grey.50',
+                          opacity: enabled ? 1 : 0.5,
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Typography variant="body2" fontWeight={500}>
+                            {config.description}
+                          </Typography>
+                          {config.dependsOn && !enabled && (
+                            <Typography variant="caption" color="text.secondary">
+                              需要启用"{configItemDefinitions.find((d) => d.key === config.dependsOn)?.description}"
+                            </Typography>
+                          )}
+                          <Box sx={{ mt: 0.5 }}>
+                            {renderInput(config)}
+                          </Box>
+                        </Stack>
+                      </Box>
+                    )
+                  })}
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      )}
 
-      <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="font-medium text-blue-800 mb-2 text-sm sm:text-base">配置说明</h3>
-        <ul className="text-xs sm:text-sm text-blue-700 space-y-1">
-          <li>• <strong>跳转页面设置</strong>: 启用跳转页后，用户访问短链接时显示中间跳转页面</li>
-          <li>• <strong>模板选择</strong>: 开启后用户可以在创建链接时选择跳转模板</li>
-          <li>• <strong>短链设置</strong>: 控制短链长度和生成方式</li>
-          <li>• 配置修改后即时生效（部分配置可能需要刷新页面）</li>
-        </ul>
-      </div>
+      {/* 配置说明 */}
+      <Alert severity="info">
+        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+          配置说明
+        </Typography>
+        <Typography variant="body2" component="ul" sx={{ pl: 2, m: 0 }}>
+          <Typography component="li" variant="body2">
+            <strong>跳转页面设置</strong>: 启用跳转页后，用户访问短链接时显示中间跳转页面
+          </Typography>
+          <Typography component="li" variant="body2">
+            <strong>模板选择</strong>: 开启后用户可以在创建链接时选择跳转模板
+          </Typography>
+          <Typography component="li" variant="body2">
+            <strong>短链设置</strong>: 控制短链长度和生成方式
+          </Typography>
+          <Typography component="li" variant="body2">
+            配置修改后即时生效（部分配置可能需要刷新页面）
+          </Typography>
+        </Typography>
+      </Alert>
 
       {/* CORS 配置 */}
-      <div className="mt-4 sm:mt-6 card">
-        <div className="flex items-center gap-2 mb-4 sm:mb-6 border-b pb-4">
-          <div className="text-blue-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold">CORS 跨域配置</h3>
-        </div>
+      <Card variant="outlined">
+        <CardContent>
+          <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 3, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <LockIcon color="primary" />
+            <Typography variant="h6" fontWeight={600}>
+              CORS 跨域配置
+            </Typography>
+          </Stack>
 
-        <div className="space-y-4">
-          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
-            <p className="font-medium mb-1">安全提示</p>
-            <p>使用 <code>*</code> 通配符时将禁用 Credentials（Cookie/认证），仅适用于不需要身份验证的公开 API。</p>
-          </div>
+          <Stack spacing={3}>
+            <Alert severity="warning">
+              <Typography variant="body2" fontWeight={500}>
+                安全提示
+              </Typography>
+              <Typography variant="body2">
+                使用 <Box component="code" sx={{ bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 }}>*</Box> 通配符时将禁用 Credentials（Cookie/认证），仅适用于不需要身份验证的公开 API。
+              </Typography>
+            </Alert>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              允许的源 (Origins)
-            </label>
-            <div className="space-y-2 mb-3">
-              {corsOrigins.map((origin, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-gray-100 rounded text-sm">
-                    {origin}
-                  </code>
-                  {origin !== '*' && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveOrigin(origin)}
-                      className="text-red-600 hover:text-red-800 p-1"
-                      title="删除"
+            <Box>
+              <Typography variant="body2" fontWeight={500} gutterBottom>
+                允许的源 (Origins)
+              </Typography>
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                {corsOrigins.map((origin, index) => (
+                  <Stack key={index} direction="row" alignItems="center" spacing={1}>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        flex: 1,
+                        px: 2,
+                        py: 1,
+                        bgcolor: 'grey.50',
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
+                      }}
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  )}
-                  {origin === '*' && (
-                    <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">
-                      通配符模式
-                    </span>
-                  )}
-                </div>
-              ))}
-              {corsOrigins.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">暂无配置</p>
-              )}
-            </div>
+                      {origin}
+                    </Paper>
+                    {origin !== '*' && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleRemoveOrigin(origin)}
+                        title="删除"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                    {origin === '*' && (
+                      <Chip label="通配符模式" size="small" color="warning" />
+                    )}
+                  </Stack>
+                ))}
+                {corsOrigins.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                    暂无配置
+                  </Typography>
+                )}
+              </Stack>
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={newOrigin}
-                onChange={(e) => setNewOrigin(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddOrigin()}
-                placeholder="例如: https://example.com"
-                className="input flex-1 text-sm"
-                disabled={hasWildcard || savingCors}
-              />
-              <button
-                type="button"
-                onClick={handleAddOrigin}
-                disabled={!newOrigin.trim() || hasWildcard || savingCors}
-                className="btn btn-secondary sm:w-auto"
-              >
-                添加
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveCORS}
-                disabled={savingCors || corsOrigins.length === 0}
-                className="btn btn-primary sm:w-auto"
-              >
-                {savingCors ? '保存中...' : '保存 CORS'}
-              </button>
-            </div>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <TextField
+                  type="text"
+                  value={newOrigin}
+                  onChange={(e) => setNewOrigin(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddOrigin()}
+                  placeholder="例如: https://example.com"
+                  size="small"
+                  fullWidth
+                  disabled={hasWildcard || savingCors}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleAddOrigin}
+                  disabled={!newOrigin.trim() || hasWildcard || savingCors}
+                  startIcon={<AddIcon />}
+                >
+                  添加
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleSaveCORS}
+                  disabled={savingCors || corsOrigins.length === 0}
+                >
+                  {savingCors ? '保存中...' : '保存 CORS'}
+                </Button>
+              </Stack>
 
-            <div className="mt-3 flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="cors-wildcard"
-                checked={hasWildcard}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setCorsOrigins(['*'])
-                    setNewOrigin('')
-                  } else {
-                    setCorsOrigins(['http://localhost:3000'])
+              <FormGroup sx={{ mt: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={hasWildcard}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCorsOrigins(['*'])
+                          setNewOrigin('')
+                        } else {
+                          setCorsOrigins(['http://localhost:3000'])
+                        }
+                        setHasWildcard(e.target.checked)
+                      }}
+                      disabled={savingCors}
+                    />
                   }
-                  setHasWildcard(e.target.checked)
-                }}
-                disabled={savingCors}
-                className="rounded"
-              />
-              <label htmlFor="cors-wildcard" className="text-sm text-gray-700">
-                允许所有源 (<code>*</code>) - 将禁用 Cookie 认证
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
+                  label={
+                    <Typography variant="body2">
+                      允许所有源 (<Box component="code" sx={{ bgcolor: 'grey.200', px: 0.5, borderRadius: 0.5 }}>*</Box>) - 将禁用 Cookie 认证
+                    </Typography>
+                  }
+                />
+              </FormGroup>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
 
       {/* 配置帮助文档弹窗 */}
       <HelpModal
@@ -568,93 +619,140 @@ export default function AdminConfigPage() {
         onClose={() => setShowHelpModal(false)}
         title="站点配置说明"
       >
-        <div className="space-y-4">
-          <section>
-            <h4 className="font-medium text-gray-900 mb-2">基本设置</h4>
-            <dl className="space-y-2">
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">站点名称</dt>
-                <dd className="text-sm text-gray-600">显示在页面标题和导航中的站点名称</dd>
-              </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">Logo URL</dt>
-                <dd className="text-sm text-gray-600">站点 Logo 图片地址，支持外链</dd>
-              </div>
-            </dl>
-          </section>
+        <Stack spacing={3}>
+          {/* 基本设置 */}
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              基本设置
+            </Typography>
+            <Stack spacing={2}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  站点名称
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  显示在页面标题和导航中的站点名称
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  Logo URL
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  站点 Logo 图片地址，支持外链
+                </Typography>
+              </Paper>
+            </Stack>
+          </Box>
 
-          <section>
-            <h4 className="font-medium text-gray-900 mb-2">跳转页面设置</h4>
-            <dl className="space-y-2">
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">启用跳转中间页</dt>
-                <dd className="text-sm text-gray-600">
+          {/* 跳转页面设置 */}
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              跳转页面设置
+            </Typography>
+            <Stack spacing={2}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  启用跳转中间页
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   开启后，用户访问短链接时会显示一个中间跳转页面，
                   提示用户即将跳转到目标URL。可以增强用户体验，也可以用于广告展示。
-                </dd>
-              </div>
-              <div className="bg-blue-50 p-3 rounded">
-                <dt className="font-medium text-blue-700">允许用户选择跳转模板</dt>
-                <dd className="text-sm text-gray-600">
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'primary.50' }}>
+                <Typography variant="body2" fontWeight={500} color="primary.main" gutterBottom>
+                  允许用户选择跳转模板
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   开启后，用户在创建短链接时可以选择自己喜欢的跳转页面模板。
-                  需要先启用"跳转中间页"才能使用此功能。
+                  需要先启用"跳转��间页"才能使用此功能。
                   <br /><br />
                   <strong>模板管理：</strong>请在"模板管理"页面创建和管理跳转模板。
                   不同模板可以有不同的设计风格、动画效果和提示信息。
-                </dd>
-              </div>
-            </dl>
-          </section>
+                </Typography>
+              </Paper>
+            </Stack>
+          </Box>
 
-          <section>
-            <h4 className="font-medium text-gray-900 mb-2">短链设置</h4>
-            <dl className="space-y-2">
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">最大短链长度</dt>
-                <dd className="text-sm text-gray-600">自定义短码的最大长度限制</dd>
-              </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">短码生成模式</dt>
-                <dd className="text-sm text-gray-600">
-                  <ul className="list-disc list-inside text-xs space-y-1">
-                    <li><strong>随机字符串</strong>：生成随机字符组成的短码，更安全，适合公开使用</li>
-                    <li><strong>数据库自增</strong>：使用数字自增ID，短链接更短，按顺序生成</li>
-                  </ul>
-                </dd>
-              </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">允许普通用户使用自定义短码</dt>
-                <dd className="text-sm text-gray-600">
+          {/* 短链设置 */}
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              短链设置
+            </Typography>
+            <Stack spacing={2}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  最大短链长度
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  自定义短码的最大长度限制
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  短码生成模式
+                </Typography>
+                <Typography variant="caption" color="text.secondary" component="ul" sx={{ pl: 2, m: 0 }}>
+                  <Typography component="li" variant="caption">
+                    <strong>随机字符串</strong>：生成随机字符组成的短码，更安全，适合公开使用
+                  </Typography>
+                  <Typography component="li" variant="caption">
+                    <strong>数据库自增</strong>：使用数字自增ID，短链接更短，按顺序生成
+                  </Typography>
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  允许普通用户使用自定义短码
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   开放后，普通用户在创建链接时可以自定义短码。
                   关闭后，只有管理员可以使用自定义短码功能。
-                </dd>
-              </div>
-            </dl>
-          </section>
+                </Typography>
+              </Paper>
+            </Stack>
+          </Box>
 
-          <section>
-            <h4 className="font-medium text-gray-900 mb-2">用户设置</h4>
-            <dl className="space-y-2">
-              <div className="bg-gray-50 p-3 rounded">
-                <dt className="font-medium text-gray-700">允许用户注册</dt>
-                <dd className="text-sm text-gray-600">
+          {/* 用户设置 */}
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              用户设置
+            </Typography>
+            <Stack spacing={2}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2" fontWeight={500} gutterBottom>
+                  允许用户注册
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   关闭后，新用户无法注册。已有用户不受影响。
-                </dd>
-              </div>
-            </dl>
-          </section>
+                </Typography>
+              </Paper>
+            </Stack>
+          </Box>
 
-          <section className="bg-green-50 border border-green-200 p-3 rounded">
-            <h4 className="font-medium text-green-800 mb-2">💡 使用建议</h4>
-            <ul className="text-sm text-green-700 space-y-1">
-              <li>• 建议先在"模板管理"中创建几个跳转模板</li>
-              <li>• 开启"跳转中间页"后，用户才能看到模板效果</li>
-              <li>• 开放"允许用户选择模板"可以让用户自由选择风格</li>
-              <li>• 配置修改后会立即生效，无需重启服务</li>
-            </ul>
-          </section>
-        </div>
+          {/* 使用建议 */}
+          <Alert severity="success">
+            <Typography variant="body2" fontWeight={600} gutterBottom>
+              使用建议
+            </Typography>
+            <Typography variant="body2" component="ul" sx={{ pl: 2, m: 0 }}>
+              <Typography component="li" variant="body2">
+                建议先在"模板管理"中创建几个跳转模板
+              </Typography>
+              <Typography component="li" variant="body2">
+                开启"跳转中间页"后，用户才能看到模板效果
+              </Typography>
+              <Typography component="li" variant="body2">
+                开放"允许用户选择模板"可以让用户自由选择风格
+              </Typography>
+              <Typography component="li" variant="body2">
+                配置修改后会立即生效，无需重启服务
+              </Typography>
+            </Typography>
+          </Alert>
+        </Stack>
       </HelpModal>
-    </div>
+    </Stack>
   )
 }
